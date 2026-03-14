@@ -4,8 +4,11 @@
     {
       "name": "action-vault-web",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["expo", "start", "--web", "--port", "8082"],
-      "port": 8082
+      "runtimeArgs": ["expo", "start", "--web", "--port", "8083"],
+      "port": 8083,
+      "env": {
+        "PATH": "/Users/claude/.nvm/versions/node/v20.20.1/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
     }
   ]
 }

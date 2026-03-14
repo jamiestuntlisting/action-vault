@@ -1,0 +1,434 @@
+import React, { useState, useMemo } from 'react';
+import {
+  ScrollView, View, Text, StyleSheet, TouchableOpacity, TextInput,
+  Switch, Alert, FlatList, Dimensions,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Spacing, BorderRadius, FontSize, FontWeight } from '../../theme';
+import { useAppState, AdminCategory, AdminVideoOverride } from '../../services/AppState';
+import { videos as allVideos } from '../../data';
+import { skillTags } from '../../data/skillTags';
+
+const MAX_WIDTH = 960;
+
+type AdminTab = 'videos' | 'categories' | 'tags';
+
+export function AdminScreen({ navigation }: any) {
+  const { state, dispatch } = useAppState();
+  const [activeTab, setActiveTab] = useState<AdminTab>('videos');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [editingVideo, setEditingVideo] = useState<string | null>(null);
+  const [newCatTitle, setNewCatTitle] = useState('');
+  const [newCatFilter, setNewCatFilter] = useState('');
+  const [newCatType, setNewCatType] = useState<'tag' | 'title' | 'location' | 'custom'>('title');
+
+  const overrides = state.settings.adminVideoOverrides || [];
+  const categories = state.settings.adminCategories || [];
+
+  const getOverride = (videoId: string) => overrides.find(o => o.videoId === videoId);
+
+  const filteredVideos = useMemo(() => {
+    if (!searchQuery) return allVideos;
+    const q = searchQuery.toLowerCase();
+    return allVideos.filter(v =>
+      v.title.toLowerCase().includes(q) ||
+      v.description.toLowerCase().includes(q) ||
+      v.skillTags.some(t => t.displayName.toLowerCase().includes(q))
+    );
+  }, [searchQuery]);
+
+  function toggleHideVideo(videoId: string) {
+    const existing = getOverride(videoId);
+    const updated = existing
+      ? overrides.map(o => o.videoId === videoId ? { ...o, hidden: !o.hidden } : o)
+      : [...overrides, { videoId, hidden: true }];
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { adminVideoOverrides: updated } });
+  }
+
+  function updateVideoTags(videoId: string, tagIds: string[]) {
+    const existing = getOverride(videoId);
+    const updated = existing
+      ? overrides.map(o => o.videoId === videoId ? { ...o, tagOverrides: tagIds } : o)
+      : [...overrides, { videoId, hidden: false, tagOverrides: tagIds }];
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { adminVideoOverrides: updated } });
+  }
+
+  function updateVideoLocation(videoId: string, locations: string[]) {
+    const existing = getOverride(videoId);
+    const updated = existing
+      ? overrides.map(o => o.videoId === videoId ? { ...o, locationTags: locations } : o)
+      : [...overrides, { videoId, hidden: false, locationTags: locations }];
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { adminVideoOverrides: updated } });
+  }
+
+  function addCategory() {
+    if (!newCatTitle.trim()) return;
+    const newCat: AdminCategory = {
+      id: 'cat-' + Date.now(),
+      title: newCatTitle.trim(),
+      filterType: newCatType,
+      filterValue: newCatFilter.trim(),
+      sortOrder: categories.length,
+      enabled: true,
+    };
+    dispatch({
+      type: 'UPDATE_SETTINGS',
+      payload: { adminCategories: [...categories, newCat] },
+    });
+    setNewCatTitle('');
+    setNewCatFilter('');
+  }
+
+  function toggleCategory(catId: string) {
+    const updated = categories.map(c => c.id === catId ? { ...c, enabled: !c.enabled } : c);
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { adminCategories: updated } });
+  }
+
+  function moveCategory(catId: string, direction: 'up' | 'down') {
+    const idx = categories.findIndex(c => c.id === catId);
+    if ((direction === 'up' && idx === 0) || (direction === 'down' && idx === categories.length - 1)) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    const updated = [...categories];
+    [updated[idx], updated[swapIdx]] = [updated[swapIdx], updated[idx]];
+    updated.forEach((c, i) => c.sortOrder = i);
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { adminCategories: updated } });
+  }
+
+  function deleteCategory(catId: string) {
+    const updated = categories.filter(c => c.id !== catId);
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { adminCategories: updated } });
+  }
+
+  const LOCATIONS = ['Atlanta', 'New York', 'Chicago', 'Los Angeles', 'London', 'Vancouver', 'Prague'];
+
+  function renderVideoItem(video: typeof allVideos[0]) {
+    const override = getOverride(video.id);
+    const isHidden = override?.hidden || false;
+    const isEditing = editingVideo === video.id;
+    const currentTags = override?.tagOverrides || video.skillTags.map(t => t.id);
+    const currentLocations = override?.locationTags || [];
+
+    return (
+      <View key={video.id} style={[styles.videoItem, isHidden && styles.videoItemHidden]}>
+        <View style={styles.videoHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.videoTitle, isHidden && styles.textHidden]} numberOfLines={1}>
+              {video.title}
+            </Text>
+            <Text style={styles.videoMeta}>
+              {video.skillTags.map(t => t.displayName).join(', ')}
+            </Text>
+            {currentLocations.length > 0 && (
+              <Text style={styles.locationMeta}>
+                {currentLocations.map(l => `📍 ${l}`).join('  ')}
+              </Text>
+            )}
+          </View>
+          <View style={styles.videoActions}>
+            <TouchableOpacity onPress={() => setEditingVideo(isEditing ? null : video.id)} style={styles.iconBtn}>
+              <Ionicons name={isEditing ? 'close' : 'create-outline'} size={20} color={Colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => toggleHideVideo(video.id)} style={styles.iconBtn}>
+              <Ionicons name={isHidden ? 'eye-off' : 'eye'} size={20} color={isHidden ? '#f44' : Colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {isEditing && (
+          <View style={styles.editPanel}>
+            <Text style={styles.editLabel}>Skill Tags</Text>
+            <View style={styles.tagGrid}>
+              {skillTags.map(tag => {
+                const active = currentTags.includes(tag.id);
+                return (
+                  <TouchableOpacity
+                    key={tag.id}
+                    style={[styles.tagChip, active && styles.tagChipActive]}
+                    onPress={() => {
+                      const newTags = active
+                        ? currentTags.filter(t => t !== tag.id)
+                        : [...currentTags, tag.id];
+                      updateVideoTags(video.id, newTags);
+                    }}
+                  >
+                    <Text style={[styles.tagChipText, active && styles.tagChipTextActive]}>
+                      {tag.displayName}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.editLabel, { marginTop: Spacing.md }]}>Location Tags</Text>
+            <View style={styles.tagGrid}>
+              {LOCATIONS.map(loc => {
+                const active = currentLocations.includes(loc);
+                return (
+                  <TouchableOpacity
+                    key={loc}
+                    style={[styles.tagChip, active && styles.locationChipActive]}
+                    onPress={() => {
+                      const newLocs = active
+                        ? currentLocations.filter(l => l !== loc)
+                        : [...currentLocations, loc];
+                      updateVideoLocation(video.id, newLocs);
+                    }}
+                  >
+                    <Text style={[styles.tagChipText, active && styles.locationChipTextActive]}>
+                      📍 {loc}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.maxWidth}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Admin Panel</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        {/* Tabs */}
+        <View style={styles.tabs}>
+          {(['videos', 'categories', 'tags'] as AdminTab[]).map(tab => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                {tab === 'videos' ? 'Videos' : tab === 'categories' ? 'Categories' : 'Quick Tags'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {activeTab === 'videos' && (
+            <View>
+              {/* Removal Requests */}
+              {(state.settings.removalRequests || []).length > 0 && (
+                <View style={styles.removalSection}>
+                  <Text style={styles.sectionTitle}>Removal Requests</Text>
+                  {(state.settings.removalRequests || []).map((req, i) => {
+                    const vid = allVideos.find(v => v.id === req.videoId);
+                    return (
+                      <View key={i} style={styles.removalItem}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.videoTitle}>{vid?.title || req.videoId}</Text>
+                          <Text style={styles.videoMeta}>
+                            {req.claimsOwnership ? 'Claims ownership' : 'General request'} - {new Date(req.requestedAt).toLocaleDateString()}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => {
+                            toggleHideVideo(req.videoId);
+                            const updated = (state.settings.removalRequests || []).filter((_, idx) => idx !== i);
+                            dispatch({ type: 'UPDATE_SETTINGS', payload: { removalRequests: updated } });
+                          }}
+                          style={[styles.iconBtn, { backgroundColor: '#f4433633', borderRadius: 8 }]}
+                        >
+                          <Ionicons name="eye-off" size={18} color="#f44" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => {
+                            const updated = (state.settings.removalRequests || []).filter((_, idx) => idx !== i);
+                            dispatch({ type: 'UPDATE_SETTINGS', payload: { removalRequests: updated } });
+                          }}
+                          style={[styles.iconBtn, { backgroundColor: Colors.surface, borderRadius: 8 }]}
+                        >
+                          <Ionicons name="close" size={18} color={Colors.textSecondary} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search videos..."
+                placeholderTextColor={Colors.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              <Text style={styles.countText}>
+                {filteredVideos.length} videos ({overrides.filter(o => o.hidden).length} hidden)
+              </Text>
+              {filteredVideos.map(renderVideoItem)}
+            </View>
+          )}
+
+          {activeTab === 'categories' && (
+            <View>
+              <Text style={styles.sectionTitle}>Custom Categories</Text>
+              <Text style={styles.hint}>Create and reorder categories shown on the home screen.</Text>
+
+              {/* Existing categories */}
+              {categories.map((cat, idx) => (
+                <View key={cat.id} style={styles.catItem}>
+                  <View style={styles.catReorder}>
+                    <TouchableOpacity onPress={() => moveCategory(cat.id, 'up')} disabled={idx === 0}>
+                      <Ionicons name="chevron-up" size={20} color={idx === 0 ? Colors.textMuted : Colors.textPrimary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => moveCategory(cat.id, 'down')} disabled={idx === categories.length - 1}>
+                      <Ionicons name="chevron-down" size={20} color={idx === categories.length - 1 ? Colors.textMuted : Colors.textPrimary} />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.catTitle}>{cat.title}</Text>
+                    <Text style={styles.catFilter}>{cat.filterType}: {cat.filterValue}</Text>
+                  </View>
+                  <Switch
+                    value={cat.enabled}
+                    onValueChange={() => toggleCategory(cat.id)}
+                    trackColor={{ false: Colors.border, true: Colors.primary }}
+                  />
+                  <TouchableOpacity onPress={() => deleteCategory(cat.id)} style={{ marginLeft: Spacing.sm }}>
+                    <Ionicons name="trash-outline" size={20} color="#f44" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              {/* Add new category */}
+              <View style={styles.addCatSection}>
+                <Text style={styles.sectionTitle}>Add Category</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Category title (e.g. Atlanta Stunts)"
+                  placeholderTextColor={Colors.textMuted}
+                  value={newCatTitle}
+                  onChangeText={setNewCatTitle}
+                />
+                <View style={styles.filterTypeRow}>
+                  {(['title', 'tag', 'location', 'custom'] as const).map(type => (
+                    <TouchableOpacity
+                      key={type}
+                      style={[styles.filterTypeBtn, newCatType === type && styles.filterTypeBtnActive]}
+                      onPress={() => setNewCatType(type)}
+                    >
+                      <Text style={[styles.filterTypeText, newCatType === type && styles.filterTypeTextActive]}>
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder={
+                    newCatType === 'title' ? 'Keywords to match in title (e.g. atlanta, georgia)'
+                      : newCatType === 'tag' ? 'Skill tag ID (e.g. fight-h2h)'
+                      : newCatType === 'location' ? 'Location name (e.g. Atlanta)'
+                      : 'Comma-separated video IDs (e.g. v1,v5,v12)'
+                  }
+                  placeholderTextColor={Colors.textMuted}
+                  value={newCatFilter}
+                  onChangeText={setNewCatFilter}
+                />
+                <TouchableOpacity style={styles.addBtn} onPress={addCategory}>
+                  <Ionicons name="add" size={20} color="#fff" />
+                  <Text style={styles.addBtnText}>Add Category</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {activeTab === 'tags' && (
+            <View>
+              <Text style={styles.sectionTitle}>Bulk Location Tagging</Text>
+              <Text style={styles.hint}>Quickly tag multiple videos with a location.</Text>
+              {LOCATIONS.map(loc => {
+                const taggedCount = overrides.filter(o => o.locationTags?.includes(loc)).length;
+                return (
+                  <View key={loc} style={styles.bulkTagRow}>
+                    <Text style={styles.bulkTagName}>📍 {loc}</Text>
+                    <Text style={styles.bulkTagCount}>{taggedCount} videos</Text>
+                  </View>
+                );
+              })}
+
+              <Text style={[styles.sectionTitle, { marginTop: Spacing.xxl }]}>All Skill Tags</Text>
+              <View style={styles.tagGrid}>
+                {skillTags.map(tag => (
+                  <View key={tag.id} style={styles.readOnlyTag}>
+                    <Text style={styles.readOnlyTagText}>{tag.displayName}</Text>
+                    <Text style={styles.readOnlyTagCategory}>{tag.category}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  maxWidth: { flex: 1, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.lg, paddingTop: 60 },
+  backBtn: { width: 40, height: 40, justifyContent: 'center' },
+  headerTitle: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
+  tabs: { flexDirection: 'row', paddingHorizontal: Spacing.lg, gap: Spacing.sm },
+  tab: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, borderRadius: BorderRadius.round, backgroundColor: Colors.surface },
+  tabActive: { backgroundColor: Colors.primary },
+  tabText: { color: Colors.textSecondary, fontSize: FontSize.md, fontWeight: FontWeight.medium },
+  tabTextActive: { color: '#fff' },
+  content: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
+  searchInput: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.md, marginBottom: Spacing.md },
+  countText: { color: Colors.textMuted, fontSize: FontSize.sm, marginBottom: Spacing.md },
+  videoItem: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.sm },
+  videoItemHidden: { opacity: 0.5, borderLeftWidth: 3, borderLeftColor: '#f44' },
+  videoHeader: { flexDirection: 'row', alignItems: 'center' },
+  videoTitle: { color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.semibold },
+  textHidden: { textDecorationLine: 'line-through' },
+  videoMeta: { color: Colors.textMuted, fontSize: FontSize.sm, marginTop: 2 },
+  locationMeta: { color: '#4fc3f7', fontSize: FontSize.sm, marginTop: 2 },
+  videoActions: { flexDirection: 'row', gap: Spacing.sm },
+  iconBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  editPanel: { marginTop: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border },
+  editLabel: { color: Colors.textPrimary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold, marginBottom: Spacing.sm },
+  tagGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  tagChip: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: BorderRadius.round, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
+  tagChipActive: { backgroundColor: Colors.primary + '33', borderColor: Colors.primary },
+  tagChipText: { color: Colors.textSecondary, fontSize: FontSize.xs },
+  tagChipTextActive: { color: Colors.primary },
+  locationChipActive: { backgroundColor: '#4fc3f733', borderColor: '#4fc3f7' },
+  locationChipTextActive: { color: '#4fc3f7' },
+  sectionTitle: { color: Colors.textPrimary, fontSize: FontSize.xl, fontWeight: FontWeight.bold, marginBottom: Spacing.sm },
+  hint: { color: Colors.textMuted, fontSize: FontSize.sm, marginBottom: Spacing.lg },
+  catItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.sm, gap: Spacing.sm },
+  catReorder: { gap: 2 },
+  catTitle: { color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.semibold },
+  catFilter: { color: Colors.textMuted, fontSize: FontSize.xs },
+  addCatSection: { marginTop: Spacing.xxl },
+  input: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.md, marginBottom: Spacing.md },
+  filterTypeRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
+  filterTypeBtn: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md, borderRadius: BorderRadius.round, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  filterTypeBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '33' },
+  filterTypeText: { color: Colors.textSecondary, fontSize: FontSize.sm },
+  filterTypeTextActive: { color: Colors.primary },
+  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, borderRadius: BorderRadius.md, padding: Spacing.md, gap: Spacing.sm },
+  addBtnText: { color: '#fff', fontSize: FontSize.md, fontWeight: FontWeight.semibold },
+  bulkTagRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.sm },
+  bulkTagName: { color: Colors.textPrimary, fontSize: FontSize.md },
+  bulkTagCount: { color: Colors.textMuted, fontSize: FontSize.sm },
+  readOnlyTag: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: BorderRadius.md, backgroundColor: Colors.surface },
+  readOnlyTagText: { color: Colors.textPrimary, fontSize: FontSize.xs },
+  readOnlyTagCategory: { color: Colors.textMuted, fontSize: 9 },
+  removalSection: { marginBottom: Spacing.xl, padding: Spacing.md, backgroundColor: '#f4433611', borderRadius: BorderRadius.md, borderWidth: 1, borderColor: '#f4433644' },
+  removalItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
+});

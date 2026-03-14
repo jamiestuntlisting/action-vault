@@ -199,6 +199,7 @@ export type RootStackParamList = {
   ReviewModal: { videoId: string };
   AllNotifications: undefined;
   AllBookmarks: undefined;
+  Admin: undefined;
 };
 
 export type MainTabParamList = {

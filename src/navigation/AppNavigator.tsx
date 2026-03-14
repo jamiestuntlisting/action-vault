@@ -25,6 +25,7 @@ import { CollectionDetailScreen } from '../screens/collections/CollectionDetailS
 import { BookmarksScreen } from '../screens/bookmarks/BookmarksScreen';
 import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 import { ReviewModalScreen } from '../screens/community/ReviewModalScreen';
+import { AdminScreen } from '../screens/admin/AdminScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -104,6 +105,7 @@ export function AppNavigator() {
         <Stack.Screen name="CollectionDetail" component={CollectionDetailScreen} />
         <Stack.Screen name="AllBookmarks" component={BookmarksScreen} />
         <Stack.Screen name="AllNotifications" component={NotificationsScreen} />
+        <Stack.Screen name="Admin" component={AdminScreen} />
         <Stack.Screen
           name="ReviewModal"
           component={ReviewModalScreen}

@@ -1,10 +1,17 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Platform } from 'react-native';
-import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
 import { videoMap, videos } from '../../data';
+
+const isWeb = Platform.OS === 'web';
+
+// Only import WebView on native
+let NativeWebView: any = null;
+if (!isWeb) {
+  try { NativeWebView = require('react-native-webview').WebView; } catch (e) {}
+}
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -241,9 +248,35 @@ export function VideoPlayerScreen({ route, navigation }: any) {
   const videoDuration = duration || video.durationSeconds;
   const progressPercent = videoDuration > 0 ? (currentTime / videoDuration) * 100 : 0;
 
+  // Web platform: use iframe directly
+  if (isWeb) {
+    const embedSrc = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&start=${startTime}&rel=0&modestbranding=1&playsinline=1`;
+    return (
+      <View style={styles.container}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.9)', paddingTop: 20, paddingHorizontal: 8, paddingBottom: 8, gap: 8 }}>
+          <TouchableOpacity onPress={handleClose} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={28} color={Colors.white} />
+          </TouchableOpacity>
+          <Text style={{ flex: 1, color: Colors.white, fontSize: FontSize.md, fontWeight: FontWeight.semibold }} numberOfLines={1}>{video.title}</Text>
+          <TouchableOpacity onPress={addBookmark} style={styles.backButton}>
+            <Ionicons name="bookmark-outline" size={22} color={Colors.white} />
+          </TouchableOpacity>
+        </View>
+        <View style={{ flex: 1 }}>
+          {React.createElement('iframe', {
+            src: embedSrc,
+            style: { width: '100%', height: '100%', border: 'none' },
+            allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
+            allowFullScreen: true,
+          })}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <WebView
+      <NativeWebView
         ref={webviewRef}
         source={{ html: playerHtml }}
         style={styles.webview}

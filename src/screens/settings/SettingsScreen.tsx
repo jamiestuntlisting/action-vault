@@ -242,21 +242,10 @@ export function SettingsScreen({ navigation }: any) {
         <Text style={styles.tmdbHint}>Free at themoviedb.org/settings/api</Text>
       </View>
 
-      {/* Preferences */}
-      <Text style={styles.sectionTitle}>Preferences</Text>
+      {/* Admin */}
+      <Text style={styles.sectionTitle}>Admin</Text>
       <View style={styles.section}>
-        <SettingsToggle
-          icon="play-circle-outline"
-          label="Autoplay Previews"
-          value={settings.autoplayPreviews}
-          onToggle={(v) => updateSetting('autoplayPreviews', v)}
-        />
-        <SettingsToggle
-          icon="notifications-outline"
-          label="Push Notifications"
-          value={settings.notificationsEnabled}
-          onToggle={(v) => updateSetting('notificationsEnabled', v)}
-        />
+        <SettingsRow icon="settings-outline" label="Admin Panel" onPress={() => navigation.navigate('Admin')} />
       </View>
 
       {/* About */}

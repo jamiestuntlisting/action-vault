@@ -16,6 +16,22 @@ import {
 } from '../types';
 import { videos } from '../data';
 
+export interface AdminCategory {
+  id: string;
+  title: string;
+  filterType: 'tag' | 'title' | 'location' | 'custom';
+  filterValue: string; // tag id, keyword, or comma-separated video ids
+  sortOrder: number;
+  enabled: boolean;
+}
+
+export interface AdminVideoOverride {
+  videoId: string;
+  hidden: boolean;
+  tagOverrides?: string[]; // skill tag ids to replace existing tags
+  locationTags?: string[]; // city/location tags
+}
+
 export interface AppSettings {
   wifiStreamingQuality: 'auto' | 'low' | 'medium' | 'high';
   cellularStreamingQuality: 'auto' | 'low' | 'medium';
@@ -31,6 +47,9 @@ export interface AppSettings {
   intensityFilter: number; // 1-5, show up to this level
   youtubeChannel: string;
   vaultSubmissions: Array<{ videoId: string; title: string; author: string; thumbnailUrl: string; submittedAt: string }>;
+  adminCategories: AdminCategory[];
+  adminVideoOverrides: AdminVideoOverride[];
+  removalRequests: Array<{ videoId: string; requestedAt: string; claimsOwnership: boolean }>;
 }
 
 const defaultSettings: AppSettings = {
@@ -48,6 +67,9 @@ const defaultSettings: AppSettings = {
   intensityFilter: 5,
   youtubeChannel: '',
   vaultSubmissions: [],
+  adminCategories: [],
+  adminVideoOverrides: [],
+  removalRequests: [],
 };
 
 interface State {

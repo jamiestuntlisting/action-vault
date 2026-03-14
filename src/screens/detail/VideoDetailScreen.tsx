@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Share, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Share, ActivityIndicator, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export function VideoDetailScreen({ route, navigation }: any) {
   const { videoId } = route.params;
   const video = videoMap.get(videoId);
-  const { dispatch, isInMyList, getRating } = useAppState();
+  const { state, dispatch, isInMyList, getRating } = useAppState();
   const rating = getRating(videoId);
 
   const [tmdbCrew, setTmdbCrew] = useState<StuntCrewMember[]>([]);
@@ -70,6 +70,48 @@ export function VideoDetailScreen({ route, navigation }: any) {
     }
   }
 
+  function handleRemoveVideo() {
+    Alert.alert(
+      'Remove This Video',
+      'Are you the owner of this video?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, I own this video',
+          onPress: () => {
+            const existing = state.settings.removalRequests || [];
+            dispatch({
+              type: 'UPDATE_SETTINGS',
+              payload: {
+                removalRequests: [
+                  ...existing,
+                  { videoId, requestedAt: new Date().toISOString(), claimsOwnership: true },
+                ],
+              },
+            });
+            Alert.alert('Request Submitted', 'Your removal request has been flagged for admin review.');
+          },
+        },
+        {
+          text: 'No, but I want it removed',
+          onPress: () => {
+            const existing = state.settings.removalRequests || [];
+            dispatch({
+              type: 'UPDATE_SETTINGS',
+              payload: {
+                removalRequests: [
+                  ...existing,
+                  { videoId, requestedAt: new Date().toISOString(), claimsOwnership: false },
+                ],
+              },
+            });
+            Alert.alert('Request Submitted', 'Your removal request has been flagged for admin review.');
+          },
+        },
+      ]
+    );
+  }
+
   function handleThumb(direction: 'up' | 'down') {
     dispatch({
       type: 'SET_RATING',
@@ -88,6 +130,11 @@ export function VideoDetailScreen({ route, navigation }: any) {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
         <Ionicons name="arrow-back" size={28} color={Colors.white} />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.removeButton} onPress={handleRemoveVideo}>
+        <Ionicons name="flag-outline" size={22} color={Colors.white} />
+        <Text style={styles.removeButtonText}>Remove</Text>
       </TouchableOpacity>
 
       <View style={styles.heroContainer}>
@@ -268,6 +315,24 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 20,
     padding: Spacing.sm,
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 50,
+    right: Spacing.screen,
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 16,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  removeButtonText: {
+    color: Colors.white,
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.semibold,
   },
   heroContainer: {
     width: SCREEN_WIDTH,
