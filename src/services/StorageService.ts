@@ -13,7 +13,7 @@ const KEYS = {
   NOTIFICATIONS: '@actionvault_notifications',
   SETTINGS: '@actionvault_settings',
   ONBOARDING_COMPLETE: '@actionvault_onboarding',
-  DOWNLOADS: '@actionvault_downloads',
+  VAULT_SUBMISSIONS: '@actionvault_vault_submissions',
 };
 
 async function get<T>(key: string): Promise<T | null> {

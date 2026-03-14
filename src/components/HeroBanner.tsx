@@ -7,7 +7,9 @@ import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../theme';
 import { Video } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const BANNER_HEIGHT = SCREEN_WIDTH * 0.65;
+const MAX_WIDTH = 960;
+const EFFECTIVE_WIDTH = Math.min(SCREEN_WIDTH, MAX_WIDTH);
+const BANNER_HEIGHT = EFFECTIVE_WIDTH * 0.55;
 
 interface HeroBannerProps {
   video: Video;
@@ -31,13 +33,6 @@ export function HeroBanner({ video, onPlay, onInfo, onAddToList, isInList }: Her
         style={styles.gradient}
       />
       <View style={styles.content}>
-        <View style={styles.tags}>
-          {video.skillTags.slice(0, 3).map(tag => (
-            <View key={tag.id} style={styles.tag}>
-              <Text style={styles.tagText}>{tag.displayName}</Text>
-            </View>
-          ))}
-        </View>
         <Text style={styles.title} numberOfLines={2}>{video.title}</Text>
         <Text style={styles.description} numberOfLines={2}>{video.description}</Text>
         <View style={styles.actions}>
@@ -61,9 +56,11 @@ export function HeroBanner({ video, onPlay, onInfo, onAddToList, isInList }: Her
 
 const styles = StyleSheet.create({
   container: {
-    width: SCREEN_WIDTH,
+    width: '100%',
+    maxWidth: MAX_WIDTH,
     height: BANNER_HEIGHT,
     marginBottom: Spacing.xl,
+    alignSelf: 'center',
   },
   image: {
     width: '100%',
@@ -78,22 +75,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: Spacing.screen,
-  },
-  tags: {
-    flexDirection: 'row',
-    marginBottom: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  tag: {
-    backgroundColor: 'rgba(229,9,20,0.8)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.xs,
-  },
-  tagText: {
-    color: Colors.white,
-    fontSize: FontSize.xs,
-    fontWeight: FontWeight.semibold,
   },
   title: {
     color: Colors.white,

@@ -13,7 +13,7 @@ import { ProfilePickerScreen } from '../screens/auth/ProfilePickerScreen';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { SearchScreen } from '../screens/search/SearchScreen';
 import { MyListScreen } from '../screens/mylist/MyListScreen';
-import { DownloadsScreen } from '../screens/downloads/DownloadsScreen';
+
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { VideoDetailScreen } from '../screens/detail/VideoDetailScreen';
 import { VideoPlayerScreen } from '../screens/player/VideoPlayerScreen';
@@ -39,7 +39,7 @@ function MainTabs() {
             case 'Home': iconName = focused ? 'home' : 'home-outline'; break;
             case 'Search': iconName = focused ? 'search' : 'search-outline'; break;
             case 'MyList': iconName = focused ? 'bookmark' : 'bookmark-outline'; break;
-            case 'Downloads': iconName = focused ? 'download' : 'download-outline'; break;
+
             case 'Profile': iconName = focused ? 'person' : 'person-outline'; break;
           }
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -63,7 +63,6 @@ function MainTabs() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="MyList" component={MyListScreen} options={{ tabBarLabel: 'My List' }} />
-      <Tab.Screen name="Downloads" component={DownloadsScreen} />
       <Tab.Screen name="Profile" component={SettingsScreen} />
     </Tab.Navigator>
   );

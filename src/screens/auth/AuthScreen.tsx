@@ -58,6 +58,25 @@ export function AuthScreen({ navigation }: any) {
     navigation.replace('Onboarding');
   }
 
+  function handleBypass() {
+    const userId = 'user-guest-' + Date.now();
+    dispatch({ type: 'LOGIN', payload: { id: userId, email: 'guest@actionvault.app' } });
+    dispatch({
+      type: 'ADD_PROFILE',
+      payload: {
+        id: 'profile-' + Date.now(),
+        userId,
+        name: 'Guest',
+        avatarKey: 'stunt',
+        experienceLevel: 'fan',
+        onboardingComplete: true,
+        interests: [],
+      },
+    });
+    dispatch({ type: 'SET_ONBOARDING_COMPLETE', payload: true });
+    navigation.replace('MainTabs');
+  }
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -137,6 +156,11 @@ export function AuthScreen({ navigation }: any) {
             <Text style={styles.socialText}>Sign in with Google</Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity style={styles.bypassButton} onPress={handleBypass} activeOpacity={0.8}>
+          <Ionicons name="flash" size={24} color={Colors.white} />
+          <Text style={styles.bypassText}>Skip Login & Explore</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.switchButton} onPress={() => setIsLogin(!isLogin)}>
           <Text style={styles.switchText}>
@@ -250,9 +274,25 @@ const styles = StyleSheet.create({
     fontSize: FontSize.lg,
     fontWeight: FontWeight.medium,
   },
+  bypassButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.lg,
+    height: 64,
+    gap: Spacing.md,
+    marginTop: Spacing.xxl,
+  },
+  bypassText: {
+    color: Colors.white,
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.heavy,
+    letterSpacing: 1,
+  },
   switchButton: {
     alignItems: 'center',
-    marginTop: Spacing.xxl,
+    marginTop: Spacing.xl,
   },
   switchText: {
     color: Colors.textTertiary,

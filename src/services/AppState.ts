@@ -29,6 +29,8 @@ export interface AppSettings {
   notifyTrending: boolean;
   notifyWeeklyDigest: boolean;
   intensityFilter: number; // 1-5, show up to this level
+  youtubeChannel: string;
+  vaultSubmissions: Array<{ videoId: string; title: string; author: string; thumbnailUrl: string; submittedAt: string }>;
 }
 
 const defaultSettings: AppSettings = {
@@ -44,6 +46,8 @@ const defaultSettings: AppSettings = {
   notifyTrending: true,
   notifyWeeklyDigest: true,
   intensityFilter: 5,
+  youtubeChannel: '',
+  vaultSubmissions: [],
 };
 
 interface State {

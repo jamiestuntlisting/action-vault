@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Share } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Share, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { SkillTagChip } from '../../components/SkillTagChip';
 import { DifficultyBadge } from '../../components/DifficultyBadge';
 import { ContentRow } from '../../components/ContentRow';
 import { Video } from '../../types';
+import { TmdbService, StuntCrewMember, posterUrl } from '../../services/TmdbService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -18,6 +19,27 @@ export function VideoDetailScreen({ route, navigation }: any) {
   const video = videoMap.get(videoId);
   const { dispatch, isInMyList, getRating } = useAppState();
   const rating = getRating(videoId);
+
+  const [tmdbCrew, setTmdbCrew] = useState<StuntCrewMember[]>([]);
+  const [tmdbPoster, setTmdbPoster] = useState<string | null>(null);
+  const [tmdbLoading, setTmdbLoading] = useState(false);
+
+  useEffect(() => {
+    if (!video || !TmdbService.hasApiKey()) return;
+    // Try to enrich with TMDB data if we have a production title
+    const production = video.productions[0];
+    if (production) {
+      setTmdbLoading(true);
+      TmdbService.enrichProduction(production.title, production.year)
+        .then(data => {
+          if (data) {
+            setTmdbCrew(data.stuntCrew);
+            if (data.posterUrl) setTmdbPoster(data.posterUrl);
+          }
+        })
+        .finally(() => setTmdbLoading(false));
+    }
+  }, [videoId]);
 
   if (!video) return null;
 
@@ -102,7 +124,6 @@ export function VideoDetailScreen({ route, navigation }: any) {
           <ActionButton icon="thumbs-up-outline" label="Rate" onPress={() => handleThumb('up')} active={rating?.thumbs === 'up'} />
           <ActionButton icon="thumbs-down-outline" label="Not for me" onPress={() => handleThumb('down')} active={rating?.thumbs === 'down'} />
           <ActionButton icon="share-outline" label="Share" onPress={handleShare} />
-          <ActionButton icon="download-outline" label="Download" onPress={() => dispatch({ type: 'ADD_DOWNLOAD', payload: videoId })} />
         </View>
 
         <Text style={styles.description}>{video.description}</Text>
@@ -142,6 +163,29 @@ export function VideoDetailScreen({ route, navigation }: any) {
               <TouchableOpacity key={p.id} onPress={() => navigation.navigate('ProductionPage', { productionId: p.id })}>
                 <Text style={styles.creditLink}>{p.title} ({p.year})</Text>
               </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* TMDB Stunt Crew - auto-enriched */}
+        {tmdbLoading && (
+          <View style={styles.creditSection}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+          </View>
+        )}
+        {tmdbCrew.length > 0 && (
+          <View style={styles.creditSection}>
+            <Text style={styles.creditLabel}>Stunt Crew (via TMDB)</Text>
+            {tmdbCrew.map((c, i) => (
+              <View key={i} style={styles.tmdbCrewRow}>
+                {c.photoUrl && (
+                  <Image source={{ uri: c.photoUrl }} style={styles.tmdbCrewPhoto} contentFit="cover" />
+                )}
+                <View style={styles.tmdbCrewInfo}>
+                  <Text style={styles.creditLink}>{c.name}</Text>
+                  <Text style={styles.tmdbCrewJob}>{c.job}</Text>
+                </View>
+              </View>
             ))}
           </View>
         )}
@@ -347,6 +391,25 @@ const styles = StyleSheet.create({
     color: Colors.accent,
     fontSize: FontSize.xs,
     fontWeight: FontWeight.medium,
+  },
+  tmdbCrewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: 4,
+  },
+  tmdbCrewPhoto: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.surfaceLight,
+  },
+  tmdbCrewInfo: {
+    flex: 1,
+  },
+  tmdbCrewJob: {
+    color: Colors.textTertiary,
+    fontSize: FontSize.xs,
   },
   reviewButton: {
     flexDirection: 'row',

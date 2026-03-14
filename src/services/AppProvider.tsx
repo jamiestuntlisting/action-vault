@@ -30,7 +30,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         StorageService.get<any[]>(StorageService.KEYS.NOTIFICATIONS),
         StorageService.get<any>(StorageService.KEYS.SETTINGS),
         StorageService.get<boolean>(StorageService.KEYS.ONBOARDING_COMPLETE),
-        StorageService.get<string[]>(StorageService.KEYS.DOWNLOADS),
+        StorageService.get<string[]>(StorageService.KEYS.VAULT_SUBMISSIONS),
       ]);
 
       dispatch({
@@ -72,7 +72,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         StorageService.set(StorageService.KEYS.NOTIFICATIONS, state.notifications),
         StorageService.set(StorageService.KEYS.SETTINGS, state.settings),
         StorageService.set(StorageService.KEYS.ONBOARDING_COMPLETE, state.onboardingComplete),
-        StorageService.set(StorageService.KEYS.DOWNLOADS, state.downloads),
+        StorageService.set(StorageService.KEYS.VAULT_SUBMISSIONS, state.downloads),
       ]);
     } catch (e) {
       // Silent fail

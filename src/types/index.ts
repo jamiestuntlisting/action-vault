@@ -205,6 +205,6 @@ export type MainTabParamList = {
   Home: undefined;
   Search: undefined;
   MyList: undefined;
-  Downloads: undefined;
+
   Profile: undefined;
 };
