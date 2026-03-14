@@ -1,0 +1,109 @@
+import React, { useReducer, useEffect, useMemo, ReactNode } from 'react';
+import { AppContext, reducer, initialState, State } from './AppState';
+import { StorageService } from './StorageService';
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  useEffect(() => {
+    loadPersistedState();
+  }, []);
+
+  useEffect(() => {
+    if (!state.isLoading) {
+      persistState();
+    }
+  }, [state.myList, state.watchHistory, state.ratings, state.bookmarks, state.collections, state.follows, state.notifications, state.settings, state.downloads, state.profiles, state.activeProfile, state.currentUser, state.onboardingComplete]);
+
+  async function loadPersistedState() {
+    try {
+      const [user, profiles, activeProfile, watchHistory, myList, ratings, bookmarks, collections, follows, notifications, settings, onboarding, downloads] = await Promise.all([
+        StorageService.get<{ id: string; email: string }>(StorageService.KEYS.USER),
+        StorageService.get<any[]>(StorageService.KEYS.PROFILES),
+        StorageService.get<any>(StorageService.KEYS.ACTIVE_PROFILE),
+        StorageService.get<any[]>(StorageService.KEYS.WATCH_HISTORY),
+        StorageService.get<any[]>(StorageService.KEYS.MY_LIST),
+        StorageService.get<any[]>(StorageService.KEYS.RATINGS),
+        StorageService.get<any[]>(StorageService.KEYS.BOOKMARKS),
+        StorageService.get<any[]>(StorageService.KEYS.COLLECTIONS),
+        StorageService.get<any[]>(StorageService.KEYS.FOLLOWS),
+        StorageService.get<any[]>(StorageService.KEYS.NOTIFICATIONS),
+        StorageService.get<any>(StorageService.KEYS.SETTINGS),
+        StorageService.get<boolean>(StorageService.KEYS.ONBOARDING_COMPLETE),
+        StorageService.get<string[]>(StorageService.KEYS.DOWNLOADS),
+      ]);
+
+      dispatch({
+        type: 'LOAD_STATE',
+        payload: {
+          currentUser: user || null,
+          isAuthenticated: !!user,
+          profiles: profiles || [],
+          activeProfile: activeProfile || null,
+          watchHistory: watchHistory || [],
+          myList: myList || [],
+          ratings: ratings || [],
+          bookmarks: bookmarks || [],
+          collections: collections || [],
+          follows: follows || [],
+          notifications: notifications || [],
+          settings: settings || initialState.settings,
+          onboardingComplete: onboarding || false,
+          downloads: downloads || [],
+        },
+      });
+    } catch (e) {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }
+
+  async function persistState() {
+    try {
+      await Promise.all([
+        state.currentUser ? StorageService.set(StorageService.KEYS.USER, state.currentUser) : StorageService.remove(StorageService.KEYS.USER),
+        StorageService.set(StorageService.KEYS.PROFILES, state.profiles),
+        state.activeProfile ? StorageService.set(StorageService.KEYS.ACTIVE_PROFILE, state.activeProfile) : StorageService.remove(StorageService.KEYS.ACTIVE_PROFILE),
+        StorageService.set(StorageService.KEYS.WATCH_HISTORY, state.watchHistory),
+        StorageService.set(StorageService.KEYS.MY_LIST, state.myList),
+        StorageService.set(StorageService.KEYS.RATINGS, state.ratings),
+        StorageService.set(StorageService.KEYS.BOOKMARKS, state.bookmarks),
+        StorageService.set(StorageService.KEYS.COLLECTIONS, state.collections),
+        StorageService.set(StorageService.KEYS.FOLLOWS, state.follows),
+        StorageService.set(StorageService.KEYS.NOTIFICATIONS, state.notifications),
+        StorageService.set(StorageService.KEYS.SETTINGS, state.settings),
+        StorageService.set(StorageService.KEYS.ONBOARDING_COMPLETE, state.onboardingComplete),
+        StorageService.set(StorageService.KEYS.DOWNLOADS, state.downloads),
+      ]);
+    } catch (e) {
+      // Silent fail
+    }
+  }
+
+  const contextValue = useMemo(() => {
+    const profileId = state.activeProfile?.id || '';
+    return {
+      state,
+      dispatch,
+      isInMyList: (videoId: string) =>
+        state.myList.some(m => m.videoId === videoId && m.profileId === profileId),
+      getRating: (videoId: string) =>
+        state.ratings.find(r => r.videoId === videoId && r.profileId === profileId),
+      getWatchProgress: (videoId: string) =>
+        state.watchHistory.find(w => w.videoId === videoId && w.profileId === profileId),
+      isFollowing: (type: string, id: string) =>
+        state.follows.some(f => f.followableType === type && f.followableId === id && f.profileId === profileId),
+      getProfileBookmarks: () =>
+        state.bookmarks.filter(b => b.profileId === profileId),
+      getProfileCollections: () =>
+        state.collections.filter(c => c.profileId === profileId),
+      getProfileNotifications: () =>
+        state.notifications.filter(n => n.profileId === profileId),
+      getContinueWatching: () =>
+        state.watchHistory
+          .filter(w => w.profileId === profileId && !w.completed && w.progressSeconds > 0)
+          .sort((a, b) => new Date(b.lastWatchedAt).getTime() - new Date(a.lastWatchedAt).getTime()),
+    };
+  }, [state]);
+
+  return React.createElement(AppContext.Provider, { value: contextValue }, children);
+}
