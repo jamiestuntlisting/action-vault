@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { ScrollView, View, StyleSheet, RefreshControl } from 'react-native';
-import { Colors, Spacing } from '../../theme';
+import { ScrollView, View, Text, StyleSheet, RefreshControl, TouchableOpacity, FlatList } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
 import { videos, videoMap } from '../../data';
 import { HeroCarousel } from '../../components/HeroCarousel';
@@ -161,6 +162,32 @@ export function HomeScreen({ navigation }: any) {
           }}
           isInList={(videoId) => isInMyList(videoId)}
         />
+
+        {/* Categories bar */}
+        <View style={styles.categoriesSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesList}>
+            {[
+              { label: 'Fight Choreography', icon: 'fitness-outline', query: 'fight' },
+              { label: 'Car Work', icon: 'car-outline', query: 'car' },
+              { label: 'Falls & High Work', icon: 'arrow-down-outline', query: 'falls' },
+              { label: 'Fire & Pyro', icon: 'flame-outline', query: 'fire' },
+              { label: 'Action Actors', icon: 'star-outline', query: 'action star' },
+              { label: 'Documentaries', icon: 'film-outline', query: 'documentary' },
+              { label: 'Wire & Rigs', icon: 'resize-outline', query: 'wire rig' },
+              { label: 'Training', icon: 'barbell-outline', query: 'training' },
+              { label: 'Classic Stunts', icon: 'time-outline', query: 'classic' },
+            ].map(cat => (
+              <TouchableOpacity
+                key={cat.label}
+                style={styles.categoryPill}
+                onPress={() => navigation.navigate('Search', { query: cat.query })}
+              >
+                <Ionicons name={cat.icon as any} size={16} color={Colors.textPrimary} />
+                <Text style={styles.categoryPillText}>{cat.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
         {continueWatching.length > 0 && (
           <ContentRow
@@ -331,5 +358,28 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MAX_WIDTH,
     alignSelf: 'center',
+  },
+  categoriesSection: {
+    marginBottom: Spacing.xl,
+  },
+  categoriesList: {
+    paddingHorizontal: Spacing.screen,
+    gap: Spacing.sm,
+  },
+  categoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.round,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  categoryPillText: {
+    color: Colors.textPrimary,
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
   },
 });
