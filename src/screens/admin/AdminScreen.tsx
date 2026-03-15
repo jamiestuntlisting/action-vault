@@ -8,10 +8,11 @@ import { Colors, Spacing, BorderRadius, FontSize, FontWeight } from '../../theme
 import { useAppState, AdminCategory, AdminVideoOverride } from '../../services/AppState';
 import { videos as allVideos } from '../../data';
 import { skillTags } from '../../data/skillTags';
+import { Video } from '../../types';
 
 const MAX_WIDTH = 960;
 
-type AdminTab = 'videos' | 'categories' | 'tags';
+type AdminTab = 'videos' | 'categories' | 'tags' | 'bytag' | 'lists';
 
 // Autocomplete tag input component
 function TagInput({
@@ -132,6 +133,8 @@ export function AdminScreen({ navigation }: any) {
   const [newCatTitle, setNewCatTitle] = useState('');
   const [newCatFilter, setNewCatFilter] = useState('');
   const [newCatType, setNewCatType] = useState<'tag' | 'title' | 'location' | 'custom'>('title');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedList, setSelectedList] = useState<string>('featured');
 
   const overrides = state.settings.adminVideoOverrides || [];
   const categories = state.settings.adminCategories || [];
@@ -204,6 +207,31 @@ export function AdminScreen({ navigation }: any) {
     dispatch({ type: 'UPDATE_SETTINGS', payload: { adminVideoOverrides: updated } });
   }
 
+  function toggleVideoInList(videoId: string, listName: string) {
+    const existing = getOverride(videoId);
+    const currentLists = existing?.curatedLists || [];
+    const isInList = currentLists.includes(listName);
+    const newLists = isInList ? currentLists.filter(l => l !== listName) : [...currentLists, listName];
+    const updated = existing
+      ? overrides.map(o => o.videoId === videoId ? { ...o, curatedLists: newLists } : o)
+      : [...overrides, { videoId, hidden: false, curatedLists: newLists }];
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { adminVideoOverrides: updated } });
+  }
+
+  function isVideoInList(videoId: string, listName: string): boolean {
+    const override = getOverride(videoId);
+    return override?.curatedLists?.includes(listName) || false;
+  }
+
+  function getVideosInList(listName: string) {
+    const videoIds = overrides.filter(o => o.curatedLists?.includes(listName)).map(o => o.videoId);
+    return allVideos.filter(v => videoIds.includes(v.id));
+  }
+
+  function getVideosByTag(tagName: string) {
+    return allVideos.filter(v => v.skillTags.some(t => t.displayName === tagName));
+  }
+
   function updateVideoLocation(videoId: string, locations: string[]) {
     const existing = getOverride(videoId);
     const updated = existing
@@ -249,6 +277,147 @@ export function AdminScreen({ navigation }: any) {
     const updated = categories.filter(c => c.id !== catId);
     dispatch({ type: 'UPDATE_SETTINGS', payload: { adminCategories: updated } });
   }
+
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [catSearchQuery, setCatSearchQuery] = useState('');
+
+  // Build a unified list of ALL categories shown on HomeScreen with their videos
+  const allCategoryDefinitions = useMemo(() => {
+    const visibleVideos = allVideos.filter(v => {
+      const ov = overrides.find(o => o.videoId === v.id);
+      return !ov?.hidden;
+    });
+
+    const defs: { id: string; title: string; type: 'builtin' | 'custom'; videos: Video[]; filterInfo: string }[] = [];
+
+    // Trending Now
+    const trending = [...visibleVideos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10);
+    defs.push({ id: 'builtin-trending', title: 'Trending Now', type: 'builtin', videos: trending, filterInfo: 'Top 10 by view count' });
+
+    // Top 10
+    const top10 = [...visibleVideos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10);
+    defs.push({ id: 'builtin-top10', title: 'Top 10 This Week', type: 'builtin', videos: top10, filterInfo: 'Top 10 by view count' });
+
+    // New This Week
+    const newThisWeek = [...visibleVideos].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10);
+    defs.push({ id: 'builtin-new', title: 'New This Week', type: 'builtin', videos: newThisWeek, filterInfo: 'Most recently added' });
+
+    // Fight Choreography
+    const fight = visibleVideos.filter(v => v.skillTags.some(t => t?.category === 'Fight Choreography'));
+    defs.push({ id: 'builtin-fight', title: 'Popular in Fight Choreography', type: 'builtin', videos: fight, filterInfo: 'Skill category: Fight Choreography' });
+
+    // Car Work
+    const car = visibleVideos.filter(v => v.skillTags.some(t => t?.category === 'Car Work'));
+    defs.push({ id: 'builtin-car', title: 'Car Work & Driving', type: 'builtin', videos: car, filterInfo: 'Skill category: Car Work' });
+
+    // Classic Stunts
+    const classic = visibleVideos.filter(v => {
+      const t = v.title.toLowerCase();
+      return t.includes('buster keaton') || t.includes('1920s') || t.includes('ben-hur') ||
+        t.includes('indiana jones') || t.includes('raiders') || t.includes('golden age') || t.includes('classic');
+    });
+    defs.push({ id: 'builtin-classic', title: 'Classic Stunts', type: 'builtin', videos: classic, filterInfo: 'Title keywords: classic, buster keaton, etc.' });
+
+    // Action Actors
+    const actors = visibleVideos.filter(v => {
+      const t = v.title.toLowerCase();
+      return t.includes('jackie chan') || t.includes('keanu') || t.includes('tom cruise') ||
+        t.includes('tom holland') || t.includes('harrison ford') || t.includes('buster keaton') ||
+        v.performers.some(p => p.role === 'action_star');
+    });
+    defs.push({ id: 'builtin-actors', title: 'Action Actors', type: 'builtin', videos: actors, filterInfo: 'Title keywords + action_star performers' });
+
+    // Spy & Action Thrillers
+    const spy = visibleVideos.filter(v => {
+      const t = v.title.toLowerCase();
+      return t.includes('bond') || t.includes('007') || t.includes('no time to die') ||
+        t.includes('atomic blonde') || t.includes('mission: impossible') || t.includes('matrix');
+    });
+    defs.push({ id: 'builtin-spy', title: 'Spy & Action Thrillers', type: 'builtin', videos: spy, filterInfo: 'Title keywords: bond, matrix, etc.' });
+
+    // Superhero Stunts
+    const marvel = visibleVideos.filter(v =>
+      v.title.toLowerCase().includes('marvel') || v.title.toLowerCase().includes('shang') ||
+      v.title.toLowerCase().includes('spider') ||
+      v.productions.some(p => p.studio.toLowerCase().includes('marvel') || p.studio.toLowerCase().includes('dc'))
+    );
+    defs.push({ id: 'builtin-superhero', title: 'Superhero Stunts', type: 'builtin', videos: marvel, filterInfo: 'Marvel/DC studios + title keywords' });
+
+    // Wire & Rig Work
+    const wire = visibleVideos.filter(v => v.skillTags.some(t => t?.category === 'Rigs' || t?.id === 'wire-work'));
+    defs.push({ id: 'builtin-wire', title: 'Wire & Rig Work', type: 'builtin', videos: wire, filterInfo: 'Skill category: Rigs + wire-work' });
+
+    // TV Show Stunts
+    const tv = visibleVideos.filter(v => {
+      const t = v.title.toLowerCase();
+      return t.includes('game of thrones') || t.includes('stranger things') ||
+        t.includes('daredevil') || t.includes('walking dead') || t.includes('breaking bad') ||
+        (t.includes('season') && v.skillTags.some(s => s.id === 'bts-featurette'));
+    });
+    defs.push({ id: 'builtin-tv', title: 'TV Show Stunts', type: 'builtin', videos: tv, filterInfo: 'Title keywords: GoT, Daredevil, etc.' });
+
+    // Stunt Documentaries
+    const docs = visibleVideos.filter(v =>
+      v.skillTags.some(s => s.id === 'interview') ||
+      v.title.toLowerCase().includes('documentary') ||
+      v.title.toLowerCase().includes('in praise of action') ||
+      v.title.toLowerCase().includes('hal needham') ||
+      v.title.toLowerCase().includes('fall guy')
+    );
+    defs.push({ id: 'builtin-docs', title: 'Stunt Documentaries & Interviews', type: 'builtin', videos: docs, filterInfo: 'interview tag + title keywords' });
+
+    // Falls & High Work
+    const falls = visibleVideos.filter(v => v.skillTags.some(t => t?.category === 'Falls'));
+    defs.push({ id: 'builtin-falls', title: 'Falls & High Work', type: 'builtin', videos: falls, filterInfo: 'Skill category: Falls' });
+
+    // Fire & Pyro
+    const fire = visibleVideos.filter(v => v.skillTags.some(t => t?.category === 'Fire'));
+    defs.push({ id: 'builtin-fire', title: 'Fire & Pyro', type: 'builtin', videos: fire, filterInfo: 'Skill category: Fire' });
+
+    // Training & Safety
+    const training = visibleVideos.filter(v => v.skillTags.some(t => t?.id === 'training' || t?.id === 'rig-breakdown' || t?.id === 'safety-walkthrough'));
+    defs.push({ id: 'builtin-training', title: 'Training & Safety', type: 'builtin', videos: training, filterInfo: 'Tags: training, rig-breakdown, safety-walkthrough' });
+
+    // Location-based
+    const locationNames = ['Atlanta', 'New York', 'Chicago'];
+    locationNames.forEach(loc => {
+      const locVids = visibleVideos.filter(v => {
+        const ov = overrides.find(o => o.videoId === v.id);
+        return ov?.locationTags?.includes(loc);
+      });
+      if (locVids.length > 0) {
+        defs.push({ id: `builtin-loc-${loc}`, title: `${loc} Stunts`, type: 'builtin', videos: locVids, filterInfo: `Location tag: ${loc}` });
+      }
+    });
+
+    // Custom admin categories
+    categories.forEach(cat => {
+      let catVideos: Video[] = [];
+      if (cat.filterType === 'tag') {
+        catVideos = visibleVideos.filter(v => v.skillTags.some(t => t.id === cat.filterValue || t.displayName === cat.filterValue));
+      } else if (cat.filterType === 'title') {
+        const keywords = cat.filterValue.toLowerCase().split(',').map(k => k.trim());
+        catVideos = visibleVideos.filter(v => keywords.some(k => v.title.toLowerCase().includes(k)));
+      } else if (cat.filterType === 'location') {
+        catVideos = visibleVideos.filter(v => {
+          const ov = overrides.find(o => o.videoId === v.id);
+          return ov?.locationTags?.includes(cat.filterValue);
+        });
+      } else if (cat.filterType === 'custom') {
+        const ids = cat.filterValue.split(',').map(id => id.trim());
+        catVideos = visibleVideos.filter(v => ids.includes(v.id));
+      }
+      defs.push({
+        id: cat.id,
+        title: cat.title,
+        type: 'custom',
+        videos: catVideos,
+        filterInfo: `${cat.filterType}: ${cat.filterValue}`,
+      });
+    });
+
+    return defs;
+  }, [overrides, categories]);
 
   function renderVideoItem(video: typeof allVideos[0]) {
     const override = getOverride(video.id);
@@ -353,19 +522,19 @@ export function AdminScreen({ navigation }: any) {
         </View>
 
         {/* Tabs */}
-        <View style={styles.tabs}>
-          {(['videos', 'categories', 'tags'] as AdminTab[]).map(tab => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
+          {(['videos', 'bytag', 'lists', 'categories', 'tags'] as AdminTab[]).map(tab => (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, activeTab === tab && styles.tabActive]}
               onPress={() => setActiveTab(tab)}
             >
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {tab === 'videos' ? 'Videos' : tab === 'categories' ? 'Categories' : 'Quick Tags'}
+                {tab === 'videos' ? 'Videos' : tab === 'bytag' ? 'By Tag' : tab === 'lists' ? 'Lists' : tab === 'categories' ? 'Categories' : 'Quick Tags'}
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {activeTab === 'videos' && (
@@ -381,7 +550,7 @@ export function AdminScreen({ navigation }: any) {
                         <View style={{ flex: 1 }}>
                           <Text style={styles.videoTitle}>{vid?.title || req.videoId}</Text>
                           <Text style={styles.videoMeta}>
-                            {req.claimsOwnership ? 'Claims ownership' : 'General request'} - {new Date(req.requestedAt).toLocaleDateString()}
+                            {req.reason === 'owner_request' ? '🔑 Owner request' : req.reason === 'doesnt_belong' ? '🚫 Doesn\'t belong' : req.reason === 'other' ? '📝 Other reason' : req.claimsOwnership ? '🔑 Claims ownership' : '📝 General request'} — {new Date(req.requestedAt).toLocaleDateString()}
                           </Text>
                         </View>
                         <TouchableOpacity
@@ -425,38 +594,131 @@ export function AdminScreen({ navigation }: any) {
 
           {activeTab === 'categories' && (
             <View>
-              <Text style={styles.sectionTitle}>Custom Categories</Text>
-              <Text style={styles.hint}>Create and reorder categories shown on the home screen.</Text>
+              <Text style={styles.sectionTitle}>All Categories</Text>
+              <Text style={styles.hint}>
+                {allCategoryDefinitions.length} categories on the home screen. Tap to expand and see videos.
+              </Text>
 
-              {/* Existing categories */}
-              {categories.map((cat, idx) => (
-                <View key={cat.id} style={styles.catItem}>
-                  <View style={styles.catReorder}>
-                    <TouchableOpacity onPress={() => moveCategory(cat.id, 'up')} disabled={idx === 0}>
-                      <Ionicons name="chevron-up" size={20} color={idx === 0 ? Colors.textMuted : Colors.textPrimary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => moveCategory(cat.id, 'down')} disabled={idx === categories.length - 1}>
-                      <Ionicons name="chevron-down" size={20} color={idx === categories.length - 1 ? Colors.textMuted : Colors.textPrimary} />
-                    </TouchableOpacity>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.catTitle}>{cat.title}</Text>
-                    <Text style={styles.catFilter}>{cat.filterType}: {cat.filterValue}</Text>
-                  </View>
-                  <Switch
-                    value={cat.enabled}
-                    onValueChange={() => toggleCategory(cat.id)}
-                    trackColor={{ false: Colors.border, true: Colors.primary }}
-                  />
-                  <TouchableOpacity onPress={() => deleteCategory(cat.id)} style={{ marginLeft: Spacing.sm }}>
-                    <Ionicons name="trash-outline" size={20} color="#f44" />
-                  </TouchableOpacity>
-                </View>
-              ))}
+              {allCategoryDefinitions.map((catDef) => {
+                const isExpanded = expandedCategory === catDef.id;
+                const isCustom = catDef.type === 'custom';
+                const adminCat = isCustom ? categories.find(c => c.id === catDef.id) : null;
 
-              {/* Add new category */}
+                return (
+                  <View key={catDef.id} style={styles.catCard}>
+                    {/* Category header — tap to expand */}
+                    <TouchableOpacity
+                      style={styles.catCardHeader}
+                      onPress={() => setExpandedCategory(isExpanded ? null : catDef.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={styles.catTitle}>{catDef.title}</Text>
+                          {isCustom && (
+                            <View style={styles.customBadge}>
+                              <Text style={styles.customBadgeText}>Custom</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.catFilter}>
+                          {catDef.videos.length} videos • {catDef.filterInfo}
+                        </Text>
+                      </View>
+                      {isCustom && adminCat && (
+                        <Switch
+                          value={adminCat.enabled}
+                          onValueChange={() => toggleCategory(adminCat.id)}
+                          trackColor={{ false: Colors.border, true: Colors.primary }}
+                          style={{ marginRight: Spacing.sm }}
+                        />
+                      )}
+                      {isCustom && (
+                        <TouchableOpacity
+                          onPress={() => deleteCategory(catDef.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          style={{ marginRight: Spacing.sm }}
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#f44" />
+                        </TouchableOpacity>
+                      )}
+                      <Ionicons
+                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={20}
+                        color={Colors.textMuted}
+                      />
+                    </TouchableOpacity>
+
+                    {/* Expanded: show videos */}
+                    {isExpanded && (
+                      <View style={styles.catCardBody}>
+                        {catDef.videos.length === 0 ? (
+                          <Text style={styles.hint}>No videos in this category.</Text>
+                        ) : (
+                          catDef.videos.map((video, idx) => (
+                            <View key={video.id} style={styles.catVideoRow}>
+                              <Text style={styles.catVideoIndex}>{idx + 1}</Text>
+                              <Text style={styles.catVideoTitle} numberOfLines={1}>{video.title}</Text>
+                              <TouchableOpacity
+                                onPress={() => toggleHideVideo(video.id)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <Ionicons
+                                  name={overrides.find(o => o.videoId === video.id)?.hidden ? 'eye-off' : 'eye'}
+                                  size={16}
+                                  color={overrides.find(o => o.videoId === video.id)?.hidden ? '#f44' : Colors.textMuted}
+                                />
+                              </TouchableOpacity>
+                            </View>
+                          ))
+                        )}
+
+                        {/* Search to add for custom categories */}
+                        {isCustom && adminCat?.filterType === 'custom' && (
+                          <View style={{ marginTop: Spacing.md }}>
+                            <TextInput
+                              style={styles.searchInput}
+                              placeholder="Search videos to add..."
+                              placeholderTextColor={Colors.textMuted}
+                              value={catSearchQuery}
+                              onChangeText={setCatSearchQuery}
+                            />
+                            {catSearchQuery.trim().length > 1 && (
+                              <View>
+                                {allVideos
+                                  .filter(v => v.title.toLowerCase().includes(catSearchQuery.toLowerCase()))
+                                  .filter(v => !catDef.videos.some(cv => cv.id === v.id))
+                                  .slice(0, 8)
+                                  .map(video => (
+                                    <TouchableOpacity
+                                      key={video.id}
+                                      style={styles.byTagAddRow}
+                                      onPress={() => {
+                                        const currentIds = adminCat!.filterValue ? adminCat!.filterValue.split(',').map(s => s.trim()) : [];
+                                        const newVal = [...currentIds, video.id].join(',');
+                                        const updated = categories.map(c => c.id === adminCat!.id ? { ...c, filterValue: newVal } : c);
+                                        dispatch({ type: 'UPDATE_SETTINGS', payload: { adminCategories: updated } });
+                                        setCatSearchQuery('');
+                                      }}
+                                    >
+                                      <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                                      <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
+                                    </TouchableOpacity>
+                                  ))
+                                }
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+
+              {/* Add new custom category */}
               <View style={styles.addCatSection}>
-                <Text style={styles.sectionTitle}>Add Category</Text>
+                <Text style={styles.sectionTitle}>Add Custom Category</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Category title (e.g. Atlanta Stunts)"
@@ -522,6 +784,163 @@ export function AdminScreen({ navigation }: any) {
               </View>
             </View>
           )}
+
+          {activeTab === 'bytag' && (
+            <View>
+              <Text style={styles.sectionTitle}>Videos by Skill Tag</Text>
+              <Text style={styles.hint}>Select a tag to see and manage which videos are assigned to it.</Text>
+
+              {/* Tag selector */}
+              <View style={styles.tagGrid}>
+                {skillTags.map(tag => {
+                  const count = getVideosByTag(tag.displayName).length;
+                  const isSelected = selectedTag === tag.displayName;
+                  return (
+                    <TouchableOpacity
+                      key={tag.id}
+                      style={[styles.readOnlyTag, isSelected && { backgroundColor: Colors.primary + '33', borderWidth: 1, borderColor: Colors.primary }]}
+                      onPress={() => setSelectedTag(isSelected ? null : tag.displayName)}
+                    >
+                      <Text style={[styles.readOnlyTagText, isSelected && { color: Colors.primary }]}>{tag.displayName}</Text>
+                      <Text style={styles.readOnlyTagCategory}>{count} videos</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Videos for selected tag */}
+              {selectedTag && (
+                <View style={{ marginTop: Spacing.xl }}>
+                  <Text style={styles.sectionTitle}>{selectedTag}</Text>
+                  <Text style={styles.hint}>{getVideosByTag(selectedTag).length} videos have this tag. Tap ✕ to remove the tag from a video.</Text>
+                  {getVideosByTag(selectedTag).map(video => {
+                    const override = getOverride(video.id);
+                    const currentTags = override?.tagOverrides || video.skillTags.map(t => t.displayName);
+                    return (
+                      <View key={video.id} style={styles.byTagVideoRow}>
+                        <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
+                        <TouchableOpacity
+                          onPress={() => {
+                            const newTags = currentTags.filter(t => t !== selectedTag);
+                            updateVideoTags(video.id, newTags);
+                          }}
+                        >
+                          <Ionicons name="close-circle" size={20} color="#f44" />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+
+                  {/* Add video to this tag */}
+                  <Text style={[styles.hint, { marginTop: Spacing.lg }]}>Add a video to "{selectedTag}":</Text>
+                  <View>
+                    {allVideos
+                      .filter(v => !getVideosByTag(selectedTag!).some(vt => vt.id === v.id))
+                      .filter(v => searchQuery ? v.title.toLowerCase().includes(searchQuery.toLowerCase()) : false)
+                      .slice(0, 10)
+                      .map(video => (
+                        <TouchableOpacity
+                          key={video.id}
+                          style={styles.byTagAddRow}
+                          onPress={() => {
+                            const override = getOverride(video.id);
+                            const currentTags = override?.tagOverrides || video.skillTags.map(t => t.displayName);
+                            if (!currentTags.includes(selectedTag!)) {
+                              updateVideoTags(video.id, [...currentTags, selectedTag!]);
+                            }
+                          }}
+                        >
+                          <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                          <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
+                        </TouchableOpacity>
+                      ))
+                    }
+                  </View>
+                  <TextInput
+                    style={[styles.searchInput, { marginTop: Spacing.sm }]}
+                    placeholder="Search videos to add..."
+                    placeholderTextColor={Colors.textMuted}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                </View>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'lists' && (
+            <View>
+              <Text style={styles.sectionTitle}>Curated Lists</Text>
+              <Text style={styles.hint}>Manage which videos appear in Featured, Top 10, Editor's Picks, and other curated sections.</Text>
+
+              {/* List selector */}
+              <View style={styles.filterTypeRow}>
+                {[
+                  { key: 'featured', label: 'Featured' },
+                  { key: 'top10', label: 'Top 10' },
+                  { key: 'editors_pick', label: "Editor's Pick" },
+                  { key: 'new_this_week', label: 'New This Week' },
+                ].map(list => (
+                  <TouchableOpacity
+                    key={list.key}
+                    style={[styles.filterTypeBtn, selectedList === list.key && styles.filterTypeBtnActive]}
+                    onPress={() => setSelectedList(list.key)}
+                  >
+                    <Text style={[styles.filterTypeText, selectedList === list.key && styles.filterTypeTextActive]}>
+                      {list.label} ({getVideosInList(list.key).length})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Videos in selected list */}
+              <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>
+                {selectedList === 'featured' ? 'Featured' : selectedList === 'top10' ? 'Top 10' : selectedList === 'editors_pick' ? "Editor's Picks" : 'New This Week'}
+              </Text>
+
+              {getVideosInList(selectedList).length === 0 ? (
+                <Text style={styles.hint}>No videos in this list yet. Search below to add videos.</Text>
+              ) : (
+                getVideosInList(selectedList).map(video => (
+                  <View key={video.id} style={styles.byTagVideoRow}>
+                    <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
+                    <TouchableOpacity onPress={() => toggleVideoInList(video.id, selectedList)}>
+                      <Ionicons name="close-circle" size={20} color="#f44" />
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+
+              {/* Add video to list */}
+              <TextInput
+                style={[styles.searchInput, { marginTop: Spacing.lg }]}
+                placeholder="Search videos to add to this list..."
+                placeholderTextColor={Colors.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.trim().length > 1 && (
+                <View>
+                  {allVideos
+                    .filter(v => v.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .filter(v => !isVideoInList(v.id, selectedList))
+                    .slice(0, 10)
+                    .map(video => (
+                      <TouchableOpacity
+                        key={video.id}
+                        style={styles.byTagAddRow}
+                        onPress={() => toggleVideoInList(video.id, selectedList)}
+                      >
+                        <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                        <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
+                      </TouchableOpacity>
+                    ))
+                  }
+                </View>
+              )}
+            </View>
+          )}
+
           <View style={{ height: 100 }} />
         </ScrollView>
       </View>
@@ -535,7 +954,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.lg, paddingTop: 60 },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
   headerTitle: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
-  tabs: { flexDirection: 'row', paddingHorizontal: Spacing.lg, gap: Spacing.sm, marginBottom: Spacing.md },
+  tabs: { marginBottom: Spacing.md, maxHeight: 44 },
+  tabsContent: { paddingHorizontal: Spacing.lg, gap: Spacing.sm },
   tab: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, borderRadius: BorderRadius.round, backgroundColor: Colors.surface },
   tabActive: { backgroundColor: Colors.primary },
   tabText: { color: Colors.textSecondary, fontSize: FontSize.md, fontWeight: FontWeight.medium },
@@ -562,10 +982,34 @@ const styles = StyleSheet.create({
   catItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.sm, gap: Spacing.sm },
   catReorder: { gap: 2 },
   catTitle: { color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.semibold },
-  catFilter: { color: Colors.textMuted, fontSize: FontSize.xs },
+  catFilter: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 2 },
+
+  // Category cards
+  catCard: {
+    backgroundColor: Colors.surface, borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm, overflow: 'hidden',
+  },
+  catCardHeader: {
+    flexDirection: 'row', alignItems: 'center', padding: Spacing.md, gap: Spacing.sm,
+  },
+  catCardBody: {
+    paddingHorizontal: Spacing.md, paddingBottom: Spacing.md,
+    borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  catVideoRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border + '44',
+  },
+  catVideoIndex: { color: Colors.textMuted, fontSize: FontSize.xs, width: 24, textAlign: 'center' },
+  catVideoTitle: { flex: 1, color: Colors.textPrimary, fontSize: FontSize.sm },
+  customBadge: {
+    backgroundColor: Colors.primary + '33', paddingHorizontal: 6, paddingVertical: 1,
+    borderRadius: BorderRadius.round,
+  },
+  customBadgeText: { color: Colors.primary, fontSize: 9, fontWeight: FontWeight.semibold },
   addCatSection: { marginTop: Spacing.xxl },
   input: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.md, marginBottom: Spacing.md },
-  filterTypeRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
+  filterTypeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.md },
   filterTypeBtn: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md, borderRadius: BorderRadius.round, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   filterTypeBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '33' },
   filterTypeText: { color: Colors.textSecondary, fontSize: FontSize.sm },
@@ -581,4 +1025,16 @@ const styles = StyleSheet.create({
   readOnlyTagCategory: { color: Colors.textMuted, fontSize: 9 },
   removalSection: { marginBottom: Spacing.xl, padding: Spacing.md, backgroundColor: '#f4433611', borderRadius: BorderRadius.md, borderWidth: 1, borderColor: '#f4433644' },
   removalItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
+
+  // By Tag & Lists views
+  byTagVideoRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.surface, borderRadius: BorderRadius.sm,
+    padding: Spacing.md, marginBottom: Spacing.xs, gap: Spacing.sm,
+  },
+  byTagAddRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
 });

@@ -97,6 +97,7 @@ export interface Rating {
   videoId: string;
   thumbs: ThumbRating;
   difficultyRating: DifficultyRating | null;
+  bestOfBest: boolean;
   reviewText: string;
   createdAt: string;
 }

@@ -32,6 +32,7 @@ export interface AdminVideoOverride {
   locationTags?: string[]; // city/location tags
   peopleOverrides?: string[]; // additional people names added via admin
   movieTags?: string[]; // movie/production names
+  curatedLists?: string[]; // e.g. 'featured', 'top10', 'editors_pick'
 }
 
 export interface AppSettings {
@@ -51,7 +52,7 @@ export interface AppSettings {
   vaultSubmissions: Array<{ videoId: string; title: string; author: string; thumbnailUrl: string; submittedAt: string }>;
   adminCategories: AdminCategory[];
   adminVideoOverrides: AdminVideoOverride[];
-  removalRequests: Array<{ videoId: string; requestedAt: string; claimsOwnership: boolean }>;
+  removalRequests: Array<{ videoId: string; requestedAt: string; claimsOwnership: boolean; reason?: string }>;
   personTags: Array<{ videoId: string; name: string; timestampSeconds: number; role: string; taggedAt: string }>;
 }
 

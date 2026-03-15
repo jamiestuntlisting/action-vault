@@ -126,10 +126,8 @@ export function HeroCarousel({ videos, onPlay, onInfo, onAddToList, isInList }: 
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    maxWidth: MAX_WIDTH,
     height: BANNER_HEIGHT,
     marginBottom: Spacing.xl,
-    alignSelf: 'center',
   },
   slide: {
     width: EFFECTIVE_WIDTH,

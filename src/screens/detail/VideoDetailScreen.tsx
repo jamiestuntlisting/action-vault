@@ -7,7 +7,6 @@ import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme
 import { useAppState } from '../../services/AppState';
 import { videoMap, videos } from '../../data';
 import { SkillTagChip } from '../../components/SkillTagChip';
-import { DifficultyBadge } from '../../components/DifficultyBadge';
 import { ContentRow } from '../../components/ContentRow';
 import { Video } from '../../types';
 import { TmdbService, StuntCrewMember, posterUrl } from '../../services/TmdbService';
@@ -25,6 +24,7 @@ export function VideoDetailScreen({ route, navigation }: any) {
   const [tmdbCrew, setTmdbCrew] = useState<StuntCrewMember[]>([]);
   const [tmdbPoster, setTmdbPoster] = useState<string | null>(null);
   const [tmdbLoading, setTmdbLoading] = useState(false);
+  const [showAllCrew, setShowAllCrew] = useState(false);
 
   useEffect(() => {
     if (!video || !TmdbService.hasApiKey()) return;
@@ -74,44 +74,44 @@ export function VideoDetailScreen({ route, navigation }: any) {
 
   function handleRemoveVideo() {
     Alert.alert(
-      'Remove This Video',
-      'Are you the owner of this video?',
+      'Why should this video be removed?',
+      'Please select a reason:',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Yes, I own this video',
+          text: "This video doesn't belong on this site",
           onPress: () => {
-            const existing = state.settings.removalRequests || [];
-            dispatch({
-              type: 'UPDATE_SETTINGS',
-              payload: {
-                removalRequests: [
-                  ...existing,
-                  { videoId, requestedAt: new Date().toISOString(), claimsOwnership: true },
-                ],
-              },
-            });
-            Alert.alert('Request Submitted', 'Your removal request has been flagged for admin review.');
+            submitRemovalRequest('doesnt_belong', false);
           },
         },
         {
-          text: 'No, but I want it removed',
+          text: 'I am the video owner and want it removed',
           onPress: () => {
-            const existing = state.settings.removalRequests || [];
-            dispatch({
-              type: 'UPDATE_SETTINGS',
-              payload: {
-                removalRequests: [
-                  ...existing,
-                  { videoId, requestedAt: new Date().toISOString(), claimsOwnership: false },
-                ],
-              },
-            });
-            Alert.alert('Request Submitted', 'Your removal request has been flagged for admin review.');
+            submitRemovalRequest('owner_request', true);
+          },
+        },
+        {
+          text: 'Other reason',
+          onPress: () => {
+            submitRemovalRequest('other', false);
           },
         },
       ]
     );
+  }
+
+  function submitRemovalRequest(reason: string, claimsOwnership: boolean) {
+    const existing = state.settings.removalRequests || [];
+    dispatch({
+      type: 'UPDATE_SETTINGS',
+      payload: {
+        removalRequests: [
+          ...existing,
+          { videoId, requestedAt: new Date().toISOString(), claimsOwnership, reason },
+        ],
+      },
+    });
+    Alert.alert('Request Submitted', 'Your removal request has been flagged for admin review. Thank you for your feedback.');
   }
 
   function handleThumb(direction: 'up' | 'down') {
@@ -122,6 +122,7 @@ export function VideoDetailScreen({ route, navigation }: any) {
         videoId,
         thumbs: rating?.thumbs === direction ? null : direction,
         difficultyRating: rating?.difficultyRating || null,
+        bestOfBest: rating?.bestOfBest || false,
         reviewText: rating?.reviewText || '',
         createdAt: new Date().toISOString(),
       },
@@ -159,7 +160,6 @@ export function VideoDetailScreen({ route, navigation }: any) {
           <View style={styles.platformBadge}>
             <Text style={styles.platformText}>{video.sourcePlatform.toUpperCase()}</Text>
           </View>
-          <DifficultyBadge rating={video.averageDifficulty} />
         </View>
 
         <View style={styles.actions}>
@@ -233,22 +233,71 @@ export function VideoDetailScreen({ route, navigation }: any) {
             <ActivityIndicator size="small" color={Colors.primary} />
           </View>
         )}
-        {tmdbCrew.length > 0 && (
-          <View style={styles.creditSection}>
-            <Text style={styles.creditLabel}>Stunt Crew (via TMDB)</Text>
-            {tmdbCrew.map((c, i) => (
-              <View key={i} style={styles.tmdbCrewRow}>
-                {c.photoUrl && (
-                  <Image source={{ uri: c.photoUrl }} style={styles.tmdbCrewPhoto} contentFit="cover" />
-                )}
-                <View style={styles.tmdbCrewInfo}>
-                  <Text style={styles.creditLink}>{c.name}</Text>
-                  <Text style={styles.tmdbCrewJob}>{c.job}</Text>
-                </View>
+        {tmdbCrew.length > 0 && (() => {
+          // Group by job role
+          const grouped = tmdbCrew.reduce((acc, c) => {
+            const job = c.job || 'Stunts';
+            if (!acc[job]) acc[job] = [];
+            acc[job].push(c);
+            return acc;
+          }, {} as Record<string, StuntCrewMember[]>);
+          // Sort roles: Coordinators first, then Choreographers, then Stunts
+          const roleOrder = ['Stunt Coordinator', 'Fight Choreographer', 'Stunts'];
+          const sortedRoles = Object.keys(grouped).sort((a, b) => {
+            const ai = roleOrder.indexOf(a);
+            const bi = roleOrder.indexOf(b);
+            return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+          });
+          const INITIAL_SHOW = 6;
+          const totalCount = tmdbCrew.length;
+          const visibleCrew = showAllCrew ? tmdbCrew : tmdbCrew.slice(0, INITIAL_SHOW);
+          const visibleGrouped = visibleCrew.reduce((acc, c) => {
+            const job = c.job || 'Stunts';
+            if (!acc[job]) acc[job] = [];
+            acc[job].push(c);
+            return acc;
+          }, {} as Record<string, StuntCrewMember[]>);
+          const visibleRoles = Object.keys(visibleGrouped).sort((a, b) => {
+            const ai = roleOrder.indexOf(a);
+            const bi = roleOrder.indexOf(b);
+            return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+          });
+
+          return (
+            <View style={styles.creditSection}>
+              <Text style={styles.creditLabel}>Stunt Crew (via TMDB)</Text>
+              <View style={styles.tmdbCrewGrid}>
+                {visibleRoles.map(role => (
+                  <View key={role}>
+                    <Text style={styles.tmdbRoleLabel}>{role}</Text>
+                    <View style={styles.tmdbCrewChips}>
+                      {visibleGrouped[role].map((c, i) => (
+                        <View key={i} style={styles.tmdbCrewChip}>
+                          {c.photoUrl ? (
+                            <Image source={{ uri: c.photoUrl }} style={styles.tmdbCrewPhoto} contentFit="cover" />
+                          ) : (
+                            <View style={styles.tmdbCrewPhotoPlaceholder}>
+                              <Text style={styles.tmdbCrewInitial}>{c.name.charAt(0)}</Text>
+                            </View>
+                          )}
+                          <Text style={styles.tmdbCrewName} numberOfLines={1}>{c.name}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
-        )}
+              {totalCount > INITIAL_SHOW && (
+                <TouchableOpacity style={styles.showMoreBtn} onPress={() => setShowAllCrew(!showAllCrew)}>
+                  <Text style={styles.showMoreText}>
+                    {showAllCrew ? 'Show less' : `Show all ${totalCount} crew members`}
+                  </Text>
+                  <Ionicons name={showAllCrew ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textTertiary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })()}
 
         {video.rigTags.length > 0 && (
           <View style={styles.creditSection}>
@@ -476,24 +525,69 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     fontWeight: FontWeight.medium,
   },
-  tmdbCrewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: 4,
+  tmdbCrewGrid: {
+    gap: Spacing.md,
+    marginTop: Spacing.sm,
   },
-  tmdbCrewPhoto: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.surfaceLight,
-  },
-  tmdbCrewInfo: {
-    flex: 1,
-  },
-  tmdbCrewJob: {
+  tmdbRoleLabel: {
     color: Colors.textTertiary,
     fontSize: FontSize.xs,
+    fontWeight: FontWeight.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: Spacing.sm,
+  },
+  tmdbCrewChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  tmdbCrewChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.round,
+    paddingRight: Spacing.md,
+    paddingVertical: 4,
+    paddingLeft: 4,
+    gap: Spacing.sm,
+  },
+  tmdbCrewPhoto: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.surfaceLight,
+  },
+  tmdbCrewPhotoPlaceholder: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.surfaceHighlight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tmdbCrewInitial: {
+    color: Colors.textTertiary,
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+  },
+  tmdbCrewName: {
+    color: Colors.textPrimary,
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
+    maxWidth: 140,
+  },
+  showMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  showMoreText: {
+    color: Colors.textTertiary,
+    fontSize: FontSize.sm,
   },
   reviewButton: {
     flexDirection: 'row',

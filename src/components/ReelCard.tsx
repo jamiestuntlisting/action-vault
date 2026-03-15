@@ -1,0 +1,145 @@
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
+import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../theme';
+import { StuntReel, SkillReel } from '../services/StuntListingService';
+
+const CARD_WIDTH = 160;
+const THUMB_HEIGHT = 90;
+
+interface ReelCardProps {
+  reel: StuntReel | SkillReel;
+  onPress: () => void;
+  width?: number;
+}
+
+export function ReelCard({ reel, onPress, width = CARD_WIDTH }: ReelCardProps) {
+  const isSkill = 'skill' in reel;
+  const title = isSkill ? (reel as SkillReel).skill : (reel as StuntReel).title;
+  const thumbUrl = reel.thumb || (reel.youtubeId ? `https://i.ytimg.com/vi/${reel.youtubeId}/hqdefault.jpg` : null);
+
+  return (
+    <TouchableOpacity style={[styles.container, { width }]} onPress={onPress} activeOpacity={0.8}>
+      <View style={[styles.thumbContainer, { width, height: width * 0.5625 }]}>
+        {thumbUrl ? (
+          <Image source={{ uri: thumbUrl }} style={styles.thumbnail} contentFit="cover" />
+        ) : (
+          <View style={styles.placeholderThumb}>
+            <Text style={styles.placeholderText}>🎬</Text>
+          </View>
+        )}
+        {/* StuntListing badge */}
+        <View style={styles.slBadge}>
+          <Text style={styles.slBadgeText}>SL</Text>
+        </View>
+        {isSkill && (reel as SkillReel).level && (reel as SkillReel).level !== 'Not rated' && (
+          <View style={styles.levelBadge}>
+            <Text style={styles.levelText}>{(reel as SkillReel).level}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.title} numberOfLines={2}>{title}</Text>
+      <View style={styles.performerRow}>
+        {reel.photo ? (
+          <Image source={{ uri: reel.photo }} style={styles.performerPhoto} contentFit="cover" />
+        ) : (
+          <View style={styles.performerPhotoPlaceholder}>
+            <Text style={styles.performerInitial}>{reel.name.charAt(0)}</Text>
+          </View>
+        )}
+        <Text style={styles.performerName} numberOfLines={1}>{reel.name}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    marginRight: Spacing.sm,
+  },
+  thumbContainer: {
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+    backgroundColor: Colors.surface,
+    marginBottom: Spacing.xs,
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  placeholderThumb: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceHighlight,
+  },
+  placeholderText: {
+    fontSize: 24,
+  },
+  slBadge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: '#E50914',
+    borderRadius: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  slBadgeText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 0.5,
+  },
+  levelBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    borderRadius: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  levelText: {
+    color: Colors.textSecondary,
+    fontSize: 9,
+    fontWeight: FontWeight.medium,
+  },
+  title: {
+    color: Colors.textPrimary,
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
+    lineHeight: 16,
+    marginBottom: 2,
+  },
+  performerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  performerPhoto: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.surfaceLight,
+  },
+  performerPhotoPlaceholder: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.surfaceHighlight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  performerInitial: {
+    color: Colors.textTertiary,
+    fontSize: 8,
+    fontWeight: FontWeight.bold,
+  },
+  performerName: {
+    color: Colors.textTertiary,
+    fontSize: FontSize.xs,
+    flex: 1,
+  },
+});

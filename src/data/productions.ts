@@ -16,6 +16,7 @@ export const productions: Production[] = [
   { id: 'prod-13', title: 'Deadpool & Wolverine', year: 2024, studio: 'Marvel/Disney', budgetTier: 'tentpole' },
   { id: 'prod-14', title: 'Kill Bill: Volume 1', year: 2003, studio: 'Miramax', budgetTier: 'mid' },
   { id: 'prod-15', title: 'The Raid', year: 2011, studio: 'Sony Pictures Classics', budgetTier: 'indie' },
+  { id: 'prod-16', title: 'Fast Five', year: 2011, studio: 'Universal', budgetTier: 'tentpole' },
 ];
 
 export const productionMap = new Map(productions.map(p => [p.id, p]));

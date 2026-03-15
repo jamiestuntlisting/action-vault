@@ -1,13 +1,15 @@
 import React, { useMemo } from 'react';
-import { ScrollView, View, Text, StyleSheet, RefreshControl, TouchableOpacity, FlatList } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, RefreshControl, TouchableOpacity, FlatList, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
 import { videos, videoMap } from '../../data';
 import { HeroCarousel } from '../../components/HeroCarousel';
 import { ContentRow } from '../../components/ContentRow';
+import { ReelRow } from '../../components/ReelRow';
 import { Video } from '../../types';
 import { skillTags } from '../../data/skillTags';
+import { stuntReels, skillReels, getSkillReelsByCategory } from '../../services/StuntListingService';
 
 const MAX_WIDTH = 960;
 
@@ -133,6 +135,10 @@ export function HomeScreen({ navigation }: any) {
     navigation.navigate('VideoDetail', { videoId: video.id });
   }
 
+  function navigateToCategory(title: string, vids: Video[]) {
+    navigation.navigate('CategoryVideos', { title, videoIds: vids.map(v => v.id) });
+  }
+
   function playVideo(video: Video) {
     navigation.navigate('VideoPlayer', { videoId: video.id });
   }
@@ -202,7 +208,7 @@ export function HomeScreen({ navigation }: any) {
           title="Trending Now"
           videos={trending}
           onVideoPress={navigateToVideo}
-          onSeeAll={() => navigation.navigate('Search', { query: 'trending' })}
+          onSeeAll={() => navigateToCategory('Trending Now', trending)}
         />
 
         <ContentRow
@@ -210,28 +216,28 @@ export function HomeScreen({ navigation }: any) {
           videos={top10}
           onVideoPress={navigateToVideo}
           showRanks
-          onSeeAll={() => navigation.navigate('Search', { query: 'top' })}
+          onSeeAll={() => navigateToCategory('Top 10 This Week', top10)}
         />
 
         <ContentRow
           title="New This Week"
           videos={newThisWeek}
           onVideoPress={navigateToVideo}
-          onSeeAll={() => navigation.navigate('Search', { query: 'new' })}
+          onSeeAll={() => navigateToCategory('New This Week', newThisWeek)}
         />
 
         <ContentRow
           title="Popular in Fight Choreography"
           videos={fightChoreography}
           onVideoPress={navigateToVideo}
-          onSeeAll={() => navigation.navigate('Search', { query: 'fight' })}
+          onSeeAll={() => navigateToCategory('Fight Choreography', fightChoreography)}
         />
 
         <ContentRow
           title="Car Work & Driving"
           videos={carWork}
           onVideoPress={navigateToVideo}
-          onSeeAll={() => navigation.navigate('Search', { query: 'car' })}
+          onSeeAll={() => navigateToCategory('Car Work & Driving', carWork)}
         />
 
         {classicStunts.length > 0 && (
@@ -239,7 +245,7 @@ export function HomeScreen({ navigation }: any) {
             title="Classic Stunts"
             videos={classicStunts}
             onVideoPress={navigateToVideo}
-            onSeeAll={() => navigation.navigate('Search', { query: 'classic' })}
+            onSeeAll={() => navigateToCategory('Classic Stunts', classicStunts)}
           />
         )}
 
@@ -248,7 +254,7 @@ export function HomeScreen({ navigation }: any) {
             title="Action Actors"
             videos={actionActors}
             onVideoPress={navigateToVideo}
-            onSeeAll={() => navigation.navigate('Search', { query: 'action star' })}
+            onSeeAll={() => navigateToCategory('Action Actors', actionActors)}
           />
         )}
 
@@ -257,7 +263,7 @@ export function HomeScreen({ navigation }: any) {
             title="Spy & Action Thrillers"
             videos={bondAndSpy}
             onVideoPress={navigateToVideo}
-            onSeeAll={() => navigation.navigate('Search', { query: 'spy bond' })}
+            onSeeAll={() => navigateToCategory('Spy & Action Thrillers', bondAndSpy)}
           />
         )}
 
@@ -266,7 +272,7 @@ export function HomeScreen({ navigation }: any) {
             title="Superhero Stunts"
             videos={marvelDC}
             onVideoPress={navigateToVideo}
-            onSeeAll={() => navigation.navigate('Search', { query: 'marvel' })}
+            onSeeAll={() => navigateToCategory('Superhero Stunts', marvelDC)}
           />
         )}
 
@@ -275,7 +281,7 @@ export function HomeScreen({ navigation }: any) {
             title="Wire & Rig Work"
             videos={wireAndRigWork}
             onVideoPress={navigateToVideo}
-            onSeeAll={() => navigation.navigate('Search', { query: 'wire rig' })}
+            onSeeAll={() => navigateToCategory('Wire & Rig Work', wireAndRigWork)}
           />
         )}
 
@@ -284,7 +290,7 @@ export function HomeScreen({ navigation }: any) {
             title="TV Show Stunts: Behind the Scenes"
             videos={tvBTS}
             onVideoPress={navigateToVideo}
-            onSeeAll={() => navigation.navigate('Search', { query: 'tv show' })}
+            onSeeAll={() => navigateToCategory('TV Show Stunts', tvBTS)}
           />
         )}
 
@@ -293,7 +299,44 @@ export function HomeScreen({ navigation }: any) {
             title="Stunt Documentaries & Interviews"
             videos={stuntDocs}
             onVideoPress={navigateToVideo}
-            onSeeAll={() => navigation.navigate('Search', { query: 'documentary' })}
+            onSeeAll={() => navigateToCategory('Stunt Documentaries & Interviews', stuntDocs)}
+          />
+        )}
+
+        {/* StuntListing Reels — own dedicated sections */}
+        {stuntReels.length > 0 && (
+          <ReelRow
+            title="Stunt Reels"
+            subtitle="From StuntListing performers"
+            reels={stuntReels.slice(0, 20)}
+            onReelPress={(reel) => Linking.openURL(reel.url)}
+          />
+        )}
+
+        {skillReels.length > 0 && (
+          <ReelRow
+            title="Skill Reels"
+            subtitle="Individual skills from StuntListing performers"
+            reels={skillReels.filter(r => r.cat === 'Stunt Skills').slice(0, 20)}
+            onReelPress={(reel) => Linking.openURL(reel.url)}
+          />
+        )}
+
+        {skillReels.filter(r => r.cat === 'Martial Arts & Weapons').length > 0 && (
+          <ReelRow
+            title="Martial Arts Reels"
+            subtitle="From StuntListing performers"
+            reels={skillReels.filter(r => r.cat === 'Martial Arts & Weapons').slice(0, 20)}
+            onReelPress={(reel) => Linking.openURL(reel.url)}
+          />
+        )}
+
+        {skillReels.filter(r => r.cat === 'Vehicles').length > 0 && (
+          <ReelRow
+            title="Vehicle Skill Reels"
+            subtitle="From StuntListing performers"
+            reels={skillReels.filter(r => r.cat === 'Vehicles').slice(0, 20)}
+            onReelPress={(reel) => Linking.openURL(reel.url)}
           />
         )}
 
@@ -302,7 +345,7 @@ export function HomeScreen({ navigation }: any) {
             title="Atlanta Stunts"
             videos={atlantaStunts}
             onVideoPress={navigateToVideo}
-            onSeeAll={() => navigation.navigate('Search', { query: 'Atlanta' })}
+            onSeeAll={() => navigateToCategory('Atlanta Stunts', atlantaStunts)}
           />
         )}
 
@@ -311,7 +354,7 @@ export function HomeScreen({ navigation }: any) {
             title="New York Stunts"
             videos={newYorkStunts}
             onVideoPress={navigateToVideo}
-            onSeeAll={() => navigation.navigate('Search', { query: 'New York' })}
+            onSeeAll={() => navigateToCategory('New York Stunts', newYorkStunts)}
           />
         )}
 
@@ -320,7 +363,7 @@ export function HomeScreen({ navigation }: any) {
             title="Chicago Stunts"
             videos={chicagoStunts}
             onVideoPress={navigateToVideo}
-            onSeeAll={() => navigation.navigate('Search', { query: 'Chicago' })}
+            onSeeAll={() => navigateToCategory('Chicago Stunts', chicagoStunts)}
           />
         )}
 
@@ -328,21 +371,21 @@ export function HomeScreen({ navigation }: any) {
           title="Falls & High Work"
           videos={fallsVideos}
           onVideoPress={navigateToVideo}
-          onSeeAll={() => navigation.navigate('Search', { query: 'falls' })}
+          onSeeAll={() => navigateToCategory('Falls & High Work', fallsVideos)}
         />
 
         <ContentRow
           title="Fire & Pyro"
           videos={fireVideos}
           onVideoPress={navigateToVideo}
-          onSeeAll={() => navigation.navigate('Search', { query: 'fire' })}
+          onSeeAll={() => navigateToCategory('Fire & Pyro', fireVideos)}
         />
 
         <ContentRow
           title="Training & Safety"
           videos={trainingVideos}
           onVideoPress={navigateToVideo}
-          onSeeAll={() => navigation.navigate('Search', { query: 'training' })}
+          onSeeAll={() => navigateToCategory('Training & Safety', trainingVideos)}
         />
       </View>
     </ScrollView>

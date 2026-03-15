@@ -165,7 +165,6 @@ export function SettingsScreen({ navigation }: any) {
       {/* Quick links */}
       <View style={styles.section}>
         <SettingsRow icon="list-outline" label="My List" onPress={() => navigation.navigate('MyList')} />
-        <SettingsRow icon="notifications-outline" label="Notifications" onPress={() => navigation.navigate('AllNotifications')} />
       </View>
 
       {/* YouTube Channel / Add Videos */}

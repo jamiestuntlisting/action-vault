@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
 import { videoMap } from '../../data';
-import { DifficultyRating } from '../../types';
+
+const MAX_REVIEW_CHARS = 1000;
 
 export function ReviewModalScreen({ route, navigation }: any) {
   const { videoId } = route.params;
@@ -13,7 +14,7 @@ export function ReviewModalScreen({ route, navigation }: any) {
   const existing = getRating(videoId);
 
   const [thumbs, setThumbs] = useState(existing?.thumbs || null);
-  const [difficulty, setDifficulty] = useState<DifficultyRating | null>(existing?.difficultyRating || null);
+  const [bestOfBest, setBestOfBest] = useState(existing?.bestOfBest || false);
   const [reviewText, setReviewText] = useState(existing?.reviewText || '');
 
   if (!video) return null;
@@ -25,7 +26,8 @@ export function ReviewModalScreen({ route, navigation }: any) {
         profileId: '',
         videoId,
         thumbs,
-        difficultyRating: difficulty,
+        difficultyRating: null,
+        bestOfBest,
         reviewText: reviewText.trim(),
         createdAt: new Date().toISOString(),
       },
@@ -34,7 +36,7 @@ export function ReviewModalScreen({ route, navigation }: any) {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.cancelText}>Cancel</Text>
@@ -64,38 +66,44 @@ export function ReviewModalScreen({ route, navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      {/* Difficulty */}
-      <Text style={styles.sectionLabel}>Difficulty Rating</Text>
-      <View style={styles.starsRow}>
-        {([1, 2, 3, 4, 5] as DifficultyRating[]).map(n => (
-          <TouchableOpacity key={n} onPress={() => setDifficulty(difficulty === n ? null : n)}>
-            <Ionicons
-              name={difficulty && n <= difficulty ? 'star' : 'star-outline'}
-              size={36}
-              color={difficulty && n <= difficulty ? Colors.warning : Colors.textTertiary}
-            />
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* Best of the Best */}
+      <Text style={styles.sectionLabel}>Is this one of the best?</Text>
+      <TouchableOpacity
+        style={[styles.bestOfBestButton, bestOfBest && styles.bestOfBestActive]}
+        onPress={() => setBestOfBest(!bestOfBest)}
+        activeOpacity={0.7}
+      >
+        <Ionicons name={bestOfBest ? 'trophy' : 'trophy-outline'} size={24} color={bestOfBest ? '#FFD700' : Colors.textTertiary} />
+        <Text style={[styles.bestOfBestText, bestOfBest && styles.bestOfBestTextActive]}>
+          Best of the Best
+        </Text>
+        {bestOfBest && (
+          <Ionicons name="checkmark-circle" size={20} color="#FFD700" />
+        )}
+      </TouchableOpacity>
+      <Text style={styles.bestOfBestHint}>
+        Tag this video as an all-time great — the kind of stunt content everyone should see.
+      </Text>
 
       {/* Review text */}
       <Text style={styles.sectionLabel}>Review (optional)</Text>
       <TextInput
         style={styles.reviewInput}
-        placeholder="Share your thoughts... (280 chars)"
+        placeholder="Share your thoughts..."
         placeholderTextColor={Colors.inputPlaceholder}
         value={reviewText}
-        onChangeText={t => setReviewText(t.slice(0, 280))}
+        onChangeText={t => setReviewText(t.slice(0, MAX_REVIEW_CHARS))}
         multiline
-        maxLength={280}
+        maxLength={MAX_REVIEW_CHARS}
       />
-      <Text style={styles.charCount}>{reviewText.length}/280</Text>
-    </View>
+      <Text style={styles.charCount}>{reviewText.length}/{MAX_REVIEW_CHARS}</Text>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background, padding: Spacing.xxl, paddingTop: 60 },
+  container: { flex: 1, backgroundColor: Colors.background },
+  scrollContent: { padding: Spacing.xxl, paddingTop: 60, paddingBottom: 100 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xxl,
   },
@@ -112,11 +120,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: Colors.border,
   },
   thumbButtonActive: { borderColor: Colors.primary, backgroundColor: Colors.surfaceLight },
-  starsRow: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.md, marginBottom: Spacing.xxl },
+  bestOfBestButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.surface, borderRadius: BorderRadius.md,
+    padding: Spacing.lg, gap: Spacing.md, borderWidth: 2, borderColor: Colors.border,
+  },
+  bestOfBestActive: {
+    borderColor: '#FFD700', backgroundColor: 'rgba(255, 215, 0, 0.08)',
+  },
+  bestOfBestText: {
+    color: Colors.textSecondary, fontSize: FontSize.lg, fontWeight: FontWeight.semibold,
+  },
+  bestOfBestTextActive: {
+    color: '#FFD700',
+  },
+  bestOfBestHint: {
+    color: Colors.textMuted, fontSize: FontSize.xs, textAlign: 'center',
+    marginTop: Spacing.sm, marginBottom: Spacing.xxl,
+  },
   reviewInput: {
     backgroundColor: Colors.inputBackground, borderRadius: BorderRadius.md, borderWidth: 1,
     borderColor: Colors.inputBorder, padding: Spacing.lg, color: Colors.textPrimary,
-    fontSize: FontSize.md, minHeight: 100, textAlignVertical: 'top',
+    fontSize: FontSize.md, minHeight: 120, textAlignVertical: 'top',
   },
   charCount: { color: Colors.textMuted, fontSize: FontSize.xs, textAlign: 'right', marginTop: Spacing.xs },
 });
