@@ -30,7 +30,7 @@ export function PerformerProfileScreen({ route, navigation }: any) {
       <View style={styles.profileHeader}>
         <Image source={{ uri: performer.photoUrl }} style={styles.avatar} contentFit="cover" />
         <Text style={styles.name}>{performer.name}</Text>
-        <Text style={styles.role}>Stunt Performer</Text>
+        <Text style={styles.role}>{performer.role === 'stunt_performer' ? 'Stunt Performer' : performer.role === 'stunt_legend' ? 'Stunt Legend' : 'Action Star'}</Text>
         <Text style={styles.bio}>{performer.bio}</Text>
 
         <View style={styles.specialties}>

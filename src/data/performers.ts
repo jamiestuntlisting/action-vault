@@ -8,6 +8,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=KR',
     specialties: ['Firearms', 'Martial Arts', 'Car Work'],
     videoCount: 8,
+    role: 'action_star',
   },
   {
     id: 'perf-2',
@@ -16,6 +17,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=TC',
     specialties: ['High Falls', 'Vehicle Work', 'Aerial', 'Motorcycle'],
     videoCount: 11,
+    role: 'action_star',
   },
   {
     id: 'perf-3',
@@ -24,6 +26,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=RG',
     specialties: ['Precision Driving', 'Fight Choreography', 'Falls'],
     videoCount: 5,
+    role: 'action_star',
   },
   {
     id: 'perf-4',
@@ -32,6 +35,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=GD',
     specialties: ['Fight Choreography', 'Wire Work', 'High Falls'],
     videoCount: 7,
+    role: 'stunt_performer',
   },
   {
     id: 'perf-5',
@@ -40,6 +44,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=AJ',
     specialties: ['Martial Arts', 'Fight Choreography', 'Weapons'],
     videoCount: 6,
+    role: 'stunt_performer',
   },
   {
     id: 'perf-6',
@@ -48,6 +53,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=BH',
     specialties: ['High Falls', 'Fight Choreography', 'Wire Work'],
     videoCount: 5,
+    role: 'stunt_performer',
   },
   {
     id: 'perf-7',
@@ -56,6 +62,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=JC',
     specialties: ['Martial Arts', 'Comedy Stunts', 'High Falls', 'Prop Work'],
     videoCount: 3,
+    role: 'action_star',
   },
   {
     id: 'perf-8',
@@ -64,6 +71,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=HF',
     specialties: ['Fight Choreography', 'Vehicle Work', 'Falls'],
     videoCount: 2,
+    role: 'action_star',
   },
   {
     id: 'perf-9',
@@ -72,6 +80,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=BK',
     specialties: ['Physical Comedy', 'High Falls', 'Prop Gags', 'Train Stunts'],
     videoCount: 3,
+    role: 'action_star',
   },
   {
     id: 'perf-10',
@@ -80,6 +89,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=CT',
     specialties: ['Fight Choreography', 'Car Work', 'Weapons'],
     videoCount: 2,
+    role: 'action_star',
   },
   {
     id: 'perf-11',
@@ -88,6 +98,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=BP',
     specialties: ['Fight Choreography', 'Weapons', 'Train Stunts'],
     videoCount: 1,
+    role: 'action_star',
   },
   {
     id: 'perf-12',
@@ -96,6 +107,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=TH',
     specialties: ['Wire Work', 'Acrobatics', 'Fight Choreography'],
     videoCount: 1,
+    role: 'action_star',
   },
   {
     id: 'perf-13',
@@ -104,14 +116,16 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=SL',
     specialties: ['Martial Arts', 'Wire Work', 'Fight Choreography'],
     videoCount: 2,
+    role: 'action_star',
   },
   {
     id: 'perf-14',
     name: 'Hal Needham',
-    bio: 'Legendary stunt performer and coordinator. Once the highest-paid stuntman in Hollywood. Founded Stunts Unlimited. Doubled Burt Reynolds.',
+    bio: 'Legendary stunt performer and director. Once the highest-paid stuntman in Hollywood. Founded Stunts Unlimited. Doubled Burt Reynolds.',
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=HN',
     specialties: ['Car Work', 'High Falls', 'Horse Work', 'Fire Burns'],
     videoCount: 1,
+    role: 'stunt_legend',
   },
   {
     id: 'perf-15',
@@ -120,6 +134,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=ZB',
     specialties: ['Fight Choreography', 'Car Work', 'High Falls'],
     videoCount: 1,
+    role: 'stunt_performer',
   },
   {
     id: 'perf-16',
@@ -128,6 +143,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=LL',
     specialties: ['Sword Fighting', 'Weapons', 'Historical Combat'],
     videoCount: 1,
+    role: 'stunt_performer',
   },
   {
     id: 'perf-17',
@@ -136,6 +152,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=AL',
     specialties: ['Martial Arts', 'Fight Choreography', 'Tricking'],
     videoCount: 2,
+    role: 'stunt_performer',
   },
   {
     id: 'perf-18',
@@ -144,6 +161,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=BL',
     specialties: ['Martial Arts', 'Fight Choreography', 'Tricking'],
     videoCount: 2,
+    role: 'stunt_performer',
   },
   {
     id: 'perf-19',
@@ -152,6 +170,7 @@ export const performers: Performer[] = [
     photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/ff6b00?text=LH',
     specialties: ['Car Rolls', 'Cannon Rolls', 'Vehicle Stunts'],
     videoCount: 1,
+    role: 'stunt_performer',
   },
 ];
 

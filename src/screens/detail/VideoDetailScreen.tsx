@@ -192,10 +192,20 @@ export function VideoDetailScreen({ route, navigation }: any) {
           </View>
         )}
 
-        {video.performers.length > 0 && (
+        {video.performers.filter(p => p.role === 'stunt_performer' || p.role === 'stunt_legend').length > 0 && (
           <View style={styles.creditSection}>
-            <Text style={styles.creditLabel}>Performer{video.performers.length > 1 ? 's' : ''}</Text>
-            {video.performers.map(p => (
+            <Text style={styles.creditLabel}>Stunt Performer{video.performers.filter(p => p.role === 'stunt_performer' || p.role === 'stunt_legend').length > 1 ? 's' : ''}</Text>
+            {video.performers.filter(p => p.role === 'stunt_performer' || p.role === 'stunt_legend').map(p => (
+              <TouchableOpacity key={p.id} onPress={() => navigation.navigate('PerformerProfile', { performerId: p.id })}>
+                <Text style={styles.creditLink}>{p.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+        {video.performers.filter(p => p.role === 'action_star').length > 0 && (
+          <View style={styles.creditSection}>
+            <Text style={styles.creditLabel}>Action Star{video.performers.filter(p => p.role === 'action_star').length > 1 ? 's' : ''}</Text>
+            {video.performers.filter(p => p.role === 'action_star').map(p => (
               <TouchableOpacity key={p.id} onPress={() => navigation.navigate('PerformerProfile', { performerId: p.id })}>
                 <Text style={styles.creditLink}>{p.name}</Text>
               </TouchableOpacity>

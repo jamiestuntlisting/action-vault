@@ -32,6 +32,7 @@ export interface Performer {
   specialties: string[];
   stuntlistingUrl?: string;
   videoCount: number;
+  role: 'stunt_performer' | 'action_star' | 'stunt_legend';
 }
 
 export interface Production {
@@ -184,7 +185,6 @@ export type RootStackParamList = {
   Splash: undefined;
   Onboarding: undefined;
   Auth: undefined;
-  ProfilePicker: undefined;
   MainTabs: undefined;
   VideoDetail: { videoId: string };
   VideoPlayer: { videoId: string; startTime?: number };

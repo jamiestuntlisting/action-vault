@@ -9,7 +9,6 @@ import { Colors, FontSize, FontWeight } from '../theme';
 import { SplashScreen } from '../screens/auth/SplashScreen';
 import { AuthScreen } from '../screens/auth/AuthScreen';
 import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen';
-import { ProfilePickerScreen } from '../screens/auth/ProfilePickerScreen';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { SearchScreen } from '../screens/search/SearchScreen';
 import { MyListScreen } from '../screens/mylist/MyListScreen';
@@ -94,7 +93,6 @@ export function AppNavigator() {
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Auth" component={AuthScreen} options={{ animation: 'fade' }} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        <Stack.Screen name="ProfilePicker" component={ProfilePickerScreen} options={{ animation: 'fade' }} />
         <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
         <Stack.Screen name="VideoDetail" component={VideoDetailScreen} />
         <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ animation: 'fade', orientation: 'all' }} />

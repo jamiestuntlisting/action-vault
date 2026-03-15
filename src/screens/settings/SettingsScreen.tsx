@@ -152,7 +152,7 @@ export function SettingsScreen({ navigation }: any) {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Profile section */}
-      <TouchableOpacity style={styles.profileCard} onPress={() => navigation.navigate('ProfilePicker')}>
+      <View style={styles.profileCard}>
         <View style={[styles.avatarCircle, { borderColor: avatar?.color || Colors.primary }]}>
           <Text style={styles.avatarEmoji}>{avatar?.emoji || '🎬'}</Text>
         </View>
@@ -160,8 +160,7 @@ export function SettingsScreen({ navigation }: any) {
           <Text style={styles.profileName}>{profile?.name || 'User'}</Text>
           <Text style={styles.profileEmail}>{state.currentUser?.email}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
-      </TouchableOpacity>
+      </View>
 
       {/* Quick links */}
       <View style={styles.section}>
