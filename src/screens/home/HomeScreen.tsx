@@ -141,8 +141,10 @@ export function HomeScreen({ navigation }: any) {
       skillMap.set(r.skill, existing);
     });
     // Sort by count descending, only include skills with 3+ reels
+    // Exclude non-stunt categories
+    const excludedSkills = new Set(['Acting/Actor', 'All Expected Abilities']);
     return Array.from(skillMap.entries())
-      .filter(([_, reels]) => reels.length >= 3)
+      .filter(([skill, reels]) => reels.length >= 3 && !excludedSkills.has(skill))
       .sort((a, b) => b[1].length - a[1].length);
   }, [stuntSkillReels]);
 

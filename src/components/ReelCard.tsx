@@ -30,7 +30,7 @@ export function ReelCard({ reel, onPress, width = CARD_WIDTH }: ReelCardProps) {
         )}
         {/* StuntListing badge */}
         <View style={styles.slBadge}>
-          <Text style={styles.slBadgeText}>SL</Text>
+          <Text style={styles.slBadgeText}>STLG</Text>
         </View>
         {isSkill && (reel as SkillReel).level && (reel as SkillReel).level !== 'Not rated' && (
           <View style={styles.levelBadge}>
@@ -47,7 +47,10 @@ export function ReelCard({ reel, onPress, width = CARD_WIDTH }: ReelCardProps) {
             <Text style={styles.performerInitial}>{reel.name.charAt(0)}</Text>
           </View>
         )}
-        <Text style={styles.performerName} numberOfLines={1}>{reel.name}</Text>
+        <View style={styles.performerInfo}>
+          <Text style={styles.performerName} numberOfLines={1}>{reel.name}</Text>
+          <Text style={styles.performerRole}>{reel.role === 'coordinator' ? 'Coordinator' : 'Performer'}</Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -137,9 +140,17 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: FontWeight.bold,
   },
-  performerName: {
-    color: Colors.textTertiary,
-    fontSize: FontSize.xs,
+  performerInfo: {
     flex: 1,
+  },
+  performerName: {
+    color: Colors.textSecondary,
+    fontSize: FontSize.xs,
+    lineHeight: 14,
+  },
+  performerRole: {
+    color: Colors.textMuted,
+    fontSize: 9,
+    lineHeight: 12,
   },
 });
