@@ -13,6 +13,8 @@ import { Video } from '../../types';
 import { TmdbService, StuntCrewMember, posterUrl } from '../../services/TmdbService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const MAX_WIDTH = 960;
+const CONTENT_WIDTH = Math.min(SCREEN_WIDTH, MAX_WIDTH);
 
 export function VideoDetailScreen({ route, navigation }: any) {
   const { videoId } = route.params;
@@ -128,6 +130,7 @@ export function VideoDetailScreen({ route, navigation }: any) {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.maxWidthWrapper}>
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
         <Ionicons name="arrow-back" size={28} color={Colors.white} />
       </TouchableOpacity>
@@ -287,6 +290,7 @@ export function VideoDetailScreen({ route, navigation }: any) {
       )}
 
       <View style={{ height: 100 }} />
+      </View>
     </ScrollView>
   );
 }
@@ -344,9 +348,14 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     fontWeight: FontWeight.semibold,
   },
+  maxWidthWrapper: {
+    width: '100%',
+    maxWidth: MAX_WIDTH,
+    alignSelf: 'center',
+  },
   heroContainer: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * 0.56,
+    width: '100%',
+    aspectRatio: 16 / 9,
   },
   heroImage: {
     width: '100%',
