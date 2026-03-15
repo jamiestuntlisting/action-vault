@@ -2500,6 +2500,30 @@ export const videos: Video[] = [
     totalRatings: 95,
     viewCount: 1900000,
   },
+  // ── Dukes of Hazzard ──
+  {
+    id: 'v108',
+    title: 'Every General Lee Jump from The Dukes of Hazzard (Seasons 1-6)',
+    description: 'A compilation of every single General Lee jump from the first six seasons of The Dukes of Hazzard. Over 200 Dodge Chargers were destroyed during filming — each jump required sand bags in the trunk, roll cages, and heavy-duty suspension. The iconic car stunts that defined a generation of TV action.',
+    sourcePlatform: 'youtube',
+    sourceUrl: 'https://www.youtube.com/watch?v=h4W7E5BlLGM',
+    embedUrl: 'https://www.youtube.com/embed/h4W7E5BlLGM',
+    thumbnailUrl: 'https://img.youtube.com/vi/h4W7E5BlLGM/hqdefault.jpg',
+    durationSeconds: 480,
+    language: 'en',
+    publishedAt: '2010-01-01',
+    createdAt: '2024-09-15',
+    isFeatured: true,
+    intensityLevel: 4,
+    skillTags: [tag('car-chases'), tag('car-rolls'), tag('bts-featurette')],
+    coordinators: [],
+    performers: [],
+    productions: [],
+    rigTags: [],
+    averageDifficulty: 4.2,
+    totalRatings: 280,
+    viewCount: 3500000,
+  },
 ];
 
 export const videoMap = new Map(videos.map(v => [v.id, v]));
