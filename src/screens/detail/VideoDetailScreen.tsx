@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Share, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Share, ActivityIndicator, Alert, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +25,7 @@ export function VideoDetailScreen({ route, navigation }: any) {
   const [tmdbPoster, setTmdbPoster] = useState<string | null>(null);
   const [tmdbLoading, setTmdbLoading] = useState(false);
   const [showAllCrew, setShowAllCrew] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
 
   useEffect(() => {
     if (!video || !TmdbService.hasApiKey()) return;
@@ -73,31 +74,7 @@ export function VideoDetailScreen({ route, navigation }: any) {
   }
 
   function handleRemoveVideo() {
-    Alert.alert(
-      'Why should this video be removed?',
-      'Please select a reason:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: "This video doesn't belong on this site",
-          onPress: () => {
-            submitRemovalRequest('doesnt_belong', false);
-          },
-        },
-        {
-          text: 'I am the video owner and want it removed',
-          onPress: () => {
-            submitRemovalRequest('owner_request', true);
-          },
-        },
-        {
-          text: 'Other reason',
-          onPress: () => {
-            submitRemovalRequest('other', false);
-          },
-        },
-      ]
-    );
+    setShowRemoveModal(true);
   }
 
   function submitRemovalRequest(reason: string, claimsOwnership: boolean) {
@@ -111,6 +88,7 @@ export function VideoDetailScreen({ route, navigation }: any) {
         ],
       },
     });
+    setShowRemoveModal(false);
     Alert.alert('Request Submitted', 'Your removal request has been flagged for admin review. Thank you for your feedback.');
   }
 
@@ -340,6 +318,35 @@ export function VideoDetailScreen({ route, navigation }: any) {
 
       <View style={{ height: 100 }} />
       </View>
+
+      {/* Remove Video Modal */}
+      <Modal visible={showRemoveModal} transparent animationType="fade" onRequestClose={() => setShowRemoveModal(false)}>
+        <TouchableOpacity style={removeModalStyles.overlay} activeOpacity={1} onPress={() => setShowRemoveModal(false)}>
+          <View style={removeModalStyles.container}>
+            <Text style={removeModalStyles.title}>Why should this video be removed?</Text>
+            <Text style={removeModalStyles.subtitle}>Please select a reason:</Text>
+
+            <TouchableOpacity style={removeModalStyles.option} onPress={() => submitRemovalRequest('doesnt_belong', false)}>
+              <Ionicons name="close-circle-outline" size={22} color={Colors.textSecondary} />
+              <Text style={removeModalStyles.optionText}>This video doesn't belong on this site</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={removeModalStyles.option} onPress={() => submitRemovalRequest('owner_request', true)}>
+              <Ionicons name="person-outline" size={22} color={Colors.textSecondary} />
+              <Text style={removeModalStyles.optionText}>I am the video owner and want it removed</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={removeModalStyles.option} onPress={() => submitRemovalRequest('other', false)}>
+              <Ionicons name="ellipsis-horizontal-outline" size={22} color={Colors.textSecondary} />
+              <Text style={removeModalStyles.optionText}>Other reason</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={removeModalStyles.cancelButton} onPress={() => setShowRemoveModal(false)}>
+              <Text style={removeModalStyles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 }
@@ -603,6 +610,57 @@ const styles = StyleSheet.create({
   },
   reviewButtonText: {
     color: Colors.accent,
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
+  },
+});
+
+const removeModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xxl,
+  },
+  container: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xxl,
+    width: '100%',
+    maxWidth: 400,
+  },
+  title: {
+    color: Colors.textPrimary,
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+    marginBottom: Spacing.xs,
+  },
+  subtitle: {
+    color: Colors.textTertiary,
+    fontSize: FontSize.sm,
+    marginBottom: Spacing.xl,
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  optionText: {
+    color: Colors.textSecondary,
+    fontSize: FontSize.md,
+    flex: 1,
+  },
+  cancelButton: {
+    alignItems: 'center',
+    paddingVertical: Spacing.lg,
+    marginTop: Spacing.sm,
+  },
+  cancelText: {
+    color: Colors.textTertiary,
     fontSize: FontSize.md,
     fontWeight: FontWeight.semibold,
   },

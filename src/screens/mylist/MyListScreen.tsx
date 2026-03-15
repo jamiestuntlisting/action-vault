@@ -5,14 +5,17 @@ import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme
 import { useAppState } from '../../services/AppState';
 import { videoMap } from '../../data';
 import { VideoCard } from '../../components/VideoCard';
+import { Video } from '../../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.screen * 2 - Spacing.md) / 2;
 
-type SortMode = 'date' | 'alpha' | 'duration' | 'difficulty';
+type Tab = 'mylist' | 'liked';
+type SortMode = 'date' | 'alpha' | 'duration';
 
 export function MyListScreen({ navigation }: any) {
   const { state, dispatch } = useAppState();
+  const [tab, setTab] = useState<Tab>('mylist');
   const [sortMode, setSortMode] = useState<SortMode>('date');
   const [isEditing, setIsEditing] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -25,10 +28,27 @@ export function MyListScreen({ navigation }: any) {
     switch (sortMode) {
       case 'alpha': return vids.sort((a, b) => a.title.localeCompare(b.title));
       case 'duration': return vids.sort((a, b) => a.durationSeconds - b.durationSeconds);
-      case 'difficulty': return vids.sort((a, b) => b.averageDifficulty - a.averageDifficulty);
       default: return vids.sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime());
     }
   }, [state.myList, sortMode]);
+
+  const likedVideos = useMemo(() => {
+    const liked = state.ratings.filter(r => r.thumbs === 'up');
+    const vids = liked
+      .map(r => {
+        const v = videoMap.get(r.videoId);
+        return v ? { ...v, ratedAt: r.createdAt } : null;
+      })
+      .filter(Boolean) as (Video & { ratedAt: string })[];
+
+    switch (sortMode) {
+      case 'alpha': return vids.sort((a, b) => a.title.localeCompare(b.title));
+      case 'duration': return vids.sort((a, b) => a.durationSeconds - b.durationSeconds);
+      default: return vids.sort((a, b) => new Date(b.ratedAt).getTime() - new Date(a.ratedAt).getTime());
+    }
+  }, [state.ratings, sortMode]);
+
+  const displayedVideos = tab === 'mylist' ? myVideos : likedVideos;
 
   function toggleSelect(videoId: string) {
     const next = new Set(selected);
@@ -47,40 +67,60 @@ export function MyListScreen({ navigation }: any) {
       <View style={styles.header}>
         <Text style={styles.title}>My List</Text>
         <View style={styles.headerRight}>
-          {isEditing && selected.size > 0 && (
+          {isEditing && selected.size > 0 && tab === 'mylist' && (
             <TouchableOpacity onPress={removeSelected}>
               <Text style={styles.removeText}>Remove ({selected.size})</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={() => { setIsEditing(!isEditing); setSelected(new Set()); }}>
-            <Text style={styles.editText}>{isEditing ? 'Done' : 'Edit'}</Text>
-          </TouchableOpacity>
+          {tab === 'mylist' && (
+            <TouchableOpacity onPress={() => { setIsEditing(!isEditing); setSelected(new Set()); }}>
+              <Text style={styles.editText}>{isEditing ? 'Done' : 'Edit'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
+      {/* Tabs */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabButton, tab === 'mylist' && styles.tabButtonActive]}
+          onPress={() => { setTab('mylist'); setIsEditing(false); setSelected(new Set()); }}
+        >
+          <Ionicons name="bookmark-outline" size={16} color={tab === 'mylist' ? Colors.white : Colors.textTertiary} />
+          <Text style={[styles.tabText, tab === 'mylist' && styles.tabTextActive]}>My List</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, tab === 'liked' && styles.tabButtonActive]}
+          onPress={() => { setTab('liked'); setIsEditing(false); setSelected(new Set()); }}
+        >
+          <Ionicons name="thumbs-up-outline" size={16} color={tab === 'liked' ? Colors.white : Colors.textTertiary} />
+          <Text style={[styles.tabText, tab === 'liked' && styles.tabTextActive]}>Liked Videos</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.sortBar}>
-        {(['date', 'alpha', 'duration', 'difficulty'] as SortMode[]).map(mode => (
+        {(['date', 'alpha', 'duration'] as SortMode[]).map(mode => (
           <TouchableOpacity
             key={mode}
             style={[styles.sortButton, sortMode === mode && styles.sortButtonActive]}
             onPress={() => setSortMode(mode)}
           >
             <Text style={[styles.sortText, sortMode === mode && styles.sortTextActive]}>
-              {mode === 'date' ? 'Recent' : mode === 'alpha' ? 'A-Z' : mode === 'duration' ? 'Length' : 'Difficulty'}
+              {mode === 'date' ? 'Recent' : mode === 'alpha' ? 'A-Z' : 'Length'}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
       <FlatList
-        data={myVideos}
+        data={displayedVideos}
         numColumns={2}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.grid}
         columnWrapperStyle={styles.row}
         renderItem={({ item }) => (
           <View>
-            {isEditing && (
+            {isEditing && tab === 'mylist' && (
               <TouchableOpacity style={styles.selectCircle} onPress={() => toggleSelect(item.id)}>
                 <Ionicons
                   name={selected.has(item.id) ? 'checkmark-circle' : 'ellipse-outline'}
@@ -91,16 +131,22 @@ export function MyListScreen({ navigation }: any) {
             )}
             <VideoCard
               video={item}
-              onPress={() => isEditing ? toggleSelect(item.id) : navigation.navigate('VideoDetail', { videoId: item.id })}
+              onPress={() => isEditing && tab === 'mylist' ? toggleSelect(item.id) : navigation.navigate('VideoDetail', { videoId: item.id })}
               width={CARD_WIDTH}
             />
           </View>
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="bookmark-outline" size={64} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>Your list is empty</Text>
-            <Text style={styles.emptySubtitle}>Add videos to your list to watch later</Text>
+            <Ionicons name={tab === 'mylist' ? 'bookmark-outline' : 'thumbs-up-outline'} size={64} color={Colors.textMuted} />
+            <Text style={styles.emptyTitle}>
+              {tab === 'mylist' ? 'Your list is empty' : 'No liked videos yet'}
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              {tab === 'mylist'
+                ? 'Add videos to your list to watch later'
+                : 'Give a thumbs up to videos you enjoy'}
+            </Text>
           </View>
         }
       />
@@ -119,7 +165,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Spacing.screen,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   title: {
     color: Colors.textPrimary,
@@ -137,6 +183,36 @@ const styles = StyleSheet.create({
   removeText: {
     color: Colors.primary,
     fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.screen,
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  tabButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.round,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  tabButtonActive: {
+    backgroundColor: Colors.white,
+    borderColor: Colors.white,
+  },
+  tabText: {
+    color: Colors.textTertiary,
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
+  },
+  tabTextActive: {
+    color: Colors.black,
     fontWeight: FontWeight.semibold,
   },
   sortBar: {

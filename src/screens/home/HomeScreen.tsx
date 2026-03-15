@@ -136,10 +136,11 @@ export function HomeScreen({ navigation }: any) {
       return overr?.locationTags?.includes('Chicago');
     }), [visibleVideos, overrides]);
 
-  // StuntListing Skill Reels — all skill reels from plus/standard users, grouped by skill
+  // StuntListing Skill Reels — only "Stunt Skills" category, grouped by skill
   const skillReelSubCategories = useMemo(() => {
+    const stuntSkillReels = skillReels.filter(r => r.cat === 'Stunt Skills');
     const skillMap = new Map<string, SkillReel[]>();
-    skillReels.forEach(r => {
+    stuntSkillReels.forEach(r => {
       const existing = skillMap.get(r.skill) || [];
       existing.push(r);
       skillMap.set(r.skill, existing);

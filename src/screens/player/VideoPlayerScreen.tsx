@@ -122,9 +122,11 @@ export function VideoPlayerScreen({ route, navigation }: any) {
           playerVars: {
             autoplay: 1,
             playsinline: 1,
-            controls: 1,
+            controls: 0,
             rel: 0,
             modestbranding: 1,
+            disablekb: 1,
+            showinfo: 0,
             start: ${startTime},
             fs: 0,
             iv_load_policy: 3,
@@ -301,7 +303,7 @@ export function VideoPlayerScreen({ route, navigation }: any) {
   // Web platform: use iframe directly
   if (isWeb) {
     const embedSrc = youtubeId
-      ? `https://www.youtube.com/embed/${youtubeId}?autoplay=1&start=${startTime}&rel=0&modestbranding=1&playsinline=1`
+      ? `https://www.youtube.com/embed/${youtubeId}?autoplay=1&start=${startTime}&rel=0&modestbranding=1&playsinline=1&controls=0&showinfo=0&iv_load_policy=3`
       : (directEmbedUrl || '');
     return (
       <View style={styles.container}>
