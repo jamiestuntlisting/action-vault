@@ -9,7 +9,7 @@ import { ContentRow } from '../../components/ContentRow';
 import { ReelRow } from '../../components/ReelRow';
 import { Video } from '../../types';
 import { skillTags } from '../../data/skillTags';
-import { stuntReels, skillReels, getSkillReelsByCategory } from '../../services/StuntListingService';
+import { stuntReels, skillReels, getSkillReelsByCategory, SkillReel } from '../../services/StuntListingService';
 
 const MAX_WIDTH = 960;
 
@@ -130,6 +130,21 @@ export function HomeScreen({ navigation }: any) {
       const overr = overrides.find(o => o.videoId === v.id);
       return overr?.locationTags?.includes('Chicago');
     }), [visibleVideos, overrides]);
+
+  // StuntListing Skill Reels — only Stunt Skills category, grouped by individual skill
+  const stuntSkillReels = useMemo(() => skillReels.filter(r => r.cat === 'Stunt Skills'), []);
+  const stuntSkillSubCategories = useMemo(() => {
+    const skillMap = new Map<string, SkillReel[]>();
+    stuntSkillReels.forEach(r => {
+      const existing = skillMap.get(r.skill) || [];
+      existing.push(r);
+      skillMap.set(r.skill, existing);
+    });
+    // Sort by count descending, only include skills with 3+ reels
+    return Array.from(skillMap.entries())
+      .filter(([_, reels]) => reels.length >= 3)
+      .sort((a, b) => b[1].length - a[1].length);
+  }, [stuntSkillReels]);
 
   function navigateToVideo(video: Video) {
     navigation.navigate('VideoDetail', { videoId: video.id });
@@ -303,41 +318,33 @@ export function HomeScreen({ navigation }: any) {
           />
         )}
 
-        {/* StuntListing Reels — own dedicated sections */}
+        {/* ── StuntListing Section ── */}
         {stuntReels.length > 0 && (
-          <ReelRow
-            title="Stunt Reels"
-            subtitle="From StuntListing performers"
-            reels={stuntReels.slice(0, 20)}
-            onReelPress={(reel) => Linking.openURL(reel.url)}
-          />
-        )}
+          <View style={styles.slSection}>
+            <View style={styles.slSectionHeader}>
+              <Text style={styles.slSectionTitle}>StuntListing</Text>
+              <Text style={styles.slSectionSubtitle}>Reels from professional stunt performers</Text>
+            </View>
 
-        {skillReels.length > 0 && (
-          <ReelRow
-            title="Skill Reels"
-            subtitle="Individual skills from StuntListing performers"
-            reels={skillReels.filter(r => r.cat === 'Stunt Skills').slice(0, 20)}
-            onReelPress={(reel) => Linking.openURL(reel.url)}
-          />
-        )}
+            {/* Stunt Reels */}
+            <ReelRow
+              title="Stunt Reels"
+              subtitle={`${stuntReels.length} performer reels`}
+              reels={stuntReels.slice(0, 20)}
+              onReelPress={(reel) => Linking.openURL(reel.url)}
+            />
 
-        {skillReels.filter(r => r.cat === 'Martial Arts & Weapons').length > 0 && (
-          <ReelRow
-            title="Martial Arts Reels"
-            subtitle="From StuntListing performers"
-            reels={skillReels.filter(r => r.cat === 'Martial Arts & Weapons').slice(0, 20)}
-            onReelPress={(reel) => Linking.openURL(reel.url)}
-          />
-        )}
-
-        {skillReels.filter(r => r.cat === 'Vehicles').length > 0 && (
-          <ReelRow
-            title="Vehicle Skill Reels"
-            subtitle="From StuntListing performers"
-            reels={skillReels.filter(r => r.cat === 'Vehicles').slice(0, 20)}
-            onReelPress={(reel) => Linking.openURL(reel.url)}
-          />
+            {/* Skill Reels — sub-categories by individual stunt skill */}
+            {stuntSkillSubCategories.map(([skillName, reels]) => (
+              <ReelRow
+                key={skillName}
+                title={skillName}
+                subtitle={`${reels.length} skill reels`}
+                reels={reels.slice(0, 20)}
+                onReelPress={(reel) => Linking.openURL(reel.url)}
+              />
+            ))}
+          </View>
         )}
 
         {atlantaStunts.length > 0 && (
@@ -424,5 +431,27 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: FontSize.sm,
     fontWeight: FontWeight.medium,
+  },
+  // StuntListing section
+  slSection: {
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingTop: Spacing.xl,
+  },
+  slSectionHeader: {
+    paddingHorizontal: Spacing.screen,
+    marginBottom: Spacing.xl,
+  },
+  slSectionTitle: {
+    color: Colors.primary,
+    fontSize: FontSize.xxl,
+    fontWeight: FontWeight.bold,
+  },
+  slSectionSubtitle: {
+    color: Colors.textMuted,
+    fontSize: FontSize.sm,
+    marginTop: 4,
   },
 });
