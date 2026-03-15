@@ -139,6 +139,12 @@ export function AdminScreen({ navigation }: any) {
   // Build autocomplete lists from existing data
   const allSkillTagNames = useMemo(() => skillTags.map(t => t.displayName), []);
   const allLocationNames = ['Atlanta', 'New York', 'Chicago', 'Los Angeles', 'London', 'Vancouver', 'Prague'];
+  const allMovieNames = useMemo(() => {
+    const names = new Set<string>();
+    allVideos.forEach(v => v.productions.forEach(p => names.add(p.title)));
+    overrides.forEach(o => o.movieTags?.forEach(m => names.add(m)));
+    return Array.from(names).sort();
+  }, [overrides]);
   const allPerformerNames = useMemo(() => {
     const names = new Set<string>();
     allVideos.forEach(v => {
@@ -179,6 +185,22 @@ export function AdminScreen({ navigation }: any) {
     const updated = existing
       ? overrides.map(o => o.videoId === videoId ? { ...o, tagOverrides: tagIds } : o)
       : [...overrides, { videoId, hidden: false, tagOverrides: tagIds }];
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { adminVideoOverrides: updated } });
+  }
+
+  function updateVideoPeople(videoId: string, people: string[]) {
+    const existing = getOverride(videoId);
+    const updated = existing
+      ? overrides.map(o => o.videoId === videoId ? { ...o, peopleOverrides: people } : o)
+      : [...overrides, { videoId, hidden: false, peopleOverrides: people }];
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { adminVideoOverrides: updated } });
+  }
+
+  function updateVideoMovies(videoId: string, movies: string[]) {
+    const existing = getOverride(videoId);
+    const updated = existing
+      ? overrides.map(o => o.videoId === videoId ? { ...o, movieTags: movies } : o)
+      : [...overrides, { videoId, hidden: false, movieTags: movies }];
     dispatch({ type: 'UPDATE_SETTINGS', payload: { adminVideoOverrides: updated } });
   }
 
@@ -233,8 +255,14 @@ export function AdminScreen({ navigation }: any) {
     const isHidden = override?.hidden || false;
     const currentSkillTags = override?.tagOverrides || video.skillTags.map(t => t.displayName);
     const currentLocations = override?.locationTags || [];
-    const performerNames = video.performers.map(p => p.name);
-    const coordinatorNames = video.coordinators.map(c => c.name);
+    const currentMovies = override?.movieTags || video.productions.map(p => p.title);
+    const addedMovies = override?.movieTags || [];
+    const builtInPeople = [
+      ...video.performers.map(p => p.name),
+      ...video.coordinators.map(c => c.name),
+    ];
+    const addedPeople = override?.peopleOverrides || [];
+    const allPeople = [...builtInPeople, ...addedPeople];
 
     return (
       <View key={video.id} style={[styles.videoItem, isHidden && styles.videoItemHidden]}>
@@ -268,18 +296,18 @@ export function AdminScreen({ navigation }: any) {
           {/* People Column */}
           <View style={styles.tagColumn}>
             <Text style={styles.columnLabel}>People</Text>
-            <View style={tagInputStyles.tagRow}>
-              {performerNames.map(name => (
-                <View key={name} style={[tagInputStyles.tagChip, { borderColor: '#4fc3f788' }]}>
-                  <Text style={[tagInputStyles.tagText, { color: '#4fc3f7' }]}>{name}</Text>
-                </View>
-              ))}
-              {coordinatorNames.map(name => (
-                <View key={name} style={[tagInputStyles.tagChip, { borderColor: '#ff980088' }]}>
-                  <Text style={[tagInputStyles.tagText, { color: '#ff9800' }]}>{name}</Text>
-                </View>
-              ))}
-            </View>
+            <TagInput
+              currentTags={allPeople}
+              allSuggestions={allPerformerNames}
+              onAddTag={(name) => updateVideoPeople(video.id, [...addedPeople, name])}
+              onRemoveTag={(name) => {
+                if (addedPeople.includes(name)) {
+                  updateVideoPeople(video.id, addedPeople.filter(n => n !== name));
+                }
+              }}
+              placeholder="Add person..."
+              tagColor="#4fc3f7"
+            />
           </View>
 
           {/* Location Column */}
@@ -294,6 +322,19 @@ export function AdminScreen({ navigation }: any) {
               tagColor="#4fc3f7"
             />
           </View>
+        </View>
+
+        {/* Movies row */}
+        <View style={{ marginTop: Spacing.sm }}>
+          <Text style={styles.columnLabel}>Movies / Productions</Text>
+          <TagInput
+            currentTags={currentMovies}
+            allSuggestions={allMovieNames}
+            onAddTag={(movie) => updateVideoMovies(video.id, [...currentMovies, movie])}
+            onRemoveTag={(movie) => updateVideoMovies(video.id, currentMovies.filter(m => m !== movie))}
+            placeholder="Add movie..."
+            tagColor="#ab47bc"
+          />
         </View>
       </View>
     );
@@ -494,7 +535,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.lg, paddingTop: 60 },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
   headerTitle: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
-  tabs: { flexDirection: 'row', paddingHorizontal: Spacing.lg, gap: Spacing.sm },
+  tabs: { flexDirection: 'row', paddingHorizontal: Spacing.lg, gap: Spacing.sm, marginBottom: Spacing.md },
   tab: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, borderRadius: BorderRadius.round, backgroundColor: Colors.surface },
   tabActive: { backgroundColor: Colors.primary },
   tabText: { color: Colors.textSecondary, fontSize: FontSize.md, fontWeight: FontWeight.medium },

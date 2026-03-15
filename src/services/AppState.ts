@@ -30,6 +30,8 @@ export interface AdminVideoOverride {
   hidden: boolean;
   tagOverrides?: string[]; // skill tag ids to replace existing tags
   locationTags?: string[]; // city/location tags
+  peopleOverrides?: string[]; // additional people names added via admin
+  movieTags?: string[]; // movie/production names
 }
 
 export interface AppSettings {
