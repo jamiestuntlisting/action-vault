@@ -2524,6 +2524,30 @@ export const videos: Video[] = [
     totalRatings: 280,
     viewCount: 3500000,
   },
+  // ── Stunt Adjustment ──
+  {
+    id: 'v109',
+    title: 'STUNT ADJUSTMENT Ep1 — Live Free Die Hard — Alley Jump — Brad Martin',
+    description: 'Atlas Action breaks down the iconic alley jump stunt from Live Free Die Hard with stunt performer Brad Martin. A deep dive into how the stunt was designed, rehearsed, and executed on set.',
+    sourcePlatform: 'youtube',
+    sourceUrl: 'https://www.youtube.com/watch?v=F5RjAtRvHrg',
+    embedUrl: 'https://www.youtube.com/embed/F5RjAtRvHrg',
+    thumbnailUrl: 'https://img.youtube.com/vi/F5RjAtRvHrg/maxresdefault.jpg',
+    durationSeconds: 600,
+    language: 'en',
+    publishedAt: '2025-01-01',
+    createdAt: '2026-03-15',
+    isFeatured: true,
+    intensityLevel: 4,
+    skillTags: [tag('high-falls'), tag('bts-featurette'), tag('interview')],
+    coordinators: [],
+    performers: [],
+    productions: [],
+    rigTags: [rig('rig-crash-pad')],
+    averageDifficulty: 4.5,
+    totalRatings: 0,
+    viewCount: 0,
+  },
 ];
 
 export const videoMap = new Map(videos.map(v => [v.id, v]));
