@@ -44,19 +44,19 @@ export function HomeScreen({ navigation }: any) {
     [...visibleVideos].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10), [visibleVideos]);
 
   const fightChoreography = useMemo(() =>
-    visibleVideos.filter(v => v.skillTags.some(t => t.category === 'Fight Choreography')), [visibleVideos]);
+    visibleVideos.filter(v => v.skillTags.some(t => t?.category === 'Fight Choreography')), [visibleVideos]);
 
   const carWork = useMemo(() =>
-    visibleVideos.filter(v => v.skillTags.some(t => t.category === 'Car Work')), [visibleVideos]);
+    visibleVideos.filter(v => v.skillTags.some(t => t?.category === 'Car Work')), [visibleVideos]);
 
   const trainingVideos = useMemo(() =>
-    visibleVideos.filter(v => v.skillTags.some(t => t.id === 'training' || t.id === 'rig-breakdown' || t.id === 'safety-walkthrough')), [visibleVideos]);
+    visibleVideos.filter(v => v.skillTags.some(t => t?.id === 'training' || t?.id === 'rig-breakdown' || t?.id === 'safety-walkthrough')), [visibleVideos]);
 
   const fallsVideos = useMemo(() =>
-    visibleVideos.filter(v => v.skillTags.some(t => t.category === 'Falls')), [visibleVideos]);
+    visibleVideos.filter(v => v.skillTags.some(t => t?.category === 'Falls')), [visibleVideos]);
 
   const fireVideos = useMemo(() =>
-    visibleVideos.filter(v => v.skillTags.some(t => t.category === 'Fire')), [visibleVideos]);
+    visibleVideos.filter(v => v.skillTags.some(t => t?.category === 'Fire')), [visibleVideos]);
 
   const classicStunts = useMemo(() =>
     visibleVideos.filter(v => {
@@ -74,7 +74,7 @@ export function HomeScreen({ navigation }: any) {
     }), [visibleVideos]);
 
   const wireAndRigWork = useMemo(() =>
-    visibleVideos.filter(v => v.skillTags.some(t => t.category === 'Rigs' || t.id === 'wire-work')), [visibleVideos]);
+    visibleVideos.filter(v => v.skillTags.some(t => t?.category === 'Rigs' || t?.id === 'wire-work')), [visibleVideos]);
 
   const marvelDC = useMemo(() =>
     visibleVideos.filter(v =>

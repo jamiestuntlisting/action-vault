@@ -5,7 +5,11 @@ import { performers } from './performers';
 import { productions } from './productions';
 import { rigTags } from './rigTags';
 
-const tag = (id: string) => skillTags.find(t => t.id === id)!;
+const tag = (id: string) => {
+  const found = skillTags.find(t => t.id === id);
+  if (!found) console.warn(`Missing skill tag: ${id}`);
+  return found!;
+};
 const coord = (id: string) => coordinators.find(c => c.id === id)!;
 const perf = (id: string) => performers.find(p => p.id === id)!;
 const prod = (id: string) => productions.find(p => p.id === id)!;
@@ -1976,7 +1980,7 @@ export const videos: Video[] = [
     createdAt: '2024-09-15',
     isFeatured: false,
     intensityLevel: 4,
-    skillTags: [tag('high-falls'), tag('car-chase'), tag('fire-burn'), tag('interview'), tag('bts-featurette')],
+    skillTags: [tag('high-falls'), tag('car-chases'), tag('fire-burns'), tag('interview'), tag('bts-featurette')],
     coordinators: [],
     performers: [],
     productions: [],
@@ -1999,7 +2003,7 @@ export const videos: Video[] = [
     createdAt: '2024-09-15',
     isFeatured: false,
     intensityLevel: 4,
-    skillTags: [tag('high-falls'), tag('car-chase'), tag('fire-burn'), tag('interview'), tag('bts-featurette')],
+    skillTags: [tag('high-falls'), tag('car-chases'), tag('fire-burns'), tag('interview'), tag('bts-featurette')],
     coordinators: [],
     performers: [],
     productions: [],
@@ -2022,7 +2026,7 @@ export const videos: Video[] = [
     createdAt: '2024-09-15',
     isFeatured: false,
     intensityLevel: 4,
-    skillTags: [tag('high-falls'), tag('car-chase'), tag('fire-burn'), tag('interview'), tag('bts-featurette')],
+    skillTags: [tag('high-falls'), tag('car-chases'), tag('fire-burns'), tag('interview'), tag('bts-featurette')],
     coordinators: [],
     performers: [],
     productions: [],
@@ -2047,7 +2051,7 @@ export const videos: Video[] = [
     createdAt: '2024-09-15',
     isFeatured: true,
     intensityLevel: 4,
-    skillTags: [tag('fight-h2h'), tag('high-falls'), tag('fire-burn'), tag('interview'), tag('bts-featurette')],
+    skillTags: [tag('fight-h2h'), tag('high-falls'), tag('fire-burns'), tag('interview'), tag('bts-featurette')],
     coordinators: [],
     performers: [perf('perf-8')],
     productions: [],
@@ -2070,7 +2074,7 @@ export const videos: Video[] = [
     createdAt: '2024-09-15',
     isFeatured: true,
     intensityLevel: 5,
-    skillTags: [tag('high-falls'), tag('fire-burn'), tag('car-chase'), tag('bts-featurette')],
+    skillTags: [tag('high-falls'), tag('fire-burns'), tag('car-chases'), tag('bts-featurette')],
     coordinators: [],
     performers: [],
     productions: [],
@@ -2093,7 +2097,7 @@ export const videos: Video[] = [
     createdAt: '2024-09-15',
     isFeatured: false,
     intensityLevel: 5,
-    skillTags: [tag('high-falls'), tag('fire-burn'), tag('car-chase')],
+    skillTags: [tag('high-falls'), tag('fire-burns'), tag('car-chases')],
     coordinators: [],
     performers: [],
     productions: [],
@@ -2162,7 +2166,7 @@ export const videos: Video[] = [
     createdAt: '2024-09-15',
     isFeatured: false,
     intensityLevel: 4,
-    skillTags: [tag('fight-h2h'), tag('fight-weapons'), tag('car-chase'), tag('bts-featurette')],
+    skillTags: [tag('fight-h2h'), tag('fight-weapons'), tag('car-chases'), tag('bts-featurette')],
     coordinators: [],
     performers: [perf('perf-8')],
     productions: [],
@@ -2210,7 +2214,7 @@ export const videos: Video[] = [
     createdAt: '2024-09-15',
     isFeatured: false,
     intensityLevel: 4,
-    skillTags: [tag('high-falls'), tag('car-chase'), tag('fire-burn'), tag('interview'), tag('bts-featurette')],
+    skillTags: [tag('high-falls'), tag('car-chases'), tag('fire-burns'), tag('interview'), tag('bts-featurette')],
     coordinators: [],
     performers: [],
     productions: [],
@@ -2256,7 +2260,7 @@ export const videos: Video[] = [
     createdAt: '2024-09-15',
     isFeatured: false,
     intensityLevel: 5,
-    skillTags: [tag('fight-h2h'), tag('high-falls'), tag('stair-falls'), tag('body-falls'), tag('car-chase')],
+    skillTags: [tag('fight-h2h'), tag('high-falls'), tag('stair-falls'), tag('body-falls'), tag('car-chases')],
     coordinators: [],
     performers: [perf('perf-7')],
     productions: [],
@@ -2302,7 +2306,7 @@ export const videos: Video[] = [
     createdAt: '2024-09-15',
     isFeatured: false,
     intensityLevel: 2,
-    skillTags: [tag('interview'), tag('bts-featurette'), tag('car-chase')],
+    skillTags: [tag('interview'), tag('bts-featurette'), tag('car-chases')],
     coordinators: [],
     performers: [],
     productions: [],
@@ -2325,7 +2329,7 @@ export const videos: Video[] = [
     createdAt: '2024-09-15',
     isFeatured: true,
     intensityLevel: 5,
-    skillTags: [tag('high-falls'), tag('body-falls'), tag('car-chase')],
+    skillTags: [tag('high-falls'), tag('body-falls'), tag('car-chases')],
     coordinators: [],
     performers: [],
     productions: [],
@@ -2348,7 +2352,7 @@ export const videos: Video[] = [
     createdAt: '2024-09-15',
     isFeatured: false,
     intensityLevel: 3,
-    skillTags: [tag('high-falls'), tag('car-chase'), tag('interview'), tag('bts-featurette')],
+    skillTags: [tag('high-falls'), tag('car-chases'), tag('interview'), tag('bts-featurette')],
     coordinators: [],
     performers: [],
     productions: [],
