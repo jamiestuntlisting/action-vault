@@ -50,6 +50,7 @@ export interface AppSettings {
   adminCategories: AdminCategory[];
   adminVideoOverrides: AdminVideoOverride[];
   removalRequests: Array<{ videoId: string; requestedAt: string; claimsOwnership: boolean }>;
+  personTags: Array<{ videoId: string; name: string; timestampSeconds: number; role: string; taggedAt: string }>;
 }
 
 const defaultSettings: AppSettings = {
@@ -70,6 +71,7 @@ const defaultSettings: AppSettings = {
   adminCategories: [],
   adminVideoOverrides: [],
   removalRequests: [],
+  personTags: [],
 };
 
 interface State {

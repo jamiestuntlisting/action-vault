@@ -1,9 +1,11 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Platform } from 'react-native';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Platform, TextInput, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
 import { videoMap, videos } from '../../data';
+import { performers } from '../../data/performers';
+import { coordinators } from '../../data/coordinators';
 
 const isWeb = Platform.OS === 'web';
 
@@ -20,8 +22,8 @@ const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 export function VideoPlayerScreen({ route, navigation }: any) {
   const { videoId, startTime = 0 } = route.params;
   const video = videoMap.get(videoId);
-  const { dispatch } = useAppState();
-  const webviewRef = useRef<WebView>(null);
+  const { state, dispatch } = useAppState();
+  const webviewRef = useRef<any>(null);
   const [showControls, setShowControls] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
   const [currentTime, setCurrentTime] = useState(startTime);
@@ -30,7 +32,48 @@ export function VideoPlayerScreen({ route, navigation }: any) {
   const [showSpeedPicker, setShowSpeedPicker] = useState(false);
   const [isSlowMo, setIsSlowMo] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
+  const [showTagOverlay, setShowTagOverlay] = useState(false);
+  const [tagName, setTagName] = useState('');
+  const [tagRole, setTagRole] = useState('Performer');
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [showTagConfirm, setShowTagConfirm] = useState(false);
   const controlsTimer = useRef<any>(null);
+
+  // Build list of known names for autocomplete
+  const knownNames = useMemo(() => {
+    const names = new Set<string>();
+    performers.forEach(p => names.add(p.name));
+    coordinators.forEach(c => names.add(c.name));
+    // Include existing person tags
+    (state.settings.personTags || []).forEach((t: any) => names.add(t.name));
+    return Array.from(names).sort();
+  }, [state.settings.personTags]);
+
+  // Filter suggestions as user types
+  useEffect(() => {
+    if (!tagName.trim()) { setTagSuggestions([]); return; }
+    const q = tagName.toLowerCase();
+    setTagSuggestions(knownNames.filter(n => n.toLowerCase().includes(q)).slice(0, 5));
+  }, [tagName, knownNames]);
+
+  function submitPersonTag(name?: string) {
+    const finalName = (name || tagName).trim();
+    if (!finalName) return;
+    const existing = state.settings.personTags || [];
+    dispatch({
+      type: 'UPDATE_SETTINGS',
+      payload: {
+        personTags: [
+          ...existing,
+          { videoId, name: finalName, timestampSeconds: Math.floor(currentTime), role: tagRole, taggedAt: new Date().toISOString() },
+        ],
+      },
+    });
+    setTagName('');
+    setShowTagOverlay(false);
+    setShowTagConfirm(true);
+    setTimeout(() => setShowTagConfirm(false), 2000);
+  }
 
   useEffect(() => {
     StatusBar.setHidden(true);
@@ -258,6 +301,9 @@ export function VideoPlayerScreen({ route, navigation }: any) {
             <Ionicons name="arrow-back" size={28} color={Colors.white} />
           </TouchableOpacity>
           <Text style={{ flex: 1, color: Colors.white, fontSize: FontSize.md, fontWeight: FontWeight.semibold }} numberOfLines={1}>{video.title}</Text>
+          <TouchableOpacity onPress={() => setShowTagOverlay(!showTagOverlay)} style={styles.backButton}>
+            <Ionicons name="person-add-outline" size={20} color={showTagOverlay ? Colors.primary : Colors.white} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={addBookmark} style={styles.backButton}>
             <Ionicons name="bookmark-outline" size={22} color={Colors.white} />
           </TouchableOpacity>
@@ -270,6 +316,57 @@ export function VideoPlayerScreen({ route, navigation }: any) {
             allowFullScreen: true,
           })}
         </View>
+
+        {/* Tag person overlay */}
+        {showTagOverlay && (
+          <View style={styles.tagOverlay}>
+            <Text style={styles.tagOverlayTitle}>Tag a Person</Text>
+            <View style={styles.tagRoleRow}>
+              {['Performer', 'Coordinator', 'Actor', 'Director'].map(role => (
+                <TouchableOpacity
+                  key={role}
+                  style={[styles.tagRoleBtn, tagRole === role && styles.tagRoleBtnActive]}
+                  onPress={() => setTagRole(role)}
+                >
+                  <Text style={[styles.tagRoleText, tagRole === role && styles.tagRoleTextActive]}>{role}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.tagInputRow}>
+              <TextInput
+                style={styles.tagInput}
+                placeholder="Type name..."
+                placeholderTextColor={Colors.textMuted}
+                value={tagName}
+                onChangeText={setTagName}
+                onSubmitEditing={() => submitPersonTag()}
+                autoFocus
+                returnKeyType="done"
+              />
+              <TouchableOpacity onPress={() => submitPersonTag()} style={styles.tagSubmitBtn}>
+                <Ionicons name="checkmark" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            {tagSuggestions.length > 0 && (
+              <View style={styles.tagSuggestions}>
+                {tagSuggestions.map(s => (
+                  <TouchableOpacity key={s} style={styles.tagSuggestionItem} onPress={() => submitPersonTag(s)}>
+                    <Ionicons name="person" size={14} color={Colors.textSecondary} />
+                    <Text style={styles.tagSuggestionText}>{s}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Tag confirmation toast */}
+        {showTagConfirm && (
+          <View style={styles.tagConfirmToast}>
+            <Ionicons name="checkmark-circle" size={18} color="#4caf50" />
+            <Text style={styles.tagConfirmText}>Person tagged!</Text>
+          </View>
+        )}
       </View>
     );
   }
@@ -294,6 +391,9 @@ export function VideoPlayerScreen({ route, navigation }: any) {
           <Ionicons name="arrow-back" size={28} color={Colors.white} />
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
+        <TouchableOpacity onPress={() => setShowTagOverlay(!showTagOverlay)} style={styles.backButton}>
+          <Ionicons name="person-add-outline" size={20} color={showTagOverlay ? Colors.primary : Colors.white} />
+        </TouchableOpacity>
         <TouchableOpacity onPress={addBookmark} style={styles.backButton}>
           <Ionicons name="bookmark-outline" size={22} color={Colors.white} />
         </TouchableOpacity>
@@ -348,6 +448,57 @@ export function VideoPlayerScreen({ route, navigation }: any) {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Tag person overlay - works without pausing */}
+      {showTagOverlay && (
+        <View style={styles.tagOverlay}>
+          <Text style={styles.tagOverlayTitle}>Tag a Person</Text>
+          <View style={styles.tagRoleRow}>
+            {['Performer', 'Coordinator', 'Actor', 'Director'].map(role => (
+              <TouchableOpacity
+                key={role}
+                style={[styles.tagRoleBtn, tagRole === role && styles.tagRoleBtnActive]}
+                onPress={() => setTagRole(role)}
+              >
+                <Text style={[styles.tagRoleText, tagRole === role && styles.tagRoleTextActive]}>{role}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.tagInputRow}>
+            <TextInput
+              style={styles.tagInput}
+              placeholder="Type name..."
+              placeholderTextColor={Colors.textMuted}
+              value={tagName}
+              onChangeText={setTagName}
+              onSubmitEditing={() => submitPersonTag()}
+              autoFocus
+              returnKeyType="done"
+            />
+            <TouchableOpacity onPress={() => submitPersonTag()} style={styles.tagSubmitBtn}>
+              <Ionicons name="checkmark" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          {tagSuggestions.length > 0 && (
+            <View style={styles.tagSuggestions}>
+              {tagSuggestions.map(s => (
+                <TouchableOpacity key={s} style={styles.tagSuggestionItem} onPress={() => submitPersonTag(s)}>
+                  <Ionicons name="person" size={14} color={Colors.textSecondary} />
+                  <Text style={styles.tagSuggestionText}>{s}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Tag confirmation toast */}
+      {showTagConfirm && (
+        <View style={styles.tagConfirmToast}>
+          <Ionicons name="checkmark-circle" size={18} color="#4caf50" />
+          <Text style={styles.tagConfirmText}>Person tagged!</Text>
+        </View>
+      )}
 
       {/* Speed picker overlay */}
       {showSpeedPicker && (
@@ -497,5 +648,102 @@ const styles = StyleSheet.create({
   speedOptionTextActive: {
     color: Colors.white,
     fontWeight: FontWeight.bold,
+  },
+  // Tag overlay styles
+  tagOverlay: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 100 : 70,
+    right: Spacing.screen,
+    width: 260,
+    backgroundColor: 'rgba(20,20,20,0.95)',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    zIndex: 100,
+  },
+  tagOverlayTitle: {
+    color: Colors.white,
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.bold,
+    marginBottom: Spacing.sm,
+  },
+  tagRoleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginBottom: Spacing.sm,
+  },
+  tagRoleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.round,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  tagRoleBtnActive: {
+    backgroundColor: Colors.primary + '44',
+    borderColor: Colors.primary,
+  },
+  tagRoleText: {
+    color: Colors.textSecondary,
+    fontSize: FontSize.xs,
+  },
+  tagRoleTextActive: {
+    color: Colors.primary,
+  },
+  tagInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tagInput: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: Colors.white,
+    fontSize: FontSize.sm,
+  },
+  tagSubmitBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.sm,
+    padding: 8,
+  },
+  tagSuggestions: {
+    marginTop: 4,
+    backgroundColor: 'rgba(30,30,30,0.95)',
+    borderRadius: BorderRadius.sm,
+    overflow: 'hidden',
+  },
+  tagSuggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  tagSuggestionText: {
+    color: Colors.textPrimary,
+    fontSize: FontSize.sm,
+  },
+  tagConfirmToast: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 100 : 70,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(20,20,20,0.9)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.round,
+  },
+  tagConfirmText: {
+    color: '#4caf50',
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
   },
 });

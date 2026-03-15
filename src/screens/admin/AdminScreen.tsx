@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   ScrollView, View, Text, StyleSheet, TouchableOpacity, TextInput,
   Switch, Alert, FlatList, Dimensions,
@@ -13,17 +13,144 @@ const MAX_WIDTH = 960;
 
 type AdminTab = 'videos' | 'categories' | 'tags';
 
+// Autocomplete tag input component
+function TagInput({
+  currentTags,
+  allSuggestions,
+  onAddTag,
+  onRemoveTag,
+  placeholder = 'Type to add tag...',
+  tagColor = Colors.primary,
+}: {
+  currentTags: string[];
+  allSuggestions: string[];
+  onAddTag: (tag: string) => void;
+  onRemoveTag: (tag: string) => void;
+  placeholder?: string;
+  tagColor?: string;
+}) {
+  const [inputValue, setInputValue] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const filteredSuggestions = useMemo(() => {
+    if (!inputValue.trim()) return [];
+    const q = inputValue.toLowerCase();
+    return allSuggestions
+      .filter(s => s.toLowerCase().includes(q) && !currentTags.includes(s))
+      .slice(0, 8);
+  }, [inputValue, allSuggestions, currentTags]);
+
+  const handleSubmit = useCallback(() => {
+    const value = inputValue.trim();
+    if (value && !currentTags.includes(value)) {
+      onAddTag(value);
+      setInputValue('');
+      setShowSuggestions(false);
+    }
+  }, [inputValue, currentTags, onAddTag]);
+
+  const handleSelectSuggestion = useCallback((suggestion: string) => {
+    onAddTag(suggestion);
+    setInputValue('');
+    setShowSuggestions(false);
+  }, [onAddTag]);
+
+  return (
+    <View>
+      {/* Current tags as removable chips */}
+      {currentTags.length > 0 && (
+        <View style={tagInputStyles.tagRow}>
+          {currentTags.map(tag => (
+            <View key={tag} style={[tagInputStyles.tagChip, { borderColor: tagColor + '88' }]}>
+              <Text style={[tagInputStyles.tagText, { color: tagColor }]}>{tag}</Text>
+              <TouchableOpacity onPress={() => onRemoveTag(tag)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={14} color={tagColor} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+      {/* Input with autocomplete */}
+      <View style={tagInputStyles.inputRow}>
+        <TextInput
+          style={tagInputStyles.input}
+          placeholder={placeholder}
+          placeholderTextColor={Colors.textMuted}
+          value={inputValue}
+          onChangeText={(text) => { setInputValue(text); setShowSuggestions(true); }}
+          onFocus={() => setShowSuggestions(true)}
+          onSubmitEditing={handleSubmit}
+          returnKeyType="done"
+        />
+        {inputValue.trim() && (
+          <TouchableOpacity onPress={handleSubmit} style={tagInputStyles.addBtn}>
+            <Ionicons name="add-circle" size={22} color={Colors.primary} />
+          </TouchableOpacity>
+        )}
+      </View>
+      {/* Suggestions dropdown */}
+      {showSuggestions && filteredSuggestions.length > 0 && (
+        <View style={tagInputStyles.suggestions}>
+          {filteredSuggestions.map(s => (
+            <TouchableOpacity key={s} style={tagInputStyles.suggestionItem} onPress={() => handleSelectSuggestion(s)}>
+              <Text style={tagInputStyles.suggestionText}>{s}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const tagInputStyles = StyleSheet.create({
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 6 },
+  tagChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: BorderRadius.round, borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  tagText: { fontSize: FontSize.xs },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  input: {
+    flex: 1, backgroundColor: Colors.background, borderRadius: BorderRadius.sm,
+    paddingHorizontal: 10, paddingVertical: 6, color: Colors.textPrimary, fontSize: FontSize.sm,
+  },
+  addBtn: { padding: 2 },
+  suggestions: {
+    backgroundColor: Colors.background, borderRadius: BorderRadius.sm,
+    borderWidth: 1, borderColor: Colors.border, marginTop: 2, maxHeight: 200,
+  },
+  suggestionItem: { paddingHorizontal: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  suggestionText: { color: Colors.textPrimary, fontSize: FontSize.sm },
+});
+
 export function AdminScreen({ navigation }: any) {
   const { state, dispatch } = useAppState();
   const [activeTab, setActiveTab] = useState<AdminTab>('videos');
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingVideo, setEditingVideo] = useState<string | null>(null);
   const [newCatTitle, setNewCatTitle] = useState('');
   const [newCatFilter, setNewCatFilter] = useState('');
   const [newCatType, setNewCatType] = useState<'tag' | 'title' | 'location' | 'custom'>('title');
 
   const overrides = state.settings.adminVideoOverrides || [];
   const categories = state.settings.adminCategories || [];
+
+  // Build autocomplete lists from existing data
+  const allSkillTagNames = useMemo(() => skillTags.map(t => t.displayName), []);
+  const allLocationNames = ['Atlanta', 'New York', 'Chicago', 'Los Angeles', 'London', 'Vancouver', 'Prague'];
+  const allPerformerNames = useMemo(() => {
+    const names = new Set<string>();
+    allVideos.forEach(v => {
+      v.performers.forEach(p => names.add(p.name));
+      v.coordinators.forEach(c => names.add(c.name));
+    });
+    // Also include any custom names from overrides
+    overrides.forEach(o => {
+      o.tagOverrides?.forEach(t => names.add(t));
+    });
+    return Array.from(names).sort();
+  }, [overrides]);
 
   const getOverride = (videoId: string) => overrides.find(o => o.videoId === videoId);
 
@@ -33,7 +160,9 @@ export function AdminScreen({ navigation }: any) {
     return allVideos.filter(v =>
       v.title.toLowerCase().includes(q) ||
       v.description.toLowerCase().includes(q) ||
-      v.skillTags.some(t => t.displayName.toLowerCase().includes(q))
+      v.skillTags.some(t => t.displayName.toLowerCase().includes(q)) ||
+      v.performers.some(p => p.name.toLowerCase().includes(q)) ||
+      v.coordinators.some(c => c.name.toLowerCase().includes(q))
     );
   }, [searchQuery]);
 
@@ -99,90 +228,73 @@ export function AdminScreen({ navigation }: any) {
     dispatch({ type: 'UPDATE_SETTINGS', payload: { adminCategories: updated } });
   }
 
-  const LOCATIONS = ['Atlanta', 'New York', 'Chicago', 'Los Angeles', 'London', 'Vancouver', 'Prague'];
-
   function renderVideoItem(video: typeof allVideos[0]) {
     const override = getOverride(video.id);
     const isHidden = override?.hidden || false;
-    const isEditing = editingVideo === video.id;
-    const currentTags = override?.tagOverrides || video.skillTags.map(t => t.id);
+    const currentSkillTags = override?.tagOverrides || video.skillTags.map(t => t.displayName);
     const currentLocations = override?.locationTags || [];
+    const performerNames = video.performers.map(p => p.name);
+    const coordinatorNames = video.coordinators.map(c => c.name);
 
     return (
       <View key={video.id} style={[styles.videoItem, isHidden && styles.videoItemHidden]}>
+        {/* Video title row with hide button */}
         <View style={styles.videoHeader}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.videoTitle, isHidden && styles.textHidden]} numberOfLines={1}>
               {video.title}
             </Text>
-            <Text style={styles.videoMeta}>
-              {video.skillTags.map(t => t.displayName).join(', ')}
-            </Text>
-            {currentLocations.length > 0 && (
-              <Text style={styles.locationMeta}>
-                {currentLocations.map(l => `📍 ${l}`).join('  ')}
-              </Text>
-            )}
           </View>
-          <View style={styles.videoActions}>
-            <TouchableOpacity onPress={() => setEditingVideo(isEditing ? null : video.id)} style={styles.iconBtn}>
-              <Ionicons name={isEditing ? 'close' : 'create-outline'} size={20} color={Colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => toggleHideVideo(video.id)} style={styles.iconBtn}>
-              <Ionicons name={isHidden ? 'eye-off' : 'eye'} size={20} color={isHidden ? '#f44' : Colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={() => toggleHideVideo(video.id)} style={styles.iconBtn}>
+            <Ionicons name={isHidden ? 'eye-off' : 'eye'} size={20} color={isHidden ? '#f44' : Colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
-        {isEditing && (
-          <View style={styles.editPanel}>
-            <Text style={styles.editLabel}>Skill Tags</Text>
-            <View style={styles.tagGrid}>
-              {skillTags.map(tag => {
-                const active = currentTags.includes(tag.id);
-                return (
-                  <TouchableOpacity
-                    key={tag.id}
-                    style={[styles.tagChip, active && styles.tagChipActive]}
-                    onPress={() => {
-                      const newTags = active
-                        ? currentTags.filter(t => t !== tag.id)
-                        : [...currentTags, tag.id];
-                      updateVideoTags(video.id, newTags);
-                    }}
-                  >
-                    <Text style={[styles.tagChipText, active && styles.tagChipTextActive]}>
-                      {tag.displayName}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+        {/* Three-column tag layout: Skill Tags | People | Locations */}
+        <View style={styles.tagColumns}>
+          {/* Skill Tags Column */}
+          <View style={styles.tagColumn}>
+            <Text style={styles.columnLabel}>Skills</Text>
+            <TagInput
+              currentTags={currentSkillTags}
+              allSuggestions={allSkillTagNames}
+              onAddTag={(tag) => updateVideoTags(video.id, [...currentSkillTags, tag])}
+              onRemoveTag={(tag) => updateVideoTags(video.id, currentSkillTags.filter(t => t !== tag))}
+              placeholder="Add skill..."
+              tagColor={Colors.primary}
+            />
+          </View>
 
-            <Text style={[styles.editLabel, { marginTop: Spacing.md }]}>Location Tags</Text>
-            <View style={styles.tagGrid}>
-              {LOCATIONS.map(loc => {
-                const active = currentLocations.includes(loc);
-                return (
-                  <TouchableOpacity
-                    key={loc}
-                    style={[styles.tagChip, active && styles.locationChipActive]}
-                    onPress={() => {
-                      const newLocs = active
-                        ? currentLocations.filter(l => l !== loc)
-                        : [...currentLocations, loc];
-                      updateVideoLocation(video.id, newLocs);
-                    }}
-                  >
-                    <Text style={[styles.tagChipText, active && styles.locationChipTextActive]}>
-                      📍 {loc}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+          {/* People Column */}
+          <View style={styles.tagColumn}>
+            <Text style={styles.columnLabel}>People</Text>
+            <View style={tagInputStyles.tagRow}>
+              {performerNames.map(name => (
+                <View key={name} style={[tagInputStyles.tagChip, { borderColor: '#4fc3f788' }]}>
+                  <Text style={[tagInputStyles.tagText, { color: '#4fc3f7' }]}>{name}</Text>
+                </View>
+              ))}
+              {coordinatorNames.map(name => (
+                <View key={name} style={[tagInputStyles.tagChip, { borderColor: '#ff980088' }]}>
+                  <Text style={[tagInputStyles.tagText, { color: '#ff9800' }]}>{name}</Text>
+                </View>
+              ))}
             </View>
           </View>
-        )}
+
+          {/* Location Column */}
+          <View style={styles.tagColumn}>
+            <Text style={styles.columnLabel}>Location</Text>
+            <TagInput
+              currentTags={currentLocations}
+              allSuggestions={allLocationNames}
+              onAddTag={(loc) => updateVideoLocation(video.id, [...currentLocations, loc])}
+              onRemoveTag={(loc) => updateVideoLocation(video.id, currentLocations.filter(l => l !== loc))}
+              placeholder="Add location..."
+              tagColor="#4fc3f7"
+            />
+          </View>
+        </View>
       </View>
     );
   }
@@ -348,7 +460,7 @@ export function AdminScreen({ navigation }: any) {
             <View>
               <Text style={styles.sectionTitle}>Bulk Location Tagging</Text>
               <Text style={styles.hint}>Quickly tag multiple videos with a location.</Text>
-              {LOCATIONS.map(loc => {
+              {allLocationNames.map(loc => {
                 const taggedCount = overrides.filter(o => o.locationTags?.includes(loc)).length;
                 return (
                   <View key={loc} style={styles.bulkTagRow}>
@@ -392,22 +504,18 @@ const styles = StyleSheet.create({
   countText: { color: Colors.textMuted, fontSize: FontSize.sm, marginBottom: Spacing.md },
   videoItem: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.sm },
   videoItemHidden: { opacity: 0.5, borderLeftWidth: 3, borderLeftColor: '#f44' },
-  videoHeader: { flexDirection: 'row', alignItems: 'center' },
+  videoHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
   videoTitle: { color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.semibold },
   textHidden: { textDecorationLine: 'line-through' },
   videoMeta: { color: Colors.textMuted, fontSize: FontSize.sm, marginTop: 2 },
-  locationMeta: { color: '#4fc3f7', fontSize: FontSize.sm, marginTop: 2 },
   videoActions: { flexDirection: 'row', gap: Spacing.sm },
   iconBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  editPanel: { marginTop: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border },
-  editLabel: { color: Colors.textPrimary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold, marginBottom: Spacing.sm },
-  tagGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  tagChip: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: BorderRadius.round, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
-  tagChipActive: { backgroundColor: Colors.primary + '33', borderColor: Colors.primary },
-  tagChipText: { color: Colors.textSecondary, fontSize: FontSize.xs },
-  tagChipTextActive: { color: Colors.primary },
-  locationChipActive: { backgroundColor: '#4fc3f733', borderColor: '#4fc3f7' },
-  locationChipTextActive: { color: '#4fc3f7' },
+
+  // Three-column tag layout
+  tagColumns: { flexDirection: 'row', gap: Spacing.sm },
+  tagColumn: { flex: 1 },
+  columnLabel: { color: Colors.textMuted, fontSize: 10, fontWeight: FontWeight.semibold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+
   sectionTitle: { color: Colors.textPrimary, fontSize: FontSize.xl, fontWeight: FontWeight.bold, marginBottom: Spacing.sm },
   hint: { color: Colors.textMuted, fontSize: FontSize.sm, marginBottom: Spacing.lg },
   catItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.sm, gap: Spacing.sm },
@@ -426,6 +534,7 @@ const styles = StyleSheet.create({
   bulkTagRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.sm },
   bulkTagName: { color: Colors.textPrimary, fontSize: FontSize.md },
   bulkTagCount: { color: Colors.textMuted, fontSize: FontSize.sm },
+  tagGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   readOnlyTag: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: BorderRadius.md, backgroundColor: Colors.surface },
   readOnlyTagText: { color: Colors.textPrimary, fontSize: FontSize.xs },
   readOnlyTagCategory: { color: Colors.textMuted, fontSize: 9 },
