@@ -25,6 +25,7 @@ import { BookmarksScreen } from '../screens/bookmarks/BookmarksScreen';
 import { ReviewModalScreen } from '../screens/community/ReviewModalScreen';
 import { AdminScreen } from '../screens/admin/AdminScreen';
 import { CategoryVideosScreen } from '../screens/category/CategoryVideosScreen';
+import { ReelGridScreen } from '../screens/category/ReelGridScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -104,6 +105,7 @@ export function AppNavigator() {
         <Stack.Screen name="AllBookmarks" component={BookmarksScreen} />
         <Stack.Screen name="Admin" component={AdminScreen} />
         <Stack.Screen name="CategoryVideos" component={CategoryVideosScreen} />
+        <Stack.Screen name="ReelGrid" component={ReelGridScreen} />
         <Stack.Screen
           name="ReviewModal"
           component={ReviewModalScreen}

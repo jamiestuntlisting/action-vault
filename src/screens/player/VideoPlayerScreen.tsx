@@ -20,8 +20,8 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 
 export function VideoPlayerScreen({ route, navigation }: any) {
-  const { videoId, startTime = 0 } = route.params;
-  const video = videoMap.get(videoId);
+  const { videoId, startTime = 0, embedUrl: directEmbedUrl, title: reelTitle } = route.params;
+  const video = videoId ? videoMap.get(videoId) : null;
   const { state, dispatch } = useAppState();
   const webviewRef = useRef<any>(null);
   const [showControls, setShowControls] = useState(true);
@@ -58,7 +58,7 @@ export function VideoPlayerScreen({ route, navigation }: any) {
 
   function submitPersonTag(name?: string) {
     const finalName = (name || tagName).trim();
-    if (!finalName) return;
+    if (!finalName || !videoId) return;
     const existing = state.settings.personTags || [];
     dispatch({
       type: 'UPDATE_SETTINGS',
@@ -87,9 +87,13 @@ export function VideoPlayerScreen({ route, navigation }: any) {
     return () => clearTimeout(controlsTimer.current);
   }, [showControls, playerReady]);
 
-  if (!video) return null;
+  // Support direct embed URL for reels (no video object needed)
+  const resolvedEmbedUrl = directEmbedUrl || (video ? video.embedUrl : null);
+  const youtubeId = directEmbedUrl
+    ? (directEmbedUrl.match(/youtube\.com\/embed\/([^?&/]+)/)?.[1] || '')
+    : (video ? (video.sourceUrl.match(/(?:v=|\/embed\/)([^&?/]+)/)?.[1] || '') : '');
 
-  const youtubeId = video.sourceUrl.match(/(?:v=|\/embed\/)([^&?/]+)/)?.[1] || '';
+  if (!video && !directEmbedUrl) return null;
 
   // Use YouTube IFrame Player API for full control
   const playerHtml = `
@@ -261,20 +265,23 @@ export function VideoPlayerScreen({ route, navigation }: any) {
   }
 
   function handleClose() {
-    dispatch({
-      type: 'ADD_TO_WATCH_HISTORY',
-      payload: {
-        profileId: '',
-        videoId,
-        progressSeconds: currentTime,
-        completed: duration > 0 ? currentTime >= duration * 0.9 : false,
-        lastWatchedAt: new Date().toISOString(),
-      },
-    });
+    if (videoId) {
+      dispatch({
+        type: 'ADD_TO_WATCH_HISTORY',
+        payload: {
+          profileId: '',
+          videoId,
+          progressSeconds: currentTime,
+          completed: duration > 0 ? currentTime >= duration * 0.9 : false,
+          lastWatchedAt: new Date().toISOString(),
+        },
+      });
+    }
     navigation.goBack();
   }
 
   function addBookmark() {
+    if (!videoId) return;
     dispatch({
       type: 'ADD_BOOKMARK',
       payload: {
@@ -288,19 +295,21 @@ export function VideoPlayerScreen({ route, navigation }: any) {
     });
   }
 
-  const videoDuration = duration || video.durationSeconds;
+  const videoDuration = duration || (video ? video.durationSeconds : 0);
   const progressPercent = videoDuration > 0 ? (currentTime / videoDuration) * 100 : 0;
 
   // Web platform: use iframe directly
   if (isWeb) {
-    const embedSrc = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&start=${startTime}&rel=0&modestbranding=1&playsinline=1`;
+    const embedSrc = youtubeId
+      ? `https://www.youtube.com/embed/${youtubeId}?autoplay=1&start=${startTime}&rel=0&modestbranding=1&playsinline=1`
+      : (directEmbedUrl || '');
     return (
       <View style={styles.container}>
         <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.9)', paddingTop: 20, paddingHorizontal: 8, paddingBottom: 8, gap: 8 }}>
           <TouchableOpacity onPress={handleClose} style={styles.backButton}>
             <Ionicons name="arrow-back" size={28} color={Colors.white} />
           </TouchableOpacity>
-          <Text style={{ flex: 1, color: Colors.white, fontSize: FontSize.md, fontWeight: FontWeight.semibold }} numberOfLines={1}>{video.title}</Text>
+          <Text style={{ flex: 1, color: Colors.white, fontSize: FontSize.md, fontWeight: FontWeight.semibold }} numberOfLines={1}>{video ? video.title : (reelTitle || 'Reel')}</Text>
           <TouchableOpacity onPress={() => setShowTagOverlay(!showTagOverlay)} style={styles.backButton}>
             <Ionicons name="person-add-outline" size={20} color={showTagOverlay ? Colors.primary : Colors.white} />
           </TouchableOpacity>
@@ -401,7 +410,7 @@ export function VideoPlayerScreen({ route, navigation }: any) {
 
       {/* Title bar */}
       <View style={styles.titleBar}>
-        <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
+        <Text style={styles.videoTitle} numberOfLines={1}>{video ? video.title : (reelTitle || 'Reel')}</Text>
       </View>
 
       {/* Bottom controls */}

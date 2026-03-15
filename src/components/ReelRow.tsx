@@ -13,9 +13,10 @@ interface ReelRowProps {
   subtitle?: string;
   reels: (StuntReel | SkillReel)[];
   onReelPress?: (reel: StuntReel | SkillReel) => void;
+  onSeeAll?: () => void;
 }
 
-export function ReelRow({ title, subtitle, reels, onReelPress }: ReelRowProps) {
+export function ReelRow({ title, subtitle, reels, onReelPress, onSeeAll }: ReelRowProps) {
   const flatListRef = useRef<FlatList>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
@@ -69,10 +70,12 @@ export function ReelRow({ title, subtitle, reels, onReelPress }: ReelRowProps) {
   return (
     <View style={styles.container} {...(hoverProps as any)}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-        </View>
+        <Text style={styles.title}>{title}</Text>
+        {onSeeAll && (
+          <TouchableOpacity onPress={onSeeAll}>
+            <Text style={styles.seeAll}>See All</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <View style={styles.listContainer} onLayout={handleLayout}>
         <FlatList
@@ -123,6 +126,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xxl,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: Spacing.screen,
     marginBottom: Spacing.md,
   },
@@ -131,10 +137,9 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xl,
     fontWeight: FontWeight.bold,
   },
-  subtitle: {
-    color: Colors.textMuted,
-    fontSize: FontSize.xs,
-    marginTop: 2,
+  seeAll: {
+    color: Colors.textTertiary,
+    fontSize: FontSize.sm,
   },
   listContainer: {
     position: 'relative',

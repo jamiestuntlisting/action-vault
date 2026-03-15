@@ -9,7 +9,7 @@ import { ContentRow } from '../../components/ContentRow';
 import { ReelRow } from '../../components/ReelRow';
 import { Video } from '../../types';
 import { skillTags } from '../../data/skillTags';
-import { stuntReels, skillReels, getSkillReelsByCategory, SkillReel } from '../../services/StuntListingService';
+import { stuntReels, skillReels, getSkillReelsByCategory, getEmbedUrl, SkillReel } from '../../services/StuntListingService';
 
 const MAX_WIDTH = 960;
 
@@ -325,34 +325,33 @@ export function HomeScreen({ navigation }: any) {
           />
         )}
 
-        {/* ── StuntListing Section ── */}
+        {/* StuntListing Stunt Reels */}
         {stuntReels.length > 0 && (
-          <View style={styles.slSection}>
-            <View style={styles.slSectionHeader}>
-              <Text style={styles.slSectionTitle}>StuntListing</Text>
-              <Text style={styles.slSectionSubtitle}>Reels from professional stunt performers</Text>
-            </View>
-
-            {/* Stunt Reels */}
-            <ReelRow
-              title="Stunt Reels"
-              subtitle={`${stuntReels.length} performer reels`}
-              reels={stuntReels.slice(0, 20)}
-              onReelPress={(reel) => Linking.openURL(reel.url)}
-            />
-
-            {/* Skill Reels — sub-categories by individual stunt skill */}
-            {stuntSkillSubCategories.map(([skillName, reels]) => (
-              <ReelRow
-                key={skillName}
-                title={skillName}
-                subtitle={`${reels.length} skill reels`}
-                reels={reels.slice(0, 20)}
-                onReelPress={(reel) => Linking.openURL(reel.url)}
-              />
-            ))}
-          </View>
+          <ReelRow
+            title="Stunt Reels"
+            reels={stuntReels}
+            onReelPress={(reel) => Linking.openURL(reel.url)}
+            onSeeAll={() => navigation.navigate('ReelGrid', { title: 'Stunt Reels', reelIds: stuntReels.map(r => r.id) })}
+          />
         )}
+
+        {/* StuntListing Skill Reels — sub-categories by individual stunt skill */}
+        {stuntSkillSubCategories.map(([skillName, reels]) => (
+          <ReelRow
+            key={skillName}
+            title={skillName}
+            reels={reels}
+            onReelPress={(reel) => {
+              const embedUrl = getEmbedUrl(reel);
+              if (embedUrl) {
+                navigation.navigate('VideoPlayer', { embedUrl, title: reel.skill || reel.url });
+              } else {
+                Linking.openURL(reel.url);
+              }
+            }}
+            onSeeAll={() => navigation.navigate('ReelGrid', { title: skillName, reelIds: reels.map(r => r.id) })}
+          />
+        ))}
 
         {atlantaStunts.length > 0 && (
           <ContentRow
@@ -438,27 +437,5 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: FontSize.sm,
     fontWeight: FontWeight.medium,
-  },
-  // StuntListing section
-  slSection: {
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.xl,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: Spacing.xl,
-  },
-  slSectionHeader: {
-    paddingHorizontal: Spacing.screen,
-    marginBottom: Spacing.xl,
-  },
-  slSectionTitle: {
-    color: Colors.primary,
-    fontSize: FontSize.xxl,
-    fontWeight: FontWeight.bold,
-  },
-  slSectionSubtitle: {
-    color: Colors.textMuted,
-    fontSize: FontSize.sm,
-    marginTop: 4,
   },
 });
