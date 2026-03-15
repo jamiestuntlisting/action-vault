@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ScrollView, View, Text, StyleSheet, RefreshControl, TouchableOpacity, FlatList, Linking } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, RefreshControl, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
@@ -9,7 +9,7 @@ import { ContentRow } from '../../components/ContentRow';
 import { ReelRow } from '../../components/ReelRow';
 import { Video } from '../../types';
 import { skillTags } from '../../data/skillTags';
-import { stuntReels, skillReels, getSkillReelsByCategory, getEmbedUrl, SkillReel } from '../../services/StuntListingService';
+import { stuntReels, skillReels, getSkillReelsByCategory, SkillReel } from '../../services/StuntListingService';
 
 const MAX_WIDTH = 960;
 
@@ -328,25 +328,18 @@ export function HomeScreen({ navigation }: any) {
           <ReelRow
             title="Stunt Reels"
             reels={stuntReels}
-            onReelPress={(reel) => Linking.openURL(reel.url)}
+            onReelPress={(reel) => navigation.navigate('ReelDetail', { reelId: reel.id })}
             onSeeAll={() => navigation.navigate('ReelGrid', { title: 'Stunt Reels', reelIds: stuntReels.map(r => r.id) })}
           />
         )}
 
-        {/* StuntListing Skill Reels — sub-categories by individual stunt skill */}
+        {/* StuntListing Skill Reels — sub-categories by individual skill */}
         {skillReelSubCategories.map(([skillName, reels]) => (
           <ReelRow
             key={skillName}
             title={skillName}
             reels={reels}
-            onReelPress={(reel) => {
-              const embedUrl = getEmbedUrl(reel);
-              if (embedUrl) {
-                navigation.navigate('VideoPlayer', { embedUrl, title: reel.skill || reel.url });
-              } else {
-                Linking.openURL(reel.url);
-              }
-            }}
+            onReelPress={(reel) => navigation.navigate('ReelDetail', { reelId: reel.id })}
             onSeeAll={() => navigation.navigate('ReelGrid', { title: skillName, reelIds: reels.map(r => r.id) })}
           />
         ))}

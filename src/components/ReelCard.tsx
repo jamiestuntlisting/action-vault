@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../theme';
 import { StuntReel, SkillReel } from '../services/StuntListingService';
 
-const CARD_WIDTH = 160;
-const THUMB_HEIGHT = 90;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// Match VideoCard sizing for consistent thumbnail size
+const CARD_WIDTH = Math.max(SCREEN_WIDTH < 500 ? SCREEN_WIDTH * 0.38 : SCREEN_WIDTH * 0.22, 150);
 
 interface ReelCardProps {
   reel: StuntReel | SkillReel;
@@ -110,9 +111,9 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.medium,
   },
   title: {
-    color: Colors.textPrimary,
+    color: Colors.textSecondary,
     fontSize: FontSize.sm,
-    fontWeight: FontWeight.medium,
+    marginTop: Spacing.xs,
     lineHeight: 16,
     marginBottom: 2,
   },

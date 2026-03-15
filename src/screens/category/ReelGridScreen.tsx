@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, Linking,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
@@ -49,7 +49,7 @@ export function ReelGridScreen({ navigation, route }: any) {
           renderItem={({ item }) => (
             <ReelCard
               reel={item}
-              onPress={() => Linking.openURL(item.url)}
+              onPress={() => navigation.navigate('ReelDetail', { reelId: item.id })}
               width={cardWidth}
             />
           )}
