@@ -40,8 +40,13 @@ export function HomeScreen({ navigation }: any) {
   const trending = useMemo(() =>
     [...visibleVideos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10), [visibleVideos]);
 
-  const top10 = useMemo(() =>
-    [...visibleVideos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10), [visibleVideos]);
+  const top10 = useMemo(() => {
+    const thumbsUpCount = (videoId: string) =>
+      state.ratings.filter(r => r.videoId === videoId && r.thumbs === 'up').length;
+    return [...visibleVideos]
+      .sort((a, b) => thumbsUpCount(b.id) - thumbsUpCount(a.id) || b.viewCount - a.viewCount)
+      .slice(0, 10);
+  }, [visibleVideos, state.ratings]);
 
   const newThisWeek = useMemo(() =>
     [...visibleVideos].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10), [visibleVideos]);
@@ -232,18 +237,18 @@ export function HomeScreen({ navigation }: any) {
         />
 
         <ContentRow
-          title="Top 10 This Week"
+          title="Top 10"
           videos={top10}
           onVideoPress={navigateToVideo}
           showRanks
-          onSeeAll={() => navigateToCategory('Top 10 This Week', top10)}
+          onSeeAll={() => navigateToCategory('Top 10', top10)}
         />
 
         <ContentRow
-          title="New This Week"
+          title="Recently Added"
           videos={newThisWeek}
           onVideoPress={navigateToVideo}
-          onSeeAll={() => navigateToCategory('New This Week', newThisWeek)}
+          onSeeAll={() => navigateToCategory('Recently Added', newThisWeek)}
         />
 
         <ContentRow
