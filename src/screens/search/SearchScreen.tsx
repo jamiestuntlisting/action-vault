@@ -10,8 +10,8 @@ import { VideoCard } from '../../components/VideoCard';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CATEGORY_WIDTH = (SCREEN_WIDTH - Spacing.screen * 2 - Spacing.md) / 2;
 
-export function SearchScreen({ navigation }: any) {
-  const [query, setQuery] = useState('');
+export function SearchScreen({ navigation, route }: any) {
+  const [query, setQuery] = useState(route?.params?.query || '');
   const [recentSearches] = useState(['high falls', 'John Wick', 'fire burns', 'car stunts']);
 
   const results = useMemo(() => {

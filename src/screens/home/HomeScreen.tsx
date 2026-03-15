@@ -66,11 +66,12 @@ export function HomeScreen({ navigation }: any) {
         t.includes('classic');
     }), [visibleVideos]);
 
-  const legendaryPerformers = useMemo(() =>
+  const actionActors = useMemo(() =>
     visibleVideos.filter(v => {
       const t = v.title.toLowerCase();
       return t.includes('jackie chan') || t.includes('keanu') || t.includes('tom cruise') ||
-        t.includes('tom holland');
+        t.includes('tom holland') || t.includes('harrison ford') || t.includes('buster keaton') ||
+        v.performers.some(p => p.role === 'action_star');
     }), [visibleVideos]);
 
   const wireAndRigWork = useMemo(() =>
@@ -174,6 +175,7 @@ export function HomeScreen({ navigation }: any) {
           title="Trending Now"
           videos={trending}
           onVideoPress={navigateToVideo}
+          onSeeAll={() => navigation.navigate('Search', { query: 'trending' })}
         />
 
         <ContentRow
@@ -181,24 +183,28 @@ export function HomeScreen({ navigation }: any) {
           videos={top10}
           onVideoPress={navigateToVideo}
           showRanks
+          onSeeAll={() => navigation.navigate('Search', { query: 'top' })}
         />
 
         <ContentRow
           title="New This Week"
           videos={newThisWeek}
           onVideoPress={navigateToVideo}
+          onSeeAll={() => navigation.navigate('Search', { query: 'new' })}
         />
 
         <ContentRow
           title="Popular in Fight Choreography"
           videos={fightChoreography}
           onVideoPress={navigateToVideo}
+          onSeeAll={() => navigation.navigate('Search', { query: 'fight' })}
         />
 
         <ContentRow
           title="Car Work & Driving"
           videos={carWork}
           onVideoPress={navigateToVideo}
+          onSeeAll={() => navigation.navigate('Search', { query: 'car' })}
         />
 
         {classicStunts.length > 0 && (
@@ -206,14 +212,16 @@ export function HomeScreen({ navigation }: any) {
             title="Classic Stunts"
             videos={classicStunts}
             onVideoPress={navigateToVideo}
+            onSeeAll={() => navigation.navigate('Search', { query: 'classic' })}
           />
         )}
 
-        {legendaryPerformers.length > 0 && (
+        {actionActors.length > 0 && (
           <ContentRow
-            title="Legendary Stunt Performers"
-            videos={legendaryPerformers}
+            title="Action Actors"
+            videos={actionActors}
             onVideoPress={navigateToVideo}
+            onSeeAll={() => navigation.navigate('Search', { query: 'action star' })}
           />
         )}
 
@@ -222,6 +230,7 @@ export function HomeScreen({ navigation }: any) {
             title="Spy & Action Thrillers"
             videos={bondAndSpy}
             onVideoPress={navigateToVideo}
+            onSeeAll={() => navigation.navigate('Search', { query: 'spy bond' })}
           />
         )}
 
@@ -230,6 +239,7 @@ export function HomeScreen({ navigation }: any) {
             title="Superhero Stunts"
             videos={marvelDC}
             onVideoPress={navigateToVideo}
+            onSeeAll={() => navigation.navigate('Search', { query: 'marvel' })}
           />
         )}
 
@@ -238,6 +248,7 @@ export function HomeScreen({ navigation }: any) {
             title="Wire & Rig Work"
             videos={wireAndRigWork}
             onVideoPress={navigateToVideo}
+            onSeeAll={() => navigation.navigate('Search', { query: 'wire rig' })}
           />
         )}
 
@@ -246,6 +257,7 @@ export function HomeScreen({ navigation }: any) {
             title="TV Show Stunts: Behind the Scenes"
             videos={tvBTS}
             onVideoPress={navigateToVideo}
+            onSeeAll={() => navigation.navigate('Search', { query: 'tv show' })}
           />
         )}
 
@@ -254,6 +266,7 @@ export function HomeScreen({ navigation }: any) {
             title="Stunt Documentaries & Interviews"
             videos={stuntDocs}
             onVideoPress={navigateToVideo}
+            onSeeAll={() => navigation.navigate('Search', { query: 'documentary' })}
           />
         )}
 
@@ -262,6 +275,7 @@ export function HomeScreen({ navigation }: any) {
             title="Atlanta Stunts"
             videos={atlantaStunts}
             onVideoPress={navigateToVideo}
+            onSeeAll={() => navigation.navigate('Search', { query: 'Atlanta' })}
           />
         )}
 
@@ -270,6 +284,7 @@ export function HomeScreen({ navigation }: any) {
             title="New York Stunts"
             videos={newYorkStunts}
             onVideoPress={navigateToVideo}
+            onSeeAll={() => navigation.navigate('Search', { query: 'New York' })}
           />
         )}
 
@@ -278,6 +293,7 @@ export function HomeScreen({ navigation }: any) {
             title="Chicago Stunts"
             videos={chicagoStunts}
             onVideoPress={navigateToVideo}
+            onSeeAll={() => navigation.navigate('Search', { query: 'Chicago' })}
           />
         )}
 
@@ -285,18 +301,21 @@ export function HomeScreen({ navigation }: any) {
           title="Falls & High Work"
           videos={fallsVideos}
           onVideoPress={navigateToVideo}
+          onSeeAll={() => navigation.navigate('Search', { query: 'falls' })}
         />
 
         <ContentRow
           title="Fire & Pyro"
           videos={fireVideos}
           onVideoPress={navigateToVideo}
+          onSeeAll={() => navigation.navigate('Search', { query: 'fire' })}
         />
 
         <ContentRow
           title="Training & Safety"
           videos={trainingVideos}
           onVideoPress={navigateToVideo}
+          onSeeAll={() => navigation.navigate('Search', { query: 'training' })}
         />
       </View>
     </ScrollView>
