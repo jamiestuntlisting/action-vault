@@ -35,8 +35,16 @@ export interface SkillReel {
   tier: 'standard' | 'plus';
 }
 
-// All stunt reels from paid StuntListing members
-export const stuntReels: StuntReel[] = (reelsData as any).stuntReels || [];
+// All stunt reels from paid StuntListing members — one per performer (first reel)
+const allStuntReels: StuntReel[] = (reelsData as any).stuntReels || [];
+export const stuntReels: StuntReel[] = (() => {
+  const seen = new Set<string>();
+  return allStuntReels.filter(r => {
+    if (seen.has(r.name)) return false;
+    seen.add(r.name);
+    return true;
+  });
+})();
 
 // All skill reels from paid StuntListing members
 export const skillReels: SkillReel[] = (reelsData as any).skillReels || [];
