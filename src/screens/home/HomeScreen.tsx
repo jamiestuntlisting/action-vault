@@ -131,16 +131,14 @@ export function HomeScreen({ navigation }: any) {
       return overr?.locationTags?.includes('Chicago');
     }), [visibleVideos, overrides]);
 
-  // StuntListing Skill Reels — only Stunt Skills category, grouped by individual skill
-  const stuntSkillReels = useMemo(() => skillReels.filter(r => r.cat === 'Stunt Skills'), []);
-  const stuntSkillSubCategories = useMemo(() => {
+  // StuntListing Skill Reels — all skill reels from plus/standard users, grouped by skill
+  const skillReelSubCategories = useMemo(() => {
     const skillMap = new Map<string, SkillReel[]>();
-    stuntSkillReels.forEach(r => {
+    skillReels.forEach(r => {
       const existing = skillMap.get(r.skill) || [];
       existing.push(r);
       skillMap.set(r.skill, existing);
     });
-    // Sort by count descending, only include skills with 3+ reels
     // Exclude non-stunt categories
     const excludedSkills = new Set(['Acting/Actor', 'All Expected Abilities']);
     // Prioritize Expert/Advanced reels within each sub-category
@@ -151,7 +149,7 @@ export function HomeScreen({ navigation }: any) {
         (levelOrder[a.level] ?? 4) - (levelOrder[b.level] ?? 4)
       )] as [string, SkillReel[]])
       .sort((a, b) => b[1].length - a[1].length);
-  }, [stuntSkillReels]);
+  }, []);
 
   function navigateToVideo(video: Video) {
     navigation.navigate('VideoDetail', { videoId: video.id });
@@ -336,7 +334,7 @@ export function HomeScreen({ navigation }: any) {
         )}
 
         {/* StuntListing Skill Reels — sub-categories by individual stunt skill */}
-        {stuntSkillSubCategories.map(([skillName, reels]) => (
+        {skillReelSubCategories.map(([skillName, reels]) => (
           <ReelRow
             key={skillName}
             title={skillName}
