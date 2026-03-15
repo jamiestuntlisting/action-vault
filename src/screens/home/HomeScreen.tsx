@@ -143,8 +143,13 @@ export function HomeScreen({ navigation }: any) {
     // Sort by count descending, only include skills with 3+ reels
     // Exclude non-stunt categories
     const excludedSkills = new Set(['Acting/Actor', 'All Expected Abilities']);
+    // Prioritize Expert/Advanced reels within each sub-category
+    const levelOrder: Record<string, number> = { 'Expert': 0, 'Advanced': 1, 'Intermediate': 2, 'Beginner': 3 };
     return Array.from(skillMap.entries())
       .filter(([skill, reels]) => reels.length >= 3 && !excludedSkills.has(skill))
+      .map(([skill, reels]) => [skill, reels.sort((a, b) =>
+        (levelOrder[a.level] ?? 4) - (levelOrder[b.level] ?? 4)
+      )] as [string, SkillReel[]])
       .sort((a, b) => b[1].length - a[1].length);
   }, [stuntSkillReels]);
 
