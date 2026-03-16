@@ -21,6 +21,19 @@ export function CategoryVideosScreen({ navigation, route }: any) {
   const numColumns = SCREEN_WIDTH > 700 ? 4 : SCREEN_WIDTH > 500 ? 3 : 2;
   const cardWidth = (Math.min(SCREEN_WIDTH, MAX_WIDTH) - Spacing.screen * 2 - Spacing.sm * (numColumns - 1)) / numColumns;
 
+  function handleWatchAll() {
+    if (categoryVideos.length === 0) return;
+    // Start playing the first video, queue the rest
+    const first = categoryVideos[0];
+    const remaining = categoryVideos.slice(1).map(v => ({
+      videoId: v.id,
+    }));
+    navigation.navigate('VideoPlayer', {
+      videoId: first.id,
+      videoQueue: remaining,
+    });
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.maxWidth}>
@@ -34,6 +47,14 @@ export function CategoryVideosScreen({ navigation, route }: any) {
             <Text style={styles.headerCount}>{categoryVideos.length} videos</Text>
           </View>
         </View>
+
+        {/* Watch All button */}
+        {categoryVideos.length > 1 && (
+          <TouchableOpacity style={styles.watchAllButton} onPress={handleWatchAll} activeOpacity={0.8}>
+            <Ionicons name="play-circle" size={22} color={Colors.black} />
+            <Text style={styles.watchAllText}>Watch All</Text>
+          </TouchableOpacity>
+        )}
 
         <FlatList
           data={categoryVideos}
@@ -72,6 +93,22 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
   headerTitle: { color: Colors.textPrimary, fontSize: FontSize.xxl, fontWeight: FontWeight.bold },
   headerCount: { color: Colors.textMuted, fontSize: FontSize.sm, marginTop: 2 },
+  watchAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.white,
+    marginHorizontal: Spacing.screen,
+    marginBottom: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  watchAllText: {
+    color: Colors.black,
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.bold,
+  },
   grid: { paddingHorizontal: Spacing.screen, paddingBottom: 100 },
   empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: Spacing.md },
   emptyText: { color: Colors.textMuted, fontSize: FontSize.md },

@@ -20,7 +20,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 
 export function VideoPlayerScreen({ route, navigation }: any) {
-  const { videoId, startTime = 0, embedUrl: directEmbedUrl, title: reelTitle } = route.params;
+  const { videoId, startTime = 0, embedUrl: directEmbedUrl, title: reelTitle, queue: reelQueue, videoQueue } = route.params;
   const video = videoId ? videoMap.get(videoId) : null;
   const { state, dispatch } = useAppState();
   const webviewRef = useRef<any>(null);
@@ -222,6 +222,25 @@ export function VideoPlayerScreen({ route, navigation }: any) {
           setIsPlaying(data.state === 1);
           setCurrentTime(data.currentTime || 0);
           if (data.duration) setDuration(data.duration);
+          // Auto-advance to next item in queue when video ends
+          if (data.state === 0) {
+            if (reelQueue && reelQueue.length > 0) {
+              const next = reelQueue[0];
+              const remaining = reelQueue.slice(1);
+              navigation.replace('VideoPlayer', {
+                embedUrl: next.embedUrl,
+                title: next.title,
+                queue: remaining,
+              });
+            } else if (videoQueue && videoQueue.length > 0) {
+              const next = videoQueue[0];
+              const remaining = videoQueue.slice(1);
+              navigation.replace('VideoPlayer', {
+                videoId: next.videoId,
+                videoQueue: remaining,
+              });
+            }
+          }
           break;
       }
     } catch (e) {}

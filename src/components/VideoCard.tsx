@@ -24,6 +24,8 @@ export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, sho
   const { getWatchProgress } = useAppState();
   const progress = getWatchProgress(video.id);
   const progressPercent = progress ? (progress.progressSeconds / video.durationSeconds) * 100 : 0;
+  const isWatched = progress?.completed === true;
+  const isPartiallyWatched = !isWatched && progress && progress.progressSeconds > 10;
   const height = width * 0.56;
 
   return (
@@ -36,10 +38,23 @@ export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, sho
       <View style={[styles.imageContainer, { height }]}>
         <Image
           source={{ uri: video.thumbnailUrl }}
-          style={styles.image}
+          style={[styles.image, (isWatched || isPartiallyWatched) && styles.imageWatched]}
           contentFit="cover"
           transition={200}
         />
+        {/* Grey overlay + status label for watched videos */}
+        {(isWatched || isPartiallyWatched) && (
+          <View style={styles.watchedOverlay}>
+            <Ionicons
+              name={isWatched ? 'checkmark-circle' : 'time-outline'}
+              size={16}
+              color="rgba(255,255,255,0.9)"
+            />
+            <Text style={styles.watchedLabel}>
+              {isWatched ? 'Watched' : 'Partially Watched'}
+            </Text>
+          </View>
+        )}
         {showRank !== undefined && (
           <View style={styles.rankBadge}>
             <Text style={styles.rankText}>{showRank}</Text>
@@ -48,18 +63,19 @@ export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, sho
         <View style={styles.durationBadge}>
           <Text style={styles.durationText}>{formatDuration(video.durationSeconds)}</Text>
         </View>
-        {video.isFeatured && (
+        {video.isFeatured && !isWatched && !isPartiallyWatched && (
           <View style={styles.featuredBadge}>
             <Text style={styles.featuredText}>FEATURED</Text>
           </View>
         )}
-        {(showProgress && progressPercent > 0) && (
+        {/* Progress bar: show for continue watching or partially watched */}
+        {((showProgress && progressPercent > 0) || isPartiallyWatched) && (
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${Math.min(progressPercent, 100)}%` }]} />
           </View>
         )}
       </View>
-      <Text style={styles.title} numberOfLines={2}>{video.title}</Text>
+      <Text style={[styles.title, (isWatched || isPartiallyWatched) && styles.titleWatched]} numberOfLines={2}>{video.title}</Text>
     </TouchableOpacity>
   );
 }
@@ -82,6 +98,27 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  imageWatched: {
+    opacity: 0.4,
+  },
+  watchedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 3,
+  },
+  watchedLabel: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 9,
+    fontWeight: FontWeight.semibold,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   rankBadge: {
     position: 'absolute',
@@ -143,5 +180,8 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     marginTop: Spacing.xs,
     lineHeight: 16,
+  },
+  titleWatched: {
+    color: Colors.textMuted,
   },
 });

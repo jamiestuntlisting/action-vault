@@ -16,29 +16,35 @@ const MAX_WIDTH = 960;
 export function HomeScreen({ navigation }: any) {
   const { state, dispatch, isInMyList, getContinueWatching } = useAppState();
   const [refreshing, setRefreshing] = React.useState(false);
+  const [shuffleKey, setShuffleKey] = React.useState(Date.now());
 
   const overrides = state.settings.adminVideoOverrides || [];
   const hiddenIds = new Set(overrides.filter(o => o.hidden).map(o => o.videoId));
   const visibleVideos = useMemo(() => videos.filter(v => !hiddenIds.has(v.id)), [hiddenIds.size]);
 
+  // Rotate featured videos daily using date as seed
   const featuredVideos = useMemo(() => {
-    const feat = visibleVideos.filter(v => v.isFeatured);
-    // If we have fewer than 3 featured, add top viewed
-    if (feat.length < 3) {
+    const pool = visibleVideos.filter(v => v.isFeatured);
+    // If not enough featured, supplement with top viewed
+    if (pool.length < 5) {
       const top = [...visibleVideos].sort((a, b) => b.viewCount - a.viewCount)
-        .filter(v => !feat.some(f => f.id === v.id))
-        .slice(0, 5 - feat.length);
-      return [...feat, ...top];
+        .filter(v => !pool.some(f => f.id === v.id));
+      pool.push(...top);
     }
-    return feat.slice(0, 5);
+    // Use today's date as a seed to shuffle deterministically per day
+    const today = new Date();
+    const daySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+    const shuffled = [...pool];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = ((daySeed * (i + 1) * 2654435761) >>> 0) % (i + 1);
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, 5);
   }, [visibleVideos]);
   const continueWatching = useMemo(() => {
     const entries = getContinueWatching();
     return entries.map(e => videoMap.get(e.videoId)).filter(Boolean) as Video[];
   }, [state.watchHistory]);
-
-  const trending = useMemo(() =>
-    [...visibleVideos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10), [visibleVideos]);
 
   const top10 = useMemo(() => {
     const thumbsUpCount = (videoId: string) =>
@@ -157,6 +163,17 @@ export function HomeScreen({ navigation }: any) {
       .sort((a, b) => b[1].length - a[1].length);
   }, []);
 
+  // Shuffle stunt reels randomly each time the page loads or refreshes
+  const shuffledStuntReels = useMemo(() => {
+    const arr = [...stuntReels];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shuffleKey]);
+
   function navigateToVideo(video: Video) {
     navigation.navigate('VideoDetail', { videoId: video.id });
   }
@@ -171,6 +188,7 @@ export function HomeScreen({ navigation }: any) {
 
   function onRefresh() {
     setRefreshing(true);
+    setShuffleKey(Date.now()); // re-shuffle reels on pull-to-refresh
     setTimeout(() => setRefreshing(false), 1000);
   }
 
@@ -231,18 +249,11 @@ export function HomeScreen({ navigation }: any) {
         )}
 
         <ContentRow
-          title="Trending Now"
-          videos={trending}
-          onVideoPress={navigateToVideo}
-          onSeeAll={() => navigateToCategory('Trending Now', trending)}
-        />
-
-        <ContentRow
-          title="Top 10"
+          title="Top 10 This Week"
           videos={top10}
           onVideoPress={navigateToVideo}
           showRanks
-          onSeeAll={() => navigateToCategory('Top 10', top10)}
+          onSeeAll={() => navigateToCategory('Top 10 This Week', top10)}
         />
 
         <ContentRow
@@ -329,17 +340,17 @@ export function HomeScreen({ navigation }: any) {
           />
         )}
 
-        {/* StuntListing Stunt Reels */}
-        {stuntReels.length > 0 && (
+        {/* StuntListing Stunt Reels — randomly shuffled each load */}
+        {shuffledStuntReels.length > 0 && (
           <ReelRow
             title="Stunt Reels"
-            reels={stuntReels}
+            reels={shuffledStuntReels}
             onReelPress={(reel) => navigation.navigate('ReelDetail', { reelId: reel.id })}
-            onSeeAll={() => navigation.navigate('ReelGrid', { title: 'Stunt Reels', reelIds: stuntReels.map(r => r.id) })}
+            onSeeAll={() => navigation.navigate('ReelGrid', { title: 'Stunt Reels', reelIds: shuffledStuntReels.map(r => r.id) })}
           />
         )}
 
-        {/* StuntListing Skill Reels — sub-categories by individual skill */}
+        {/* StuntListing Skill Reels — sub-categories randomly shuffled */}
         {skillReelSubCategories.map(([skillName, reels]) => (
           <ReelRow
             key={skillName}
