@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
@@ -8,6 +8,26 @@ import { Video } from '../../types';
 import { VideoCard } from '../../components/VideoCard';
 import { ReelCard } from '../../components/ReelCard';
 import { stuntReels, skillReels, StuntReel, SkillReel } from '../../services/StuntListingService';
+
+// All browseable categories with thumbnails and search queries
+const ALL_CATEGORIES: { label: string; query: string; thumbnail: string; icon: string }[] = [
+  { label: 'Fight Choreography', query: 'fight', icon: 'fitness-outline', thumbnail: 'https://img.youtube.com/vi/psWUuuoYMy8/hqdefault.jpg' },
+  { label: 'Car Work & Driving', query: 'car', icon: 'car-outline', thumbnail: 'https://img.youtube.com/vi/Vntap_wZDKI/hqdefault.jpg' },
+  { label: 'Falls & High Work', query: 'falls', icon: 'arrow-down-outline', thumbnail: 'https://img.youtube.com/vi/I7lYjYnPOyU/hqdefault.jpg' },
+  { label: 'Fire & Pyro', query: 'fire', icon: 'flame-outline', thumbnail: 'https://img.youtube.com/vi/gwn0J2OVDG4/hqdefault.jpg' },
+  { label: 'Wire & Rig Work', query: 'wire rig', icon: 'resize-outline', thumbnail: 'https://img.youtube.com/vi/ACEL0WwgdDU/hqdefault.jpg' },
+  { label: 'Action Actors', query: 'jackie chan keanu tom cruise', icon: 'star-outline', thumbnail: 'https://img.youtube.com/vi/ERc9grpxINg/hqdefault.jpg' },
+  { label: 'Superhero Stunts', query: 'marvel spider shang', icon: 'shield-outline', thumbnail: 'https://img.youtube.com/vi/Oh7svEBK6I8/hqdefault.jpg' },
+  { label: 'Spy & Action Thrillers', query: 'bond mission impossible matrix', icon: 'eye-outline', thumbnail: 'https://img.youtube.com/vi/mLvu5oyQZek/hqdefault.jpg' },
+  { label: 'Classic Stunts', query: 'classic keaton indiana jones', icon: 'time-outline', thumbnail: 'https://img.youtube.com/vi/b-DVRCUhinQ/hqdefault.jpg' },
+  { label: 'TV Show Stunts', query: 'game of thrones daredevil walking dead', icon: 'tv-outline', thumbnail: 'https://img.youtube.com/vi/-lsFs2615gw/hqdefault.jpg' },
+  { label: 'Documentaries & Interviews', query: 'documentary interview', icon: 'film-outline', thumbnail: 'https://img.youtube.com/vi/ZSl8_ylM3-I/hqdefault.jpg' },
+  { label: 'Stuntmen React', query: 'stuntmen react', icon: 'videocam-outline', thumbnail: 'https://img.youtube.com/vi/ERc9grpxINg/hqdefault.jpg' },
+  { label: 'Training & Safety', query: 'training safety', icon: 'barbell-outline', thumbnail: 'https://img.youtube.com/vi/ZSl8_ylM3-I/hqdefault.jpg' },
+  { label: 'Water Stunts', query: 'water', icon: 'water-outline', thumbnail: 'https://img.youtube.com/vi/b-DVRCUhinQ/hqdefault.jpg' },
+  { label: 'Gags & Specialty', query: 'gag specialty', icon: 'sparkles-outline', thumbnail: 'https://img.youtube.com/vi/Oh7svEBK6I8/hqdefault.jpg' },
+  { label: 'Vehicle Stunts', query: 'vehicle motorcycle', icon: 'bicycle-outline', thumbnail: 'https://img.youtube.com/vi/-lsFs2615gw/hqdefault.jpg' },
+];
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CATEGORY_WIDTH = (SCREEN_WIDTH - Spacing.screen * 2 - Spacing.md) / 2;
@@ -210,59 +230,46 @@ export function SearchScreen({ navigation, route }: any) {
         />
       </View>
 
-      <FlatList
-        data={[{ type: 'recent' }, { type: 'trending' }, ...categories.map(c => ({ type: 'category', name: c }))]}
-        keyExtractor={(item, i) => i.toString()}
-        contentContainerStyle={styles.browseContent}
-        renderItem={({ item }: any) => {
-          if (item.type === 'recent') {
-            return (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Recent Searches</Text>
-                <View style={styles.recentList}>
-                  {recentSearches.map((s, i) => (
-                    <TouchableOpacity key={i} style={styles.recentItem} onPress={() => setQuery(s)}>
-                      <Ionicons name="time-outline" size={16} color={Colors.textTertiary} />
-                      <Text style={styles.recentText}>{s}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            );
-          }
-          if (item.type === 'trending') {
-            return (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Browse Categories</Text>
-              </View>
-            );
-          }
-          return null;
-        }}
-        ListFooterComponent={
-          <View style={styles.categoryGrid}>
-            {categories.map(cat => (
-              <TouchableOpacity
-                key={cat}
-                style={styles.categoryCard}
-                onPress={() => {
-                  navigation.navigate('Search', { category: cat });
-                  setQuery(cat.toLowerCase());
-                }}
-                activeOpacity={0.8}
-              >
-                <Image
-                  source={{ uri: categoryThumbnails[cat] || 'https://via.placeholder.com/300x170' }}
-                  style={styles.categoryImage}
-                  contentFit="cover"
-                />
-                <View style={styles.categoryOverlay} />
-                <Text style={styles.categoryName}>{cat}</Text>
+      <ScrollView contentContainerStyle={styles.browseContent} showsVerticalScrollIndicator={false}>
+        {/* Recent Searches */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Recent Searches</Text>
+          <View style={styles.recentList}>
+            {recentSearches.map((s, i) => (
+              <TouchableOpacity key={i} style={styles.recentItem} onPress={() => setQuery(s)}>
+                <Ionicons name="time-outline" size={16} color={Colors.textTertiary} />
+                <Text style={styles.recentText}>{s}</Text>
               </TouchableOpacity>
             ))}
           </View>
-        }
-      />
+        </View>
+
+        {/* All Categories */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Browse Categories</Text>
+        </View>
+        <View style={styles.categoryGrid}>
+          {ALL_CATEGORIES.map(cat => (
+            <TouchableOpacity
+              key={cat.label}
+              style={styles.categoryCard}
+              onPress={() => setQuery(cat.query)}
+              activeOpacity={0.8}
+            >
+              <Image
+                source={{ uri: cat.thumbnail }}
+                style={styles.categoryImage}
+                contentFit="cover"
+              />
+              <View style={styles.categoryOverlay} />
+              <View style={styles.categoryContent}>
+                <Ionicons name={cat.icon as any} size={18} color={Colors.white} />
+                <Text style={styles.categoryName}>{cat.label}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -335,11 +342,22 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
+  categoryContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    padding: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
   categoryName: {
     color: Colors.white,
-    fontSize: FontSize.lg,
+    fontSize: FontSize.sm,
     fontWeight: FontWeight.bold,
-    padding: Spacing.md,
+    flex: 1,
   },
   suggestions: {
     paddingHorizontal: Spacing.screen,
