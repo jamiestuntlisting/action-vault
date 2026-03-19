@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Platform, TextInput, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Platform, TextInput, Keyboard, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
@@ -53,6 +53,10 @@ export function VideoPlayerScreen({ route, navigation }: any) {
   // Which thumbs state to show — only for library videos and reels, NOT Atlas Action
   const canRate = !!(videoId || currentReelId);
   const currentThumbs = videoId ? videoRating?.thumbs : (currentReelId ? reelRating?.thumbs : null);
+
+  // Is this a reel (skill or stunt reel)? If so, show flag button instead of tag person
+  const isReel = !!(currentReelId || (directEmbedUrl && !videoId));
+  const canTagPerson = !!videoId; // Only library videos support person tagging
 
   // Build list of known names for autocomplete
   const knownNames = useMemo(() => {
@@ -523,11 +527,33 @@ export function VideoPlayerScreen({ route, navigation }: any) {
     });
   }
 
+  function handleReportBrokenVideo() {
+    const videoTitle = reelTitle || 'Unknown Reel';
+    const videoUrl = directEmbedUrl || '';
+    const reelRef = currentReelId || 'N/A';
+    const subject = encodeURIComponent(`Broken Video Report: ${videoTitle}`);
+    const body = encodeURIComponent(
+      `Hi StuntListing,\n\n` +
+      `I'd like to report a video that isn't working.\n\n` +
+      `Video Title: ${videoTitle}\n` +
+      `Reel ID: ${reelRef}\n` +
+      `Video URL: ${videoUrl}\n` +
+      `Reported At: ${new Date().toISOString()}\n\n` +
+      `Please look into this. Thank you!`
+    );
+    const mailtoUrl = `mailto:stuntlisting@gmail.com?subject=${subject}&body=${body}`;
+    if (isWeb) {
+      window.open(mailtoUrl, '_blank');
+    } else {
+      Linking.openURL(mailtoUrl);
+    }
+  }
+
   const videoDuration = duration || (video ? video.durationSeconds : 0);
   const progressPercent = videoDuration > 0 ? (currentTime / videoDuration) * 100 : 0;
 
-  // Shared tag overlay component
-  const tagOverlay = showTagOverlay ? (
+  // Shared tag overlay component — only for library videos
+  const tagOverlay = (showTagOverlay && canTagPerson) ? (
     <View style={styles.tagOverlay}>
       <Text style={styles.tagOverlayTitle}>Tag a Person</Text>
       <View style={styles.tagRoleRow}>
@@ -636,12 +662,23 @@ export function VideoPlayerScreen({ route, navigation }: any) {
                 <Ionicons name="play-skip-forward" size={22} color={Colors.white} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={() => setShowTagOverlay(!showTagOverlay)} style={styles.backButton}>
-              <Ionicons name="person-add-outline" size={20} color={showTagOverlay ? Colors.primary : Colors.white} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={addBookmark} style={styles.backButton}>
-              <Ionicons name="bookmark-outline" size={22} color={Colors.white} />
-            </TouchableOpacity>
+            {/* Tag person — library videos only */}
+            {canTagPerson && (
+              <TouchableOpacity onPress={() => setShowTagOverlay(!showTagOverlay)} style={styles.backButton}>
+                <Ionicons name="person-add-outline" size={20} color={showTagOverlay ? Colors.primary : Colors.white} />
+              </TouchableOpacity>
+            )}
+            {/* Report broken video — reels only */}
+            {isReel && (
+              <TouchableOpacity onPress={handleReportBrokenVideo} style={styles.backButton}>
+                <Ionicons name="flag-outline" size={20} color={Colors.white} />
+              </TouchableOpacity>
+            )}
+            {canTagPerson && (
+              <TouchableOpacity onPress={addBookmark} style={styles.backButton}>
+                <Ionicons name="bookmark-outline" size={22} color={Colors.white} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -677,12 +714,23 @@ export function VideoPlayerScreen({ route, navigation }: any) {
           <Ionicons name="arrow-back" size={28} color={Colors.white} />
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
-        <TouchableOpacity onPress={() => setShowTagOverlay(!showTagOverlay)} style={styles.backButton}>
-          <Ionicons name="person-add-outline" size={20} color={showTagOverlay ? Colors.primary : Colors.white} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={addBookmark} style={styles.backButton}>
-          <Ionicons name="bookmark-outline" size={22} color={Colors.white} />
-        </TouchableOpacity>
+        {/* Tag person — library videos only */}
+        {canTagPerson && (
+          <TouchableOpacity onPress={() => setShowTagOverlay(!showTagOverlay)} style={styles.backButton}>
+            <Ionicons name="person-add-outline" size={20} color={showTagOverlay ? Colors.primary : Colors.white} />
+          </TouchableOpacity>
+        )}
+        {/* Report broken video — reels only */}
+        {isReel && (
+          <TouchableOpacity onPress={handleReportBrokenVideo} style={styles.backButton}>
+            <Ionicons name="flag-outline" size={20} color={Colors.white} />
+          </TouchableOpacity>
+        )}
+        {canTagPerson && (
+          <TouchableOpacity onPress={addBookmark} style={styles.backButton}>
+            <Ionicons name="bookmark-outline" size={22} color={Colors.white} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Title bar */}
