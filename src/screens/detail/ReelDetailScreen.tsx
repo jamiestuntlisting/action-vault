@@ -47,7 +47,7 @@ export function ReelDetailScreen({ route, navigation }: any) {
 
   function handlePlay() {
     if (embedUrl) {
-      navigation.navigate('VideoPlayer', { embedUrl, title });
+      navigation.navigate('VideoPlayer', { embedUrl, title, reelId });
     } else {
       Linking.openURL(reel!.url);
     }

@@ -20,10 +20,11 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 
 export function VideoPlayerScreen({ route, navigation }: any) {
-  const { videoId, startTime = 0, embedUrl: directEmbedUrl, title: reelTitle, queue: reelQueue, videoQueue } = route.params;
+  const { videoId, startTime = 0, embedUrl: directEmbedUrl, title: reelTitle, queue: reelQueue, videoQueue, reelId: currentReelId } = route.params;
   const video = videoId ? videoMap.get(videoId) : null;
-  const { state, dispatch } = useAppState();
+  const { state, dispatch, getRating } = useAppState();
   const webviewRef = useRef<any>(null);
+  const webPlayerRef = useRef<any>(null);
   const [showControls, setShowControls] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
   const [currentTime, setCurrentTime] = useState(startTime);
@@ -37,7 +38,20 @@ export function VideoPlayerScreen({ route, navigation }: any) {
   const [tagRole, setTagRole] = useState('Performer');
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [showTagConfirm, setShowTagConfirm] = useState(false);
+  const [ratingToast, setRatingToast] = useState<string | null>(null);
   const controlsTimer = useRef<any>(null);
+
+  // Determine if there's a next item in the queue
+  const hasNextInQueue = (reelQueue && reelQueue.length > 0) || (videoQueue && videoQueue.length > 0);
+
+  // Current rating for this video (library videos)
+  const videoRating = videoId ? getRating(videoId) : null;
+
+  // Current rating for reels
+  const reelRating = currentReelId ? (state.settings.reelRatings || {} as any)[currentReelId] : null;
+
+  // Which thumbs state to show
+  const currentThumbs = videoId ? videoRating?.thumbs : (currentReelId ? reelRating?.thumbs : null);
 
   // Build list of known names for autocomplete
   const knownNames = useMemo(() => {
@@ -73,6 +87,80 @@ export function VideoPlayerScreen({ route, navigation }: any) {
     setShowTagOverlay(false);
     setShowTagConfirm(true);
     setTimeout(() => setShowTagConfirm(false), 2000);
+  }
+
+  // ─── Rating handlers ───
+  function handleThumb(direction: 'up' | 'down') {
+    if (videoId) {
+      // Library video rating
+      const rating = getRating(videoId);
+      dispatch({
+        type: 'SET_RATING',
+        payload: {
+          profileId: '',
+          videoId,
+          thumbs: rating?.thumbs === direction ? null : direction,
+          difficultyRating: rating?.difficultyRating || null,
+          bestOfBest: rating?.bestOfBest || false,
+          reviewText: rating?.reviewText || '',
+          createdAt: new Date().toISOString(),
+        },
+      });
+    } else if (currentReelId) {
+      // Reel rating
+      const existing = state.settings.reelRatings || {};
+      const current = (existing as any)[currentReelId];
+      dispatch({
+        type: 'UPDATE_SETTINGS',
+        payload: {
+          reelRatings: {
+            ...existing,
+            [currentReelId]: {
+              thumbs: current?.thumbs === direction ? null : direction,
+              ratedAt: new Date().toISOString(),
+            },
+          },
+        },
+      });
+    }
+    // Show toast
+    const isRemoving = (videoId && videoRating?.thumbs === direction) || (currentReelId && reelRating?.thumbs === direction);
+    setRatingToast(isRemoving ? 'Rating removed' : direction === 'up' ? 'Rated 👍' : 'Not for me 👎');
+    setTimeout(() => setRatingToast(null), 1500);
+  }
+
+  // ─── Skip to next in queue ───
+  function skipToNext() {
+    // Save progress before skipping
+    if (videoId) {
+      dispatch({
+        type: 'ADD_TO_WATCH_HISTORY',
+        payload: {
+          profileId: '',
+          videoId,
+          progressSeconds: currentTime,
+          completed: duration > 0 ? currentTime >= duration * 0.9 : false,
+          lastWatchedAt: new Date().toISOString(),
+        },
+      });
+    }
+    if (reelQueue && reelQueue.length > 0) {
+      const next = reelQueue[0];
+      const remaining = reelQueue.slice(1);
+      navigation.replace('VideoPlayer', {
+        embedUrl: next.embedUrl,
+        title: next.title,
+        queue: remaining,
+        reelId: next.reelId,
+      });
+    } else if (videoQueue && videoQueue.length > 0) {
+      const next = videoQueue[0];
+      const remaining = videoQueue.slice(1);
+      navigation.replace('VideoPlayer', {
+        videoId: next.videoId,
+        videoQueue: remaining,
+      });
+    }
   }
 
   useEffect(() => {
@@ -202,12 +290,19 @@ export function VideoPlayerScreen({ route, navigation }: any) {
 
   function sendCommand(action: string, params: any = {}) {
     const cmd = JSON.stringify({ action, ...params });
-    webviewRef.current?.injectJavaScript(`window.playerCommand('${cmd}'); true;`);
+    if (isWeb && webPlayerRef.current) {
+      // Web: call playerCommand on the iframe's content window or via the YT API ref
+      try {
+        webPlayerRef.current.playerCommand(cmd);
+      } catch (e) {}
+    } else {
+      webviewRef.current?.injectJavaScript(`window.playerCommand('${cmd}'); true;`);
+    }
   }
 
   function handleMessage(event: any) {
     try {
-      const data = JSON.parse(event.nativeEvent.data);
+      const data = JSON.parse(event.nativeEvent ? event.nativeEvent.data : event.data);
       switch (data.type) {
         case 'ready':
           setPlayerReady(true);
@@ -231,6 +326,7 @@ export function VideoPlayerScreen({ route, navigation }: any) {
                 embedUrl: next.embedUrl,
                 title: next.title,
                 queue: remaining,
+                reelId: next.reelId,
               });
             } else if (videoQueue && videoQueue.length > 0) {
               const next = videoQueue[0];
@@ -245,6 +341,116 @@ export function VideoPlayerScreen({ route, navigation }: any) {
       }
     } catch (e) {}
   }
+
+  // Web: set up YouTube IFrame API
+  useEffect(() => {
+    if (!isWeb || !youtubeId) return;
+    // Load YouTube IFrame API
+    const existingScript = document.querySelector('script[src*="youtube.com/iframe_api"]');
+    if (!existingScript) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(tag);
+    }
+
+    function createPlayer() {
+      const container = document.getElementById('yt-player-container');
+      if (!container) return;
+      // Clear any existing player
+      container.innerHTML = '';
+      const playerDiv = document.createElement('div');
+      playerDiv.id = 'yt-player';
+      container.appendChild(playerDiv);
+
+      const player = new (window as any).YT.Player('yt-player', {
+        videoId: youtubeId,
+        width: '100%',
+        height: '100%',
+        playerVars: {
+          autoplay: 1,
+          playsinline: 1,
+          controls: 1,
+          rel: 0,
+          modestbranding: 1,
+          start: startTime,
+          iv_load_policy: 3,
+          cc_load_policy: 0,
+        },
+        events: {
+          onReady: (event: any) => {
+            event.target.playVideo();
+            setPlayerReady(true);
+            setDuration(player.getDuration() || 0);
+            // Start time updates
+            const interval = setInterval(() => {
+              try {
+                if (player && player.getCurrentTime) {
+                  setCurrentTime(player.getCurrentTime());
+                  setDuration(player.getDuration() || 0);
+                }
+              } catch (e) {}
+            }, 1000);
+            (webPlayerRef as any)._timeInterval = interval;
+          },
+          onStateChange: (event: any) => {
+            const ytState = event.data;
+            setIsPlaying(ytState === 1);
+            try {
+              setCurrentTime(player.getCurrentTime() || 0);
+              setDuration(player.getDuration() || 0);
+            } catch (e) {}
+            // Auto-advance on end (state === 0)
+            if (ytState === 0) {
+              if (reelQueue && reelQueue.length > 0) {
+                const next = reelQueue[0];
+                const remaining = reelQueue.slice(1);
+                navigation.replace('VideoPlayer', {
+                  embedUrl: next.embedUrl,
+                  title: next.title,
+                  queue: remaining,
+                  reelId: next.reelId,
+                });
+              } else if (videoQueue && videoQueue.length > 0) {
+                const next = videoQueue[0];
+                const remaining = videoQueue.slice(1);
+                navigation.replace('VideoPlayer', {
+                  videoId: next.videoId,
+                  videoQueue: remaining,
+                });
+              }
+            }
+          },
+        },
+      });
+
+      webPlayerRef.current = {
+        playerCommand: (cmd: string) => {
+          try {
+            const data = JSON.parse(cmd);
+            switch (data.action) {
+              case 'play': player.playVideo(); break;
+              case 'pause': player.pauseVideo(); break;
+              case 'seek': player.seekTo(data.time, true); break;
+              case 'setSpeed': player.setPlaybackRate(data.rate); break;
+            }
+          } catch (e) {}
+        },
+      };
+    }
+
+    // Wait for YT API to load
+    if ((window as any).YT && (window as any).YT.Player) {
+      setTimeout(createPlayer, 100);
+    } else {
+      (window as any).onYouTubeIframeAPIReady = createPlayer;
+    }
+
+    return () => {
+      if ((webPlayerRef as any)._timeInterval) {
+        clearInterval((webPlayerRef as any)._timeInterval);
+      }
+    };
+  }, [youtubeId]);
 
   function toggleControls() {
     setShowControls(!showControls);
@@ -319,84 +525,129 @@ export function VideoPlayerScreen({ route, navigation }: any) {
   const videoDuration = duration || (video ? video.durationSeconds : 0);
   const progressPercent = videoDuration > 0 ? (currentTime / videoDuration) * 100 : 0;
 
-  // Web platform: use iframe directly
+  // Shared tag overlay component
+  const tagOverlay = showTagOverlay ? (
+    <View style={styles.tagOverlay}>
+      <Text style={styles.tagOverlayTitle}>Tag a Person</Text>
+      <View style={styles.tagRoleRow}>
+        {['Performer', 'Coordinator', 'Actor', 'Director'].map(role => (
+          <TouchableOpacity
+            key={role}
+            style={[styles.tagRoleBtn, tagRole === role && styles.tagRoleBtnActive]}
+            onPress={() => setTagRole(role)}
+          >
+            <Text style={[styles.tagRoleText, tagRole === role && styles.tagRoleTextActive]}>{role}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={styles.tagInputRow}>
+        <TextInput
+          style={styles.tagInput}
+          placeholder="Type name..."
+          placeholderTextColor={Colors.textMuted}
+          value={tagName}
+          onChangeText={setTagName}
+          onSubmitEditing={() => submitPersonTag()}
+          autoFocus
+          returnKeyType="done"
+        />
+        <TouchableOpacity onPress={() => submitPersonTag()} style={styles.tagSubmitBtn}>
+          <Ionicons name="checkmark" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+      {tagSuggestions.length > 0 && (
+        <View style={styles.tagSuggestions}>
+          {tagSuggestions.map(s => (
+            <TouchableOpacity key={s} style={styles.tagSuggestionItem} onPress={() => submitPersonTag(s)}>
+              <Ionicons name="person" size={14} color={Colors.textSecondary} />
+              <Text style={styles.tagSuggestionText}>{s}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  ) : null;
+
+  // Shared confirmation toasts
+  const toasts = (
+    <>
+      {showTagConfirm && (
+        <View style={styles.tagConfirmToast}>
+          <Ionicons name="checkmark-circle" size={18} color="#4caf50" />
+          <Text style={styles.tagConfirmText}>Person tagged!</Text>
+        </View>
+      )}
+      {ratingToast && (
+        <View style={styles.tagConfirmToast}>
+          <Ionicons name="star" size={18} color={Colors.primary} />
+          <Text style={[styles.tagConfirmText, { color: Colors.primary }]}>{ratingToast}</Text>
+        </View>
+      )}
+    </>
+  );
+
+  // Queue info bar
+  const queueInfo = hasNextInQueue ? (
+    <View style={styles.queueInfo}>
+      <Text style={styles.queueInfoText}>
+        Up next: {reelQueue?.[0]?.title || (videoQueue?.[0]?.videoId ? videoMap.get(videoQueue[0].videoId)?.title : '')}
+      </Text>
+      <Text style={styles.queueCountText}>
+        {(reelQueue?.length || 0) + (videoQueue?.length || 0)} remaining
+      </Text>
+    </View>
+  ) : null;
+
+  // Web platform: use YouTube IFrame API directly
   if (isWeb) {
-    const embedSrc = youtubeId
-      ? `https://www.youtube.com/embed/${youtubeId}?autoplay=1&start=${startTime}&rel=0&modestbranding=1&playsinline=1&controls=0&showinfo=0&iv_load_policy=3`
-      : (directEmbedUrl || '');
     return (
       <View style={styles.container}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.9)', paddingTop: 20, paddingHorizontal: 8, paddingBottom: 8, gap: 8 }}>
+        {/* Header bar */}
+        <View style={styles.webHeader}>
           <TouchableOpacity onPress={handleClose} style={styles.backButton}>
             <Ionicons name="arrow-back" size={28} color={Colors.white} />
           </TouchableOpacity>
-          <Text style={{ flex: 1, color: Colors.white, fontSize: FontSize.md, fontWeight: FontWeight.semibold }} numberOfLines={1}>{video ? video.title : (reelTitle || 'Reel')}</Text>
-          <TouchableOpacity onPress={() => setShowTagOverlay(!showTagOverlay)} style={styles.backButton}>
-            <Ionicons name="person-add-outline" size={20} color={showTagOverlay ? Colors.primary : Colors.white} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={addBookmark} style={styles.backButton}>
-            <Ionicons name="bookmark-outline" size={22} color={Colors.white} />
-          </TouchableOpacity>
-        </View>
-        <View style={{ flex: 1 }}>
-          {React.createElement('iframe', {
-            src: embedSrc,
-            style: { width: '100%', height: '100%', border: 'none' },
-            allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
-            allowFullScreen: true,
-          })}
-        </View>
-
-        {/* Tag person overlay */}
-        {showTagOverlay && (
-          <View style={styles.tagOverlay}>
-            <Text style={styles.tagOverlayTitle}>Tag a Person</Text>
-            <View style={styles.tagRoleRow}>
-              {['Performer', 'Coordinator', 'Actor', 'Director'].map(role => (
-                <TouchableOpacity
-                  key={role}
-                  style={[styles.tagRoleBtn, tagRole === role && styles.tagRoleBtnActive]}
-                  onPress={() => setTagRole(role)}
-                >
-                  <Text style={[styles.tagRoleText, tagRole === role && styles.tagRoleTextActive]}>{role}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <View style={styles.tagInputRow}>
-              <TextInput
-                style={styles.tagInput}
-                placeholder="Type name..."
-                placeholderTextColor={Colors.textMuted}
-                value={tagName}
-                onChangeText={setTagName}
-                onSubmitEditing={() => submitPersonTag()}
-                autoFocus
-                returnKeyType="done"
+          <Text style={styles.webHeaderTitle} numberOfLines={1}>{video ? video.title : (reelTitle || 'Reel')}</Text>
+          <View style={{ flexDirection: 'row', gap: 4 }}>
+            {/* Thumbs up */}
+            <TouchableOpacity onPress={() => handleThumb('up')} style={styles.backButton}>
+              <Ionicons
+                name={currentThumbs === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
+                size={20}
+                color={currentThumbs === 'up' ? Colors.primary : Colors.white}
               />
-              <TouchableOpacity onPress={() => submitPersonTag()} style={styles.tagSubmitBtn}>
-                <Ionicons name="checkmark" size={20} color="#fff" />
+            </TouchableOpacity>
+            {/* Thumbs down */}
+            <TouchableOpacity onPress={() => handleThumb('down')} style={styles.backButton}>
+              <Ionicons
+                name={currentThumbs === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
+                size={20}
+                color={currentThumbs === 'down' ? '#ff4444' : Colors.white}
+              />
+            </TouchableOpacity>
+            {/* Skip to next */}
+            {hasNextInQueue && (
+              <TouchableOpacity onPress={skipToNext} style={styles.backButton}>
+                <Ionicons name="play-skip-forward" size={22} color={Colors.white} />
               </TouchableOpacity>
-            </View>
-            {tagSuggestions.length > 0 && (
-              <View style={styles.tagSuggestions}>
-                {tagSuggestions.map(s => (
-                  <TouchableOpacity key={s} style={styles.tagSuggestionItem} onPress={() => submitPersonTag(s)}>
-                    <Ionicons name="person" size={14} color={Colors.textSecondary} />
-                    <Text style={styles.tagSuggestionText}>{s}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
             )}
+            <TouchableOpacity onPress={() => setShowTagOverlay(!showTagOverlay)} style={styles.backButton}>
+              <Ionicons name="person-add-outline" size={20} color={showTagOverlay ? Colors.primary : Colors.white} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={addBookmark} style={styles.backButton}>
+              <Ionicons name="bookmark-outline" size={22} color={Colors.white} />
+            </TouchableOpacity>
           </View>
-        )}
+        </View>
 
-        {/* Tag confirmation toast */}
-        {showTagConfirm && (
-          <View style={styles.tagConfirmToast}>
-            <Ionicons name="checkmark-circle" size={18} color="#4caf50" />
-            <Text style={styles.tagConfirmText}>Person tagged!</Text>
-          </View>
-        )}
+        {/* Queue info */}
+        {queueInfo}
+
+        {/* YouTube Player Container */}
+        <View style={{ flex: 1 }} nativeID="yt-player-container" />
+
+        {tagOverlay}
+        {toasts}
       </View>
     );
   }
@@ -461,6 +712,40 @@ export function VideoPlayerScreen({ route, navigation }: any) {
             <Text style={styles.controlLabel}>+10s</Text>
           </TouchableOpacity>
 
+          {/* Skip to next in queue */}
+          {hasNextInQueue && (
+            <TouchableOpacity style={styles.controlButton} onPress={skipToNext}>
+              <Ionicons name="play-skip-forward" size={20} color={Colors.white} />
+              <Text style={styles.controlLabel}>Next</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Thumbs up */}
+          <TouchableOpacity
+            style={[styles.controlButton, currentThumbs === 'up' && styles.controlButtonActive]}
+            onPress={() => handleThumb('up')}
+          >
+            <Ionicons
+              name={currentThumbs === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
+              size={18}
+              color={currentThumbs === 'up' ? Colors.primary : Colors.white}
+            />
+            <Text style={[styles.controlLabel, currentThumbs === 'up' && styles.controlLabelActive]}>Rate</Text>
+          </TouchableOpacity>
+
+          {/* Thumbs down */}
+          <TouchableOpacity
+            style={[styles.controlButton, currentThumbs === 'down' && styles.controlButtonActive]}
+            onPress={() => handleThumb('down')}
+          >
+            <Ionicons
+              name={currentThumbs === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
+              size={18}
+              color={currentThumbs === 'down' ? '#ff4444' : Colors.white}
+            />
+            <Text style={[styles.controlLabel, currentThumbs === 'down' && { color: '#ff4444' }]}>Nah</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.controlButton, isSlowMo && styles.controlButtonActive]}
             onPress={toggleSlowMo}
@@ -479,56 +764,8 @@ export function VideoPlayerScreen({ route, navigation }: any) {
         </View>
       </View>
 
-      {/* Tag person overlay - works without pausing */}
-      {showTagOverlay && (
-        <View style={styles.tagOverlay}>
-          <Text style={styles.tagOverlayTitle}>Tag a Person</Text>
-          <View style={styles.tagRoleRow}>
-            {['Performer', 'Coordinator', 'Actor', 'Director'].map(role => (
-              <TouchableOpacity
-                key={role}
-                style={[styles.tagRoleBtn, tagRole === role && styles.tagRoleBtnActive]}
-                onPress={() => setTagRole(role)}
-              >
-                <Text style={[styles.tagRoleText, tagRole === role && styles.tagRoleTextActive]}>{role}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={styles.tagInputRow}>
-            <TextInput
-              style={styles.tagInput}
-              placeholder="Type name..."
-              placeholderTextColor={Colors.textMuted}
-              value={tagName}
-              onChangeText={setTagName}
-              onSubmitEditing={() => submitPersonTag()}
-              autoFocus
-              returnKeyType="done"
-            />
-            <TouchableOpacity onPress={() => submitPersonTag()} style={styles.tagSubmitBtn}>
-              <Ionicons name="checkmark" size={20} color="#fff" />
-            </TouchableOpacity>
-          </View>
-          {tagSuggestions.length > 0 && (
-            <View style={styles.tagSuggestions}>
-              {tagSuggestions.map(s => (
-                <TouchableOpacity key={s} style={styles.tagSuggestionItem} onPress={() => submitPersonTag(s)}>
-                  <Ionicons name="person" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.tagSuggestionText}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* Tag confirmation toast */}
-      {showTagConfirm && (
-        <View style={styles.tagConfirmToast}>
-          <Ionicons name="checkmark-circle" size={18} color="#4caf50" />
-          <Text style={styles.tagConfirmText}>Person tagged!</Text>
-        </View>
-      )}
+      {tagOverlay}
+      {toasts}
 
       {/* Speed picker overlay */}
       {showSpeedPicker && (
@@ -562,6 +799,21 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
     backgroundColor: Colors.black,
+  },
+  webHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    paddingTop: 20,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  webHeaderTitle: {
+    flex: 1,
+    color: Colors.white,
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
   },
   backButtonContainer: {
     position: 'absolute',
@@ -629,11 +881,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   controlButton: {
     alignItems: 'center',
     gap: 2,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
   },
   controlButtonActive: {
@@ -679,10 +932,27 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontWeight: FontWeight.bold,
   },
+  queueInfo: {
+    backgroundColor: 'rgba(229,9,20,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  queueInfoText: {
+    color: Colors.textSecondary,
+    fontSize: FontSize.xs,
+    flex: 1,
+  },
+  queueCountText: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
+  },
   // Tag overlay styles
   tagOverlay: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 100 : 70,
+    top: Platform.OS === 'web' ? 60 : (Platform.OS === 'ios' ? 100 : 70),
     right: Spacing.screen,
     width: 260,
     backgroundColor: 'rgba(20,20,20,0.95)',
@@ -761,7 +1031,7 @@ const styles = StyleSheet.create({
   },
   tagConfirmToast: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 100 : 70,
+    top: Platform.OS === 'web' ? 60 : (Platform.OS === 'ios' ? 100 : 70),
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',

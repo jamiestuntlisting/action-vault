@@ -39,6 +39,7 @@ export function ReelGridScreen({ navigation, route }: any) {
       navigation.navigate('VideoPlayer', {
         embedUrl: queue[0].embedUrl,
         title: queue[0].title,
+        reelId: queue[0].reelId,
         queue: queue.slice(1), // remaining items
       });
     }
