@@ -2,6 +2,7 @@ import React, { useReducer, useEffect, useMemo, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import { AppContext, reducer, initialState, State } from './AppState';
 import { StorageService } from './StorageService';
+import { StripeService } from './StripeService';
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -10,21 +11,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadPersistedState();
   }, []);
 
-  // Handle post-Stripe redirect URL params on web
+  // Handle post-Stripe redirect: verify payment server-side before unlocking
   useEffect(() => {
     if (Platform.OS === 'web') {
       const params = new URLSearchParams(window.location.search);
       const purchase = params.get('purchase');
-      const type = params.get('type');
-      const id = params.get('id');
-      if (purchase === 'success' && id) {
-        if (type === 'video') {
-          dispatch({ type: 'PURCHASE_ATLAS_VIDEO', payload: id });
-        } else if (type === 'course') {
-          dispatch({ type: 'PURCHASE_ATLAS_COURSE', payload: id });
-        }
-        // Clean up URL params
+      const sessionId = params.get('session_id');
+
+      if (purchase === 'success' && sessionId) {
+        // Clean up URL params immediately
         window.history.replaceState({}, '', window.location.pathname);
+
+        // Verify the purchase with Stripe via our server
+        StripeService.verifyPurchase(sessionId).then((result) => {
+          if (result.verified && result.id) {
+            if (result.type === 'video') {
+              dispatch({ type: 'PURCHASE_ATLAS_VIDEO', payload: result.id });
+            } else if (result.type === 'course') {
+              dispatch({ type: 'PURCHASE_ATLAS_COURSE', payload: result.id });
+            }
+            console.log(`Purchase verified: ${result.type}:${result.id}`);
+          } else {
+            console.warn('Purchase verification failed:', result.reason);
+          }
+        }).catch((err) => {
+          console.error('Purchase verification error:', err);
+        });
       }
     }
   }, []);

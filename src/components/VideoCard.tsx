@@ -7,8 +7,9 @@ import { Video } from '../types';
 import { useAppState } from '../services/AppState';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-// On mobile (<500px): ~38% of screen. On wider screens: ~220px, never below 150px
-const CARD_WIDTH = Math.max(SCREEN_WIDTH < 500 ? SCREEN_WIDTH * 0.38 : SCREEN_WIDTH * 0.22, 150);
+// Ensure at least 2 thumbnails visible on narrow phones
+// On mobile (<500px): ~42% of screen. On wider screens: ~22%, min 120px
+const CARD_WIDTH = Math.max(SCREEN_WIDTH < 500 ? SCREEN_WIDTH * 0.42 : SCREEN_WIDTH * 0.22, 120);
 const CARD_HEIGHT = CARD_WIDTH * 0.56;
 
 interface VideoCardProps {

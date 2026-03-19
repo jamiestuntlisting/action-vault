@@ -21,12 +21,17 @@ export default async function handler(req: any, res: any) {
 
     const params = new URLSearchParams();
     params.append('mode', 'payment');
-    params.append('success_url', `${origin}/?purchase=success&type=${type}&id=${id}`);
+    // Include {CHECKOUT_SESSION_ID} template so we can verify server-side
+    params.append('success_url', `${origin}/?purchase=success&type=${type}&id=${id}&session_id={CHECKOUT_SESSION_ID}`);
     params.append('cancel_url', `${origin}/?purchase=cancelled`);
     params.append('line_items[0][price_data][currency]', 'usd');
     params.append('line_items[0][price_data][product_data][name]', `Atlas Action: ${title}`);
     params.append('line_items[0][price_data][unit_amount]', String(priceInCents));
     params.append('line_items[0][quantity]', '1');
+    // Store purchase info in metadata for webhook verification
+    params.append('metadata[purchase_type]', type);
+    params.append('metadata[purchase_id]', id);
+    params.append('metadata[title]', title);
 
     const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',

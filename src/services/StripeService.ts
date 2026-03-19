@@ -7,6 +7,13 @@ interface CheckoutParams {
   price: number;
 }
 
+interface VerifyResult {
+  verified: boolean;
+  type?: 'video' | 'course';
+  id?: string;
+  reason?: string;
+}
+
 const API_BASE = Platform.OS === 'web'
   ? '' // Same origin on web
   : 'https://actionvault.stuntlisting.com'; // Production URL for native
@@ -36,6 +43,26 @@ export const StripeService = {
       // For native, use Linking to open Stripe checkout in browser
       const { Linking } = require('react-native');
       await Linking.openURL(sessionUrl);
+    }
+  },
+
+  // Verify a purchase server-side using the Stripe session ID
+  async verifyPurchase(sessionId: string): Promise<VerifyResult> {
+    try {
+      const response = await fetch(`${API_BASE}/api/verify-purchase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      });
+
+      if (!response.ok) {
+        return { verified: false, reason: 'Verification request failed' };
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Purchase verification error:', error);
+      return { verified: false, reason: 'Network error' };
     }
   },
 };

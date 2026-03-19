@@ -5,8 +5,8 @@ import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../theme';
 import { StuntReel, SkillReel } from '../services/StuntListingService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-// Match VideoCard sizing for consistent thumbnail size
-const CARD_WIDTH = Math.max(SCREEN_WIDTH < 500 ? SCREEN_WIDTH * 0.38 : SCREEN_WIDTH * 0.22, 150);
+// Match VideoCard sizing — ensure at least 2 thumbnails on narrow phones
+const CARD_WIDTH = Math.max(SCREEN_WIDTH < 500 ? SCREEN_WIDTH * 0.42 : SCREEN_WIDTH * 0.22, 120);
 
 interface ReelCardProps {
   reel: StuntReel | SkillReel;
