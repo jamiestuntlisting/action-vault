@@ -151,6 +151,10 @@ export function HomeScreen({ navigation }: any) {
       v.title.toLowerCase().includes('fall guy')
     ), [visibleVideos]);
 
+  // Stuntmen React (Corridor Crew series)
+  const stuntmenReact = useMemo(() =>
+    visibleVideos.filter(v => v.title.toLowerCase().includes('stuntmen react')), [visibleVideos]);
+
   // Location-based categories
   const atlantaStunts = useMemo(() =>
     visibleVideos.filter(v => {
@@ -221,11 +225,12 @@ export function HomeScreen({ navigation }: any) {
     if (fallsVideos.length > 0) rows.push({ key: 'falls', title: 'Falls & High Work', videos: fallsVideos });
     if (fireVideos.length > 0) rows.push({ key: 'fire', title: 'Fire & Pyro', videos: fireVideos });
     if (trainingVideos.length > 0) rows.push({ key: 'training', title: 'Training & Safety', videos: trainingVideos });
+    if (stuntmenReact.length > 0) rows.push({ key: 'stuntmenreact', title: 'Stuntmen React (Corridor Crew)', videos: stuntmenReact });
     if (atlantaStunts.length > 0) rows.push({ key: 'atlanta', title: 'Atlanta Stunts', videos: atlantaStunts });
     if (newYorkStunts.length > 0) rows.push({ key: 'nyc', title: 'New York Stunts', videos: newYorkStunts });
     if (chicagoStunts.length > 0) rows.push({ key: 'chicago', title: 'Chicago Stunts', videos: chicagoStunts });
     return rows;
-  }, [fightChoreography, carWork, classicStunts, actionActors, bondAndSpy, marvelDC, wireAndRigWork, tvBTS, stuntDocs, fallsVideos, fireVideos, trainingVideos, atlantaStunts, newYorkStunts, chicagoStunts]);
+  }, [fightChoreography, carWork, classicStunts, actionActors, bondAndSpy, marvelDC, wireAndRigWork, tvBTS, stuntDocs, stuntmenReact, fallsVideos, fireVideos, trainingVideos, atlantaStunts, newYorkStunts, chicagoStunts]);
 
   // Pick today's rotating rows using the daily seed
   const todaysRows = useMemo(() => {
