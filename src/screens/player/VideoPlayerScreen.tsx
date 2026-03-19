@@ -50,7 +50,8 @@ export function VideoPlayerScreen({ route, navigation }: any) {
   // Current rating for reels
   const reelRating = currentReelId ? (state.settings.reelRatings || {} as any)[currentReelId] : null;
 
-  // Which thumbs state to show
+  // Which thumbs state to show — only for library videos and reels, NOT Atlas Action
+  const canRate = !!(videoId || currentReelId);
   const currentThumbs = videoId ? videoRating?.thumbs : (currentReelId ? reelRating?.thumbs : null);
 
   // Build list of known names for autocomplete
@@ -609,22 +610,26 @@ export function VideoPlayerScreen({ route, navigation }: any) {
           </TouchableOpacity>
           <Text style={styles.webHeaderTitle} numberOfLines={1}>{video ? video.title : (reelTitle || 'Reel')}</Text>
           <View style={{ flexDirection: 'row', gap: 4 }}>
-            {/* Thumbs up */}
-            <TouchableOpacity onPress={() => handleThumb('up')} style={styles.backButton}>
-              <Ionicons
-                name={currentThumbs === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
-                size={20}
-                color={currentThumbs === 'up' ? Colors.primary : Colors.white}
-              />
-            </TouchableOpacity>
+            {/* Thumbs up — only for library videos and reels, not Atlas Action */}
+            {canRate && (
+              <TouchableOpacity onPress={() => handleThumb('up')} style={styles.backButton}>
+                <Ionicons
+                  name={currentThumbs === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
+                  size={20}
+                  color={currentThumbs === 'up' ? Colors.primary : Colors.white}
+                />
+              </TouchableOpacity>
+            )}
             {/* Thumbs down */}
-            <TouchableOpacity onPress={() => handleThumb('down')} style={styles.backButton}>
-              <Ionicons
-                name={currentThumbs === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
-                size={20}
-                color={currentThumbs === 'down' ? '#ff4444' : Colors.white}
-              />
-            </TouchableOpacity>
+            {canRate && (
+              <TouchableOpacity onPress={() => handleThumb('down')} style={styles.backButton}>
+                <Ionicons
+                  name={currentThumbs === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
+                  size={20}
+                  color={currentThumbs === 'down' ? '#ff4444' : Colors.white}
+                />
+              </TouchableOpacity>
+            )}
             {/* Skip to next */}
             {hasNextInQueue && (
               <TouchableOpacity onPress={skipToNext} style={styles.backButton}>
@@ -720,31 +725,35 @@ export function VideoPlayerScreen({ route, navigation }: any) {
             </TouchableOpacity>
           )}
 
-          {/* Thumbs up */}
-          <TouchableOpacity
-            style={[styles.controlButton, currentThumbs === 'up' && styles.controlButtonActive]}
-            onPress={() => handleThumb('up')}
-          >
-            <Ionicons
-              name={currentThumbs === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
-              size={18}
-              color={currentThumbs === 'up' ? Colors.primary : Colors.white}
-            />
-            <Text style={[styles.controlLabel, currentThumbs === 'up' && styles.controlLabelActive]}>Rate</Text>
-          </TouchableOpacity>
+          {/* Thumbs up — only for library videos and reels, not Atlas Action */}
+          {canRate && (
+            <TouchableOpacity
+              style={[styles.controlButton, currentThumbs === 'up' && styles.controlButtonActive]}
+              onPress={() => handleThumb('up')}
+            >
+              <Ionicons
+                name={currentThumbs === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
+                size={18}
+                color={currentThumbs === 'up' ? Colors.primary : Colors.white}
+              />
+              <Text style={[styles.controlLabel, currentThumbs === 'up' && styles.controlLabelActive]}>Rate</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Thumbs down */}
-          <TouchableOpacity
-            style={[styles.controlButton, currentThumbs === 'down' && styles.controlButtonActive]}
-            onPress={() => handleThumb('down')}
-          >
-            <Ionicons
-              name={currentThumbs === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
-              size={18}
-              color={currentThumbs === 'down' ? '#ff4444' : Colors.white}
-            />
-            <Text style={[styles.controlLabel, currentThumbs === 'down' && { color: '#ff4444' }]}>Nah</Text>
-          </TouchableOpacity>
+          {canRate && (
+            <TouchableOpacity
+              style={[styles.controlButton, currentThumbs === 'down' && styles.controlButtonActive]}
+              onPress={() => handleThumb('down')}
+            >
+              <Ionicons
+                name={currentThumbs === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
+                size={18}
+                color={currentThumbs === 'down' ? '#ff4444' : Colors.white}
+              />
+              <Text style={[styles.controlLabel, currentThumbs === 'down' && { color: '#ff4444' }]}>Nah</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[styles.controlButton, isSlowMo && styles.controlButtonActive]}

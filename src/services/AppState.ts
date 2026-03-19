@@ -174,7 +174,7 @@ const defaultSettings: AppSettings = {
       description: 'A comprehensive introduction to the stunt industry covering basics, career planning, essential skills, and industry knowledge. Taught by veteran stunt coordinator Brad Martin.',
       instructorName: 'Brad Martin',
       thumbnailUrl: 'https://i.ytimg.com/vi/RRWdgHTU1po/hqdefault.jpg',
-      price: 9.99,
+      price: 99,
       videoIds: ['atlas-1', 'atlas-2', 'atlas-3', 'atlas-4'],
       enabled: true,
       createdAt: '2025-01-15T00:00:00.000Z',
