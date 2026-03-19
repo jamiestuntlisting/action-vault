@@ -14,6 +14,18 @@ import { skillTags } from '../../data/skillTags';
 import { stuntReels, skillReels, getSkillReelsByCategory, SkillReel } from '../../services/StuntListingService';
 
 const MAX_WIDTH = 960;
+const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+const ROTATING_ROWS_TO_SHOW = 5; // Show 5 rotating categories per day
+
+// Deterministic shuffle using a seed (same seed = same order each day)
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = ((seed * (i + 1) * 2654435761) >>> 0) % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 export function HomeScreen({ navigation }: any) {
   const { state, dispatch, isInMyList, getContinueWatching } = useAppState();
@@ -24,29 +36,34 @@ export function HomeScreen({ navigation }: any) {
   const hiddenIds = new Set(overrides.filter(o => o.hidden).map(o => o.videoId));
   const visibleVideos = useMemo(() => videos.filter(v => !hiddenIds.has(v.id)), [hiddenIds.size]);
 
+  // Daily seed for deterministic rotation
+  const daySeed = useMemo(() => {
+    const today = new Date();
+    return today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  }, []);
+
   // Rotate featured videos daily using date as seed
   const featuredVideos = useMemo(() => {
     const pool = visibleVideos.filter(v => v.isFeatured);
-    // If not enough featured, supplement with top viewed
     if (pool.length < 5) {
       const top = [...visibleVideos].sort((a, b) => b.viewCount - a.viewCount)
         .filter(v => !pool.some(f => f.id === v.id));
       pool.push(...top);
     }
-    // Use today's date as a seed to shuffle deterministically per day
-    const today = new Date();
-    const daySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-    const shuffled = [...pool];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = ((daySeed * (i + 1) * 2654435761) >>> 0) % (i + 1);
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled.slice(0, 5);
-  }, [visibleVideos]);
+    return seededShuffle(pool, daySeed).slice(0, 5);
+  }, [visibleVideos, daySeed]);
+
   const continueWatching = useMemo(() => {
     const entries = getContinueWatching();
     return entries.map(e => videoMap.get(e.videoId)).filter(Boolean) as Video[];
   }, [state.watchHistory]);
+
+  // Top 10: check if there are recent ratings (last 7 days) for "This Week", else "This Month"
+  const top10Label = useMemo(() => {
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const hasRecentRatings = state.ratings.some(r => new Date(r.ratedAt).getTime() > oneWeekAgo);
+    return hasRecentRatings ? 'Top 10 This Week' : 'Top 10 This Month';
+  }, [state.ratings]);
 
   const top10 = useMemo(() => {
     const thumbsUpCount = (videoId: string) =>
@@ -56,8 +73,17 @@ export function HomeScreen({ navigation }: any) {
       .slice(0, 10);
   }, [visibleVideos, state.ratings]);
 
-  const newThisWeek = useMemo(() =>
-    [...visibleVideos].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10), [visibleVideos]);
+  // Recently Added: only pin if there are videos added in the last 2 weeks
+  const recentlyAdded = useMemo(() =>
+    [...visibleVideos].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10),
+    [visibleVideos]);
+
+  const hasRecentVideos = useMemo(() => {
+    const cutoff = Date.now() - TWO_WEEKS_MS;
+    return recentlyAdded.length > 0 && new Date(recentlyAdded[0].createdAt).getTime() > cutoff;
+  }, [recentlyAdded]);
+
+  // ─── Category data (all computed, only rendered if selected by rotation) ───
 
   const fightChoreography = useMemo(() =>
     visibleVideos.filter(v => v.skillTags.some(t => t?.category === 'Fight Choreography')), [visibleVideos]);
@@ -153,9 +179,7 @@ export function HomeScreen({ navigation }: any) {
       existing.push(r);
       skillMap.set(r.skill, existing);
     });
-    // Exclude non-stunt categories
     const excludedSkills = new Set(['Acting/Actor', 'All Expected Abilities']);
-    // Prioritize Expert/Advanced reels within each sub-category
     const levelOrder: Record<string, number> = { 'Expert': 0, 'Advanced': 1, 'Intermediate': 2, 'Beginner': 3 };
     return Array.from(skillMap.entries())
       .filter(([skill, reels]) => reels.length >= 3 && !excludedSkills.has(skill))
@@ -180,6 +204,40 @@ export function HomeScreen({ navigation }: any) {
   const atlasActionVideos = useMemo(() =>
     (state.settings.atlasActionVideos || []).filter(v => v.enabled).sort((a, b) => a.sortOrder - b.sortOrder),
     [state.settings.atlasActionVideos]);
+
+  // ─── Rotating categories: pick a daily subset ───
+  // Build all rotatable category rows (only those with content)
+  const allRotatingRows = useMemo(() => {
+    const rows: { key: string; title: string; videos: Video[] }[] = [];
+    if (fightChoreography.length > 0) rows.push({ key: 'fight', title: 'Popular in Fight Choreography', videos: fightChoreography });
+    if (carWork.length > 0) rows.push({ key: 'car', title: 'Car Work & Driving', videos: carWork });
+    if (classicStunts.length > 0) rows.push({ key: 'classic', title: 'Classic Stunts', videos: classicStunts });
+    if (actionActors.length > 0) rows.push({ key: 'actors', title: 'Action Actors', videos: actionActors });
+    if (bondAndSpy.length > 0) rows.push({ key: 'spy', title: 'Spy & Action Thrillers', videos: bondAndSpy });
+    if (marvelDC.length > 0) rows.push({ key: 'superhero', title: 'Superhero Stunts', videos: marvelDC });
+    if (wireAndRigWork.length > 0) rows.push({ key: 'wire', title: 'Wire & Rig Work', videos: wireAndRigWork });
+    if (tvBTS.length > 0) rows.push({ key: 'tv', title: 'TV Show Stunts: Behind the Scenes', videos: tvBTS });
+    if (stuntDocs.length > 0) rows.push({ key: 'docs', title: 'Stunt Documentaries & Interviews', videos: stuntDocs });
+    if (fallsVideos.length > 0) rows.push({ key: 'falls', title: 'Falls & High Work', videos: fallsVideos });
+    if (fireVideos.length > 0) rows.push({ key: 'fire', title: 'Fire & Pyro', videos: fireVideos });
+    if (trainingVideos.length > 0) rows.push({ key: 'training', title: 'Training & Safety', videos: trainingVideos });
+    if (atlantaStunts.length > 0) rows.push({ key: 'atlanta', title: 'Atlanta Stunts', videos: atlantaStunts });
+    if (newYorkStunts.length > 0) rows.push({ key: 'nyc', title: 'New York Stunts', videos: newYorkStunts });
+    if (chicagoStunts.length > 0) rows.push({ key: 'chicago', title: 'Chicago Stunts', videos: chicagoStunts });
+    return rows;
+  }, [fightChoreography, carWork, classicStunts, actionActors, bondAndSpy, marvelDC, wireAndRigWork, tvBTS, stuntDocs, fallsVideos, fireVideos, trainingVideos, atlantaStunts, newYorkStunts, chicagoStunts]);
+
+  // Pick today's rotating rows using the daily seed
+  const todaysRows = useMemo(() => {
+    if (allRotatingRows.length <= ROTATING_ROWS_TO_SHOW) return allRotatingRows;
+    return seededShuffle(allRotatingRows, daySeed).slice(0, ROTATING_ROWS_TO_SHOW);
+  }, [allRotatingRows, daySeed]);
+
+  // Also rotate which skill reel rows to show (pick 3 per day)
+  const todaysSkillReels = useMemo(() => {
+    if (skillReelSubCategories.length <= 3) return skillReelSubCategories;
+    return seededShuffle(skillReelSubCategories, daySeed + 1).slice(0, 3);
+  }, [skillReelSubCategories, daySeed]);
 
   function navigateToVideo(video: Video) {
     navigation.navigate('VideoDetail', { videoId: video.id });
@@ -252,6 +310,8 @@ export function HomeScreen({ navigation }: any) {
           </ScrollView>
         </View>
 
+        {/* ─── PINNED ROWS ─── */}
+
         {continueWatching.length > 0 && (
           <ContentRow
             title="Continue Watching"
@@ -262,19 +322,21 @@ export function HomeScreen({ navigation }: any) {
         )}
 
         <ContentRow
-          title="Top 10 This Week"
+          title={top10Label}
           videos={top10}
           onVideoPress={navigateToVideo}
           showRanks
-          onSeeAll={() => navigateToCategory('Top 10 This Week', top10)}
+          onSeeAll={() => navigateToCategory(top10Label, top10)}
         />
 
-        <ContentRow
-          title="Recently Added"
-          videos={newThisWeek}
-          onVideoPress={navigateToVideo}
-          onSeeAll={() => navigateToCategory('Recently Added', newThisWeek)}
-        />
+        {hasRecentVideos && (
+          <ContentRow
+            title="Recently Added"
+            videos={recentlyAdded}
+            onVideoPress={navigateToVideo}
+            onSeeAll={() => navigateToCategory('Recently Added', recentlyAdded)}
+          />
+        )}
 
         {atlasActionVideos.length > 0 && (
           <AtlasActionRow
@@ -284,82 +346,17 @@ export function HomeScreen({ navigation }: any) {
           />
         )}
 
-        <ContentRow
-          title="Popular in Fight Choreography"
-          videos={fightChoreography}
-          onVideoPress={navigateToVideo}
-          onSeeAll={() => navigateToCategory('Fight Choreography', fightChoreography)}
-        />
+        {/* ─── ROTATING CATEGORY ROWS (daily rotation) ─── */}
 
-        <ContentRow
-          title="Car Work & Driving"
-          videos={carWork}
-          onVideoPress={navigateToVideo}
-          onSeeAll={() => navigateToCategory('Car Work & Driving', carWork)}
-        />
-
-        {classicStunts.length > 0 && (
+        {todaysRows.map(row => (
           <ContentRow
-            title="Classic Stunts"
-            videos={classicStunts}
+            key={row.key}
+            title={row.title}
+            videos={row.videos}
             onVideoPress={navigateToVideo}
-            onSeeAll={() => navigateToCategory('Classic Stunts', classicStunts)}
+            onSeeAll={() => navigateToCategory(row.title, row.videos)}
           />
-        )}
-
-        {actionActors.length > 0 && (
-          <ContentRow
-            title="Action Actors"
-            videos={actionActors}
-            onVideoPress={navigateToVideo}
-            onSeeAll={() => navigateToCategory('Action Actors', actionActors)}
-          />
-        )}
-
-        {bondAndSpy.length > 0 && (
-          <ContentRow
-            title="Spy & Action Thrillers"
-            videos={bondAndSpy}
-            onVideoPress={navigateToVideo}
-            onSeeAll={() => navigateToCategory('Spy & Action Thrillers', bondAndSpy)}
-          />
-        )}
-
-        {marvelDC.length > 0 && (
-          <ContentRow
-            title="Superhero Stunts"
-            videos={marvelDC}
-            onVideoPress={navigateToVideo}
-            onSeeAll={() => navigateToCategory('Superhero Stunts', marvelDC)}
-          />
-        )}
-
-        {wireAndRigWork.length > 0 && (
-          <ContentRow
-            title="Wire & Rig Work"
-            videos={wireAndRigWork}
-            onVideoPress={navigateToVideo}
-            onSeeAll={() => navigateToCategory('Wire & Rig Work', wireAndRigWork)}
-          />
-        )}
-
-        {tvBTS.length > 0 && (
-          <ContentRow
-            title="TV Show Stunts: Behind the Scenes"
-            videos={tvBTS}
-            onVideoPress={navigateToVideo}
-            onSeeAll={() => navigateToCategory('TV Show Stunts', tvBTS)}
-          />
-        )}
-
-        {stuntDocs.length > 0 && (
-          <ContentRow
-            title="Stunt Documentaries & Interviews"
-            videos={stuntDocs}
-            onVideoPress={navigateToVideo}
-            onSeeAll={() => navigateToCategory('Stunt Documentaries & Interviews', stuntDocs)}
-          />
-        )}
+        ))}
 
         {/* StuntListing Stunt Reels — randomly shuffled each load */}
         {shuffledStuntReels.length > 0 && (
@@ -371,8 +368,8 @@ export function HomeScreen({ navigation }: any) {
           />
         )}
 
-        {/* StuntListing Skill Reels — sub-categories randomly shuffled */}
-        {skillReelSubCategories.map(([skillName, reels]) => (
+        {/* StuntListing Skill Reels — rotated daily subset */}
+        {todaysSkillReels.map(([skillName, reels]) => (
           <ReelRow
             key={skillName}
             title={skillName}
@@ -381,54 +378,6 @@ export function HomeScreen({ navigation }: any) {
             onSeeAll={() => navigation.navigate('ReelGrid', { title: skillName, reelIds: reels.map(r => r.id) })}
           />
         ))}
-
-        {atlantaStunts.length > 0 && (
-          <ContentRow
-            title="Atlanta Stunts"
-            videos={atlantaStunts}
-            onVideoPress={navigateToVideo}
-            onSeeAll={() => navigateToCategory('Atlanta Stunts', atlantaStunts)}
-          />
-        )}
-
-        {newYorkStunts.length > 0 && (
-          <ContentRow
-            title="New York Stunts"
-            videos={newYorkStunts}
-            onVideoPress={navigateToVideo}
-            onSeeAll={() => navigateToCategory('New York Stunts', newYorkStunts)}
-          />
-        )}
-
-        {chicagoStunts.length > 0 && (
-          <ContentRow
-            title="Chicago Stunts"
-            videos={chicagoStunts}
-            onVideoPress={navigateToVideo}
-            onSeeAll={() => navigateToCategory('Chicago Stunts', chicagoStunts)}
-          />
-        )}
-
-        <ContentRow
-          title="Falls & High Work"
-          videos={fallsVideos}
-          onVideoPress={navigateToVideo}
-          onSeeAll={() => navigateToCategory('Falls & High Work', fallsVideos)}
-        />
-
-        <ContentRow
-          title="Fire & Pyro"
-          videos={fireVideos}
-          onVideoPress={navigateToVideo}
-          onSeeAll={() => navigateToCategory('Fire & Pyro', fireVideos)}
-        />
-
-        <ContentRow
-          title="Training & Safety"
-          videos={trainingVideos}
-          onVideoPress={navigateToVideo}
-          onSeeAll={() => navigateToCategory('Training & Safety', trainingVideos)}
-        />
       </View>
     </ScrollView>
   );
