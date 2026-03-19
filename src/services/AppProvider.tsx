@@ -1,4 +1,5 @@
 import React, { useReducer, useEffect, useMemo, ReactNode } from 'react';
+import { Platform } from 'react-native';
 import { AppContext, reducer, initialState, State } from './AppState';
 import { StorageService } from './StorageService';
 
@@ -9,15 +10,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadPersistedState();
   }, []);
 
+  // Handle post-Stripe redirect URL params on web
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const params = new URLSearchParams(window.location.search);
+      const purchase = params.get('purchase');
+      const type = params.get('type');
+      const id = params.get('id');
+      if (purchase === 'success' && id) {
+        if (type === 'video') {
+          dispatch({ type: 'PURCHASE_ATLAS_VIDEO', payload: id });
+        } else if (type === 'course') {
+          dispatch({ type: 'PURCHASE_ATLAS_COURSE', payload: id });
+        }
+        // Clean up URL params
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (!state.isLoading) {
       persistState();
     }
-  }, [state.myList, state.watchHistory, state.ratings, state.bookmarks, state.collections, state.follows, state.notifications, state.settings, state.downloads, state.profiles, state.activeProfile, state.currentUser, state.onboardingComplete]);
+  }, [state.myList, state.watchHistory, state.ratings, state.bookmarks, state.collections, state.follows, state.notifications, state.settings, state.downloads, state.profiles, state.activeProfile, state.currentUser, state.onboardingComplete, state.purchasedAtlasVideos, state.purchasedAtlasCourses]);
 
   async function loadPersistedState() {
     try {
-      const [user, profiles, activeProfile, watchHistory, myList, ratings, bookmarks, collections, follows, notifications, settings, onboarding, downloads] = await Promise.all([
+      const [user, profiles, activeProfile, watchHistory, myList, ratings, bookmarks, collections, follows, notifications, settings, onboarding, downloads, purchasedAtlasVideos, purchasedAtlasCourses] = await Promise.all([
         StorageService.get<{ id: string; email: string }>(StorageService.KEYS.USER),
         StorageService.get<any[]>(StorageService.KEYS.PROFILES),
         StorageService.get<any>(StorageService.KEYS.ACTIVE_PROFILE),
@@ -31,6 +51,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         StorageService.get<any>(StorageService.KEYS.SETTINGS),
         StorageService.get<boolean>(StorageService.KEYS.ONBOARDING_COMPLETE),
         StorageService.get<string[]>(StorageService.KEYS.VAULT_SUBMISSIONS),
+        StorageService.get<string[]>(StorageService.KEYS.PURCHASED_ATLAS_VIDEOS),
+        StorageService.get<string[]>(StorageService.KEYS.PURCHASED_ATLAS_COURSES),
       ]);
 
       dispatch({
@@ -50,6 +72,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           settings: settings || initialState.settings,
           onboardingComplete: onboarding || false,
           downloads: downloads || [],
+          purchasedAtlasVideos: purchasedAtlasVideos || [],
+          purchasedAtlasCourses: purchasedAtlasCourses || [],
         },
       });
     } catch (e) {
@@ -73,6 +97,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         StorageService.set(StorageService.KEYS.SETTINGS, state.settings),
         StorageService.set(StorageService.KEYS.ONBOARDING_COMPLETE, state.onboardingComplete),
         StorageService.set(StorageService.KEYS.VAULT_SUBMISSIONS, state.downloads),
+        StorageService.set(StorageService.KEYS.PURCHASED_ATLAS_VIDEOS, state.purchasedAtlasVideos),
+        StorageService.set(StorageService.KEYS.PURCHASED_ATLAS_COURSES, state.purchasedAtlasCourses),
       ]);
     } catch (e) {
       // Silent fail
@@ -102,6 +128,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         state.watchHistory
           .filter(w => w.profileId === profileId && !w.completed && w.progressSeconds > 0)
           .sort((a, b) => new Date(b.lastWatchedAt).getTime() - new Date(a.lastWatchedAt).getTime()),
+      isAtlasVideoUnlocked: (videoId: string) => {
+        // Check if video is free
+        const video = state.settings.atlasActionVideos.find(v => v.id === videoId);
+        if (video?.isFree) return true;
+        // Check individual purchase
+        if (state.purchasedAtlasVideos.includes(videoId)) return true;
+        // Check if purchased via course
+        const course = state.settings.atlasActionCourses.find(
+          c => c.videoIds.includes(videoId) && state.purchasedAtlasCourses.includes(c.id)
+        );
+        return !!course;
+      },
     };
   }, [state]);
 

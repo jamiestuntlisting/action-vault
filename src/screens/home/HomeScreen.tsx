@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ScrollView, View, Text, StyleSheet, RefreshControl, TouchableOpacity, FlatList } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, RefreshControl, TouchableOpacity, FlatList, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
@@ -7,7 +7,9 @@ import { videos, videoMap } from '../../data';
 import { HeroCarousel } from '../../components/HeroCarousel';
 import { ContentRow } from '../../components/ContentRow';
 import { ReelRow } from '../../components/ReelRow';
+import { AtlasActionRow } from '../../components/AtlasActionRow';
 import { Video } from '../../types';
+import { AtlasActionVideo } from '../../services/AppState';
 import { skillTags } from '../../data/skillTags';
 import { stuntReels, skillReels, getSkillReelsByCategory, SkillReel } from '../../services/StuntListingService';
 
@@ -174,6 +176,11 @@ export function HomeScreen({ navigation }: any) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shuffleKey]);
 
+  // Atlas Action videos from admin settings
+  const atlasActionVideos = useMemo(() =>
+    (state.settings.atlasActionVideos || []).filter(v => v.enabled).sort((a, b) => a.sortOrder - b.sortOrder),
+    [state.settings.atlasActionVideos]);
+
   function navigateToVideo(video: Video) {
     navigation.navigate('VideoDetail', { videoId: video.id });
   }
@@ -199,6 +206,12 @@ export function HomeScreen({ navigation }: any) {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
     >
       <View style={styles.maxWidthWrapper}>
+        {/* Branded header */}
+        <View style={styles.headerBar}>
+          <Text style={styles.headerTitle}>Action Vault</Text>
+          <Text style={styles.headerSubtitle}> by StuntListing</Text>
+        </View>
+
         <HeroCarousel
           videos={featuredVideos}
           onPlay={(v) => playVideo(v)}
@@ -262,6 +275,14 @@ export function HomeScreen({ navigation }: any) {
           onVideoPress={navigateToVideo}
           onSeeAll={() => navigateToCategory('Recently Added', newThisWeek)}
         />
+
+        {atlasActionVideos.length > 0 && (
+          <AtlasActionRow
+            title="Atlas Action - Stunt Training"
+            videos={atlasActionVideos}
+            onVideoPress={(video: AtlasActionVideo) => navigation.navigate('AtlasActionDetail', { atlasVideoId: video.id })}
+          />
+        )}
 
         <ContentRow
           title="Popular in Fight Choreography"
@@ -422,6 +443,23 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MAX_WIDTH,
     alignSelf: 'center',
+  },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    paddingHorizontal: Spacing.screen,
+    paddingBottom: 10,
+    paddingTop: Platform.OS === 'web' ? 16 : 54,
+  },
+  headerTitle: {
+    color: Colors.primary,
+    fontSize: FontSize.xxl,
+    fontWeight: FontWeight.bold,
+  },
+  headerSubtitle: {
+    color: Colors.textTertiary,
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
   },
   categoriesSection: {
     marginBottom: Spacing.xl,

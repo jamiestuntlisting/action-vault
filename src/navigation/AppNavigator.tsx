@@ -27,6 +27,7 @@ import { AdminScreen } from '../screens/admin/AdminScreen';
 import { CategoryVideosScreen } from '../screens/category/CategoryVideosScreen';
 import { ReelGridScreen } from '../screens/category/ReelGridScreen';
 import { ReelDetailScreen } from '../screens/detail/ReelDetailScreen';
+import { AtlasActionDetailScreen } from '../screens/atlas/AtlasActionDetailScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -108,6 +109,7 @@ export function AppNavigator() {
         <Stack.Screen name="CategoryVideos" component={CategoryVideosScreen} />
         <Stack.Screen name="ReelGrid" component={ReelGridScreen} />
         <Stack.Screen name="ReelDetail" component={ReelDetailScreen} />
+        <Stack.Screen name="AtlasActionDetail" component={AtlasActionDetailScreen} />
         <Stack.Screen
           name="ReviewModal"
           component={ReviewModalScreen}

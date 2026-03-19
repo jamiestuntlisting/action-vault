@@ -35,6 +35,34 @@ export interface AdminVideoOverride {
   curatedLists?: string[]; // e.g. 'featured', 'top10', 'editors_pick'
 }
 
+export interface AtlasActionVideo {
+  id: string;
+  title: string;
+  description: string;
+  instructorName: string;
+  youtubeEmbedUrl: string;
+  thumbnailUrl: string;
+  durationSeconds: number;
+  courseId: string | null;
+  price: number;
+  isFree: boolean;
+  sortOrder: number;
+  enabled: boolean;
+  createdAt: string;
+}
+
+export interface AtlasActionCourse {
+  id: string;
+  title: string;
+  description: string;
+  instructorName: string;
+  thumbnailUrl: string;
+  price: number;
+  videoIds: string[];
+  enabled: boolean;
+  createdAt: string;
+}
+
 export interface AppSettings {
   wifiStreamingQuality: 'auto' | 'low' | 'medium' | 'high';
   cellularStreamingQuality: 'auto' | 'low' | 'medium';
@@ -54,6 +82,8 @@ export interface AppSettings {
   adminVideoOverrides: AdminVideoOverride[];
   removalRequests: Array<{ videoId: string; requestedAt: string; claimsOwnership: boolean; reason?: string }>;
   personTags: Array<{ videoId: string; name: string; timestampSeconds: number; role: string; taggedAt: string }>;
+  atlasActionVideos: AtlasActionVideo[];
+  atlasActionCourses: AtlasActionCourse[];
 }
 
 const defaultSettings: AppSettings = {
@@ -75,6 +105,8 @@ const defaultSettings: AppSettings = {
   adminVideoOverrides: [],
   removalRequests: [],
   personTags: [],
+  atlasActionVideos: [],
+  atlasActionCourses: [],
 };
 
 interface State {
@@ -93,6 +125,8 @@ interface State {
   notifications: AppNotification[];
   settings: AppSettings;
   downloads: string[]; // video IDs
+  purchasedAtlasVideos: string[];
+  purchasedAtlasCourses: string[];
 }
 
 type Action =
@@ -122,6 +156,8 @@ type Action =
   | { type: 'UPDATE_SETTINGS'; payload: Partial<AppSettings> }
   | { type: 'ADD_DOWNLOAD'; payload: string }
   | { type: 'REMOVE_DOWNLOAD'; payload: string }
+  | { type: 'PURCHASE_ATLAS_VIDEO'; payload: string }
+  | { type: 'PURCHASE_ATLAS_COURSE'; payload: string }
   | { type: 'LOAD_STATE'; payload: Partial<State> };
 
 const initialState: State = {
@@ -140,6 +176,8 @@ const initialState: State = {
   notifications: [],
   settings: defaultSettings,
   downloads: [],
+  purchasedAtlasVideos: [],
+  purchasedAtlasCourses: [],
 };
 
 function reducer(state: State, action: Action): State {
@@ -261,6 +299,12 @@ function reducer(state: State, action: Action): State {
       return { ...state, downloads: [...state.downloads, action.payload] };
     case 'REMOVE_DOWNLOAD':
       return { ...state, downloads: state.downloads.filter(d => d !== action.payload) };
+    case 'PURCHASE_ATLAS_VIDEO':
+      if (state.purchasedAtlasVideos.includes(action.payload)) return state;
+      return { ...state, purchasedAtlasVideos: [...state.purchasedAtlasVideos, action.payload] };
+    case 'PURCHASE_ATLAS_COURSE':
+      if (state.purchasedAtlasCourses.includes(action.payload)) return state;
+      return { ...state, purchasedAtlasCourses: [...state.purchasedAtlasCourses, action.payload] };
     case 'LOAD_STATE':
       return { ...state, ...action.payload, isLoading: false };
     default:
@@ -280,6 +324,7 @@ interface AppContextType {
   getProfileCollections: () => Collection[];
   getProfileNotifications: () => AppNotification[];
   getContinueWatching: () => WatchHistoryEntry[];
+  isAtlasVideoUnlocked: (videoId: string) => boolean;
 }
 
 export const AppContext = createContext<AppContextType>({
@@ -293,6 +338,7 @@ export const AppContext = createContext<AppContextType>({
   getProfileCollections: () => [],
   getProfileNotifications: () => [],
   getContinueWatching: () => [],
+  isAtlasVideoUnlocked: () => false,
 });
 
 export function useAppState() {

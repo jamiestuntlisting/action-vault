@@ -5,14 +5,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, FontSize, FontWeight } from '../../theme';
-import { useAppState, AdminCategory, AdminVideoOverride } from '../../services/AppState';
+import { useAppState, AdminCategory, AdminVideoOverride, AtlasActionVideo, AtlasActionCourse } from '../../services/AppState';
 import { videos as allVideos } from '../../data';
 import { skillTags } from '../../data/skillTags';
 import { Video } from '../../types';
 
 const MAX_WIDTH = 960;
 
-type AdminTab = 'videos' | 'categories' | 'tags' | 'bytag' | 'lists';
+type AdminTab = 'videos' | 'categories' | 'tags' | 'bytag' | 'lists' | 'atlas';
 
 // Autocomplete tag input component
 function TagInput({
@@ -135,6 +135,25 @@ export function AdminScreen({ navigation }: any) {
   const [newCatType, setNewCatType] = useState<'tag' | 'title' | 'location' | 'custom'>('title');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedList, setSelectedList] = useState<string>('featured');
+
+  // Atlas Action state
+  const [atlasMode, setAtlasMode] = useState<'videos' | 'courses'>('videos');
+  const [atlasVideoTitle, setAtlasVideoTitle] = useState('');
+  const [atlasVideoDesc, setAtlasVideoDesc] = useState('');
+  const [atlasVideoInstructor, setAtlasVideoInstructor] = useState('Brad Martin');
+  const [atlasVideoYoutube, setAtlasVideoYoutube] = useState('');
+  const [atlasVideoThumb, setAtlasVideoThumb] = useState('');
+  const [atlasVideoDuration, setAtlasVideoDuration] = useState('');
+  const [atlasVideoPrice, setAtlasVideoPrice] = useState('3.99');
+  const [atlasVideoIsFree, setAtlasVideoIsFree] = useState(false);
+  const [atlasVideoCourseId, setAtlasVideoCourseId] = useState('');
+  const [atlasCourseTitle, setAtlasCourseTitle] = useState('');
+  const [atlasCourseDesc, setAtlasCourseDesc] = useState('');
+  const [atlasCourseInstructor, setAtlasCourseInstructor] = useState('Brad Martin');
+  const [atlasCourseThumb, setAtlasCourseThumb] = useState('');
+  const [atlasCoursePrice, setAtlasCoursePrice] = useState('');
+  const [editingAtlasVideoId, setEditingAtlasVideoId] = useState<string | null>(null);
+  const [editingAtlasCourseId, setEditingAtlasCourseId] = useState<string | null>(null);
 
   const overrides = state.settings.adminVideoOverrides || [];
   const categories = state.settings.adminCategories || [];
@@ -523,14 +542,14 @@ export function AdminScreen({ navigation }: any) {
 
         {/* Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
-          {(['videos', 'bytag', 'lists', 'categories', 'tags'] as AdminTab[]).map(tab => (
+          {(['videos', 'bytag', 'lists', 'categories', 'tags', 'atlas'] as AdminTab[]).map(tab => (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, activeTab === tab && styles.tabActive]}
               onPress={() => setActiveTab(tab)}
             >
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {tab === 'videos' ? 'Videos' : tab === 'bytag' ? 'By Tag' : tab === 'lists' ? 'Lists' : tab === 'categories' ? 'Categories' : 'Quick Tags'}
+                {tab === 'videos' ? 'Videos' : tab === 'bytag' ? 'By Tag' : tab === 'lists' ? 'Lists' : tab === 'categories' ? 'Categories' : tab === 'atlas' ? 'Atlas Action' : 'Quick Tags'}
               </Text>
             </TouchableOpacity>
           ))}
@@ -936,6 +955,292 @@ export function AdminScreen({ navigation }: any) {
                       </TouchableOpacity>
                     ))
                   }
+                </View>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'atlas' && (
+            <View>
+              {/* Mode toggle */}
+              <View style={styles.filterTypeRow}>
+                {[
+                  { key: 'videos' as const, label: 'Videos' },
+                  { key: 'courses' as const, label: 'Courses' },
+                ].map(m => (
+                  <TouchableOpacity
+                    key={m.key}
+                    style={[styles.filterTypeBtn, atlasMode === m.key && styles.filterTypeBtnActive]}
+                    onPress={() => setAtlasMode(m.key)}
+                  >
+                    <Text style={[styles.filterTypeText, atlasMode === m.key && styles.filterTypeTextActive]}>
+                      {m.label} ({m.key === 'videos' ? (state.settings.atlasActionVideos || []).length : (state.settings.atlasActionCourses || []).length})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {atlasMode === 'videos' && (
+                <View>
+                  <Text style={styles.sectionTitle}>{editingAtlasVideoId ? 'Edit Video' : 'Add Video'}</Text>
+                  <TextInput style={styles.input} placeholder="Title" placeholderTextColor={Colors.textMuted} value={atlasVideoTitle} onChangeText={setAtlasVideoTitle} />
+                  <TextInput style={styles.input} placeholder="Description" placeholderTextColor={Colors.textMuted} value={atlasVideoDesc} onChangeText={setAtlasVideoDesc} multiline />
+                  <TextInput style={styles.input} placeholder="Instructor Name" placeholderTextColor={Colors.textMuted} value={atlasVideoInstructor} onChangeText={setAtlasVideoInstructor} />
+                  <TextInput style={styles.input} placeholder="YouTube Embed URL" placeholderTextColor={Colors.textMuted} value={atlasVideoYoutube} onChangeText={setAtlasVideoYoutube} />
+                  <TextInput style={styles.input} placeholder="Thumbnail URL" placeholderTextColor={Colors.textMuted} value={atlasVideoThumb} onChangeText={setAtlasVideoThumb} />
+                  <TextInput style={styles.input} placeholder="Duration (seconds)" placeholderTextColor={Colors.textMuted} value={atlasVideoDuration} onChangeText={setAtlasVideoDuration} keyboardType="numeric" />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.md }}>
+                    <Text style={{ color: Colors.textPrimary }}>Free:</Text>
+                    <Switch value={atlasVideoIsFree} onValueChange={setAtlasVideoIsFree} />
+                    {!atlasVideoIsFree && (
+                      <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]} placeholder="Price" placeholderTextColor={Colors.textMuted} value={atlasVideoPrice} onChangeText={setAtlasVideoPrice} keyboardType="numeric" />
+                    )}
+                  </View>
+                  {/* Course assignment */}
+                  <View style={{ marginBottom: Spacing.md }}>
+                    <Text style={{ color: Colors.textMuted, fontSize: FontSize.sm, marginBottom: 4 }}>Assign to Course (optional):</Text>
+                    <View style={styles.filterTypeRow}>
+                      <TouchableOpacity
+                        style={[styles.filterTypeBtn, !atlasVideoCourseId && styles.filterTypeBtnActive]}
+                        onPress={() => setAtlasVideoCourseId('')}
+                      >
+                        <Text style={[styles.filterTypeText, !atlasVideoCourseId && styles.filterTypeTextActive]}>None</Text>
+                      </TouchableOpacity>
+                      {(state.settings.atlasActionCourses || []).map(c => (
+                        <TouchableOpacity
+                          key={c.id}
+                          style={[styles.filterTypeBtn, atlasVideoCourseId === c.id && styles.filterTypeBtnActive]}
+                          onPress={() => setAtlasVideoCourseId(c.id)}
+                        >
+                          <Text style={[styles.filterTypeText, atlasVideoCourseId === c.id && styles.filterTypeTextActive]}>{c.title}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.addBtn}
+                    onPress={() => {
+                      if (!atlasVideoTitle.trim() || !atlasVideoYoutube.trim()) return;
+                      const existing = state.settings.atlasActionVideos || [];
+                      if (editingAtlasVideoId) {
+                        // Update existing
+                        const updated = existing.map(v => v.id === editingAtlasVideoId ? {
+                          ...v,
+                          title: atlasVideoTitle, description: atlasVideoDesc,
+                          instructorName: atlasVideoInstructor, youtubeEmbedUrl: atlasVideoYoutube,
+                          thumbnailUrl: atlasVideoThumb, durationSeconds: parseInt(atlasVideoDuration) || 0,
+                          price: parseFloat(atlasVideoPrice) || 3.99, isFree: atlasVideoIsFree,
+                          courseId: atlasVideoCourseId || null,
+                        } : v);
+                        // Update course videoIds
+                        const courses = (state.settings.atlasActionCourses || []).map(c => {
+                          const ids = c.videoIds.filter(id => id !== editingAtlasVideoId);
+                          if (c.id === atlasVideoCourseId) ids.push(editingAtlasVideoId);
+                          return { ...c, videoIds: ids };
+                        });
+                        dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionVideos: updated, atlasActionCourses: courses } });
+                        setEditingAtlasVideoId(null);
+                      } else {
+                        // Add new
+                        const newVideo: AtlasActionVideo = {
+                          id: `atlas_v_${Date.now()}`,
+                          title: atlasVideoTitle, description: atlasVideoDesc,
+                          instructorName: atlasVideoInstructor, youtubeEmbedUrl: atlasVideoYoutube,
+                          thumbnailUrl: atlasVideoThumb, durationSeconds: parseInt(atlasVideoDuration) || 0,
+                          courseId: atlasVideoCourseId || null,
+                          price: parseFloat(atlasVideoPrice) || 3.99, isFree: atlasVideoIsFree,
+                          sortOrder: existing.length, enabled: true, createdAt: new Date().toISOString(),
+                        };
+                        const updatedVideos = [...existing, newVideo];
+                        // If course assigned, add to course videoIds
+                        let courses = state.settings.atlasActionCourses || [];
+                        if (atlasVideoCourseId) {
+                          courses = courses.map(c => c.id === atlasVideoCourseId ? { ...c, videoIds: [...c.videoIds, newVideo.id] } : c);
+                        }
+                        dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionVideos: updatedVideos, atlasActionCourses: courses } });
+                      }
+                      // Reset form
+                      setAtlasVideoTitle(''); setAtlasVideoDesc(''); setAtlasVideoYoutube('');
+                      setAtlasVideoThumb(''); setAtlasVideoDuration(''); setAtlasVideoPrice('3.99');
+                      setAtlasVideoIsFree(false); setAtlasVideoCourseId('');
+                    }}
+                  >
+                    <Text style={styles.addBtnText}>{editingAtlasVideoId ? 'Update Video' : 'Add Video'}</Text>
+                  </TouchableOpacity>
+                  {editingAtlasVideoId && (
+                    <TouchableOpacity
+                      style={[styles.addBtn, { backgroundColor: Colors.surface, marginTop: Spacing.sm }]}
+                      onPress={() => {
+                        setEditingAtlasVideoId(null);
+                        setAtlasVideoTitle(''); setAtlasVideoDesc(''); setAtlasVideoYoutube('');
+                        setAtlasVideoThumb(''); setAtlasVideoDuration(''); setAtlasVideoPrice('3.99');
+                        setAtlasVideoIsFree(false); setAtlasVideoCourseId('');
+                      }}
+                    >
+                      <Text style={[styles.addBtnText, { color: Colors.textPrimary }]}>Cancel Edit</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Existing videos */}
+                  <Text style={[styles.sectionTitle, { marginTop: Spacing.xxl }]}>
+                    Videos ({(state.settings.atlasActionVideos || []).length})
+                  </Text>
+                  {(state.settings.atlasActionVideos || []).map(v => (
+                    <View key={v.id} style={[styles.videoItem, !v.enabled && styles.videoItemHidden]}>
+                      <View style={styles.videoHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.videoTitle}>{v.title}</Text>
+                          <Text style={styles.videoMeta}>
+                            {v.instructorName} · {v.isFree ? 'FREE' : `$${v.price.toFixed(2)}`} · {Math.floor(v.durationSeconds / 60)}m
+                            {v.courseId && ` · Course: ${(state.settings.atlasActionCourses || []).find(c => c.id === v.courseId)?.title || 'Unknown'}`}
+                          </Text>
+                        </View>
+                        <View style={styles.videoActions}>
+                          <TouchableOpacity style={styles.iconBtn} onPress={() => {
+                            setEditingAtlasVideoId(v.id);
+                            setAtlasVideoTitle(v.title); setAtlasVideoDesc(v.description);
+                            setAtlasVideoInstructor(v.instructorName); setAtlasVideoYoutube(v.youtubeEmbedUrl);
+                            setAtlasVideoThumb(v.thumbnailUrl); setAtlasVideoDuration(String(v.durationSeconds));
+                            setAtlasVideoPrice(String(v.price)); setAtlasVideoIsFree(v.isFree);
+                            setAtlasVideoCourseId(v.courseId || '');
+                          }}>
+                            <Ionicons name="pencil" size={18} color={Colors.textMuted} />
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.iconBtn} onPress={() => {
+                            const updated = (state.settings.atlasActionVideos || []).map(
+                              vid => vid.id === v.id ? { ...vid, enabled: !vid.enabled } : vid
+                            );
+                            dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionVideos: updated } });
+                          }}>
+                            <Ionicons name={v.enabled ? 'eye' : 'eye-off'} size={18} color={v.enabled ? Colors.primary : Colors.textMuted} />
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.iconBtn} onPress={() => {
+                            const updated = (state.settings.atlasActionVideos || []).filter(vid => vid.id !== v.id);
+                            // Also remove from any courses
+                            const courses = (state.settings.atlasActionCourses || []).map(c => ({
+                              ...c, videoIds: c.videoIds.filter(id => id !== v.id),
+                            }));
+                            dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionVideos: updated, atlasActionCourses: courses } });
+                          }}>
+                            <Ionicons name="trash" size={18} color="#f44" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {atlasMode === 'courses' && (
+                <View>
+                  <Text style={styles.sectionTitle}>{editingAtlasCourseId ? 'Edit Course' : 'Add Course'}</Text>
+                  <TextInput style={styles.input} placeholder="Course Title" placeholderTextColor={Colors.textMuted} value={atlasCourseTitle} onChangeText={setAtlasCourseTitle} />
+                  <TextInput style={styles.input} placeholder="Description" placeholderTextColor={Colors.textMuted} value={atlasCourseDesc} onChangeText={setAtlasCourseDesc} multiline />
+                  <TextInput style={styles.input} placeholder="Instructor Name" placeholderTextColor={Colors.textMuted} value={atlasCourseInstructor} onChangeText={setAtlasCourseInstructor} />
+                  <TextInput style={styles.input} placeholder="Thumbnail URL" placeholderTextColor={Colors.textMuted} value={atlasCourseThumb} onChangeText={setAtlasCourseThumb} />
+                  <TextInput style={styles.input} placeholder="Bundle Price (e.g. 29.99)" placeholderTextColor={Colors.textMuted} value={atlasCoursePrice} onChangeText={setAtlasCoursePrice} keyboardType="numeric" />
+
+                  <TouchableOpacity
+                    style={styles.addBtn}
+                    onPress={() => {
+                      if (!atlasCourseTitle.trim() || !atlasCoursePrice.trim()) return;
+                      const existing = state.settings.atlasActionCourses || [];
+                      if (editingAtlasCourseId) {
+                        const updated = existing.map(c => c.id === editingAtlasCourseId ? {
+                          ...c,
+                          title: atlasCourseTitle, description: atlasCourseDesc,
+                          instructorName: atlasCourseInstructor, thumbnailUrl: atlasCourseThumb,
+                          price: parseFloat(atlasCoursePrice) || 0,
+                        } : c);
+                        dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionCourses: updated } });
+                        setEditingAtlasCourseId(null);
+                      } else {
+                        const newCourse: AtlasActionCourse = {
+                          id: `atlas_c_${Date.now()}`,
+                          title: atlasCourseTitle, description: atlasCourseDesc,
+                          instructorName: atlasCourseInstructor, thumbnailUrl: atlasCourseThumb,
+                          price: parseFloat(atlasCoursePrice) || 0, videoIds: [],
+                          enabled: true, createdAt: new Date().toISOString(),
+                        };
+                        dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionCourses: [...existing, newCourse] } });
+                      }
+                      setAtlasCourseTitle(''); setAtlasCourseDesc('');
+                      setAtlasCourseThumb(''); setAtlasCoursePrice('');
+                    }}
+                  >
+                    <Text style={styles.addBtnText}>{editingAtlasCourseId ? 'Update Course' : 'Add Course'}</Text>
+                  </TouchableOpacity>
+                  {editingAtlasCourseId && (
+                    <TouchableOpacity
+                      style={[styles.addBtn, { backgroundColor: Colors.surface, marginTop: Spacing.sm }]}
+                      onPress={() => {
+                        setEditingAtlasCourseId(null);
+                        setAtlasCourseTitle(''); setAtlasCourseDesc('');
+                        setAtlasCourseThumb(''); setAtlasCoursePrice('');
+                      }}
+                    >
+                      <Text style={[styles.addBtnText, { color: Colors.textPrimary }]}>Cancel Edit</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Existing courses */}
+                  <Text style={[styles.sectionTitle, { marginTop: Spacing.xxl }]}>
+                    Courses ({(state.settings.atlasActionCourses || []).length})
+                  </Text>
+                  {(state.settings.atlasActionCourses || []).map(c => (
+                    <View key={c.id} style={[styles.catCard, !c.enabled && { opacity: 0.5 }]}>
+                      <View style={styles.catCardHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.catTitle}>{c.title}</Text>
+                          <Text style={styles.catFilter}>
+                            {c.instructorName} · ${c.price.toFixed(2)} · {c.videoIds.length} videos
+                          </Text>
+                        </View>
+                        <View style={styles.videoActions}>
+                          <TouchableOpacity style={styles.iconBtn} onPress={() => {
+                            setEditingAtlasCourseId(c.id);
+                            setAtlasCourseTitle(c.title); setAtlasCourseDesc(c.description);
+                            setAtlasCourseInstructor(c.instructorName); setAtlasCourseThumb(c.thumbnailUrl);
+                            setAtlasCoursePrice(String(c.price));
+                          }}>
+                            <Ionicons name="pencil" size={18} color={Colors.textMuted} />
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.iconBtn} onPress={() => {
+                            const updated = (state.settings.atlasActionCourses || []).map(
+                              cr => cr.id === c.id ? { ...cr, enabled: !cr.enabled } : cr
+                            );
+                            dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionCourses: updated } });
+                          }}>
+                            <Ionicons name={c.enabled ? 'eye' : 'eye-off'} size={18} color={c.enabled ? Colors.primary : Colors.textMuted} />
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.iconBtn} onPress={() => {
+                            // Remove videos from course first, then delete
+                            const updatedVideos = (state.settings.atlasActionVideos || []).map(
+                              v => v.courseId === c.id ? { ...v, courseId: null } : v
+                            );
+                            const updated = (state.settings.atlasActionCourses || []).filter(cr => cr.id !== c.id);
+                            dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionCourses: updated, atlasActionVideos: updatedVideos } });
+                          }}>
+                            <Ionicons name="trash" size={18} color="#f44" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      {c.videoIds.length > 0 && (
+                        <View style={styles.catCardBody}>
+                          {c.videoIds.map((vid, idx) => {
+                            const video = (state.settings.atlasActionVideos || []).find(v => v.id === vid);
+                            return (
+                              <View key={vid} style={styles.catVideoRow}>
+                                <Text style={styles.catVideoIndex}>{idx + 1}</Text>
+                                <Text style={styles.catVideoTitle}>{video?.title || vid}</Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  ))}
                 </View>
               )}
             </View>
