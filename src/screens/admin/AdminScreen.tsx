@@ -145,7 +145,7 @@ export function AdminScreen({ navigation }: any) {
   const [atlasVideoYoutube, setAtlasVideoYoutube] = useState('');
   const [atlasVideoThumb, setAtlasVideoThumb] = useState('');
   const [atlasVideoDuration, setAtlasVideoDuration] = useState('');
-  const [atlasVideoPrice, setAtlasVideoPrice] = useState('3.99');
+  const [atlasVideoPrice, setAtlasVideoPrice] = useState('0.99');
   const [atlasVideoIsFree, setAtlasVideoIsFree] = useState(false);
   const [atlasVideoCourseId, setAtlasVideoCourseId] = useState('');
   const [atlasCourseTitle, setAtlasCourseTitle] = useState('');
@@ -1162,7 +1162,7 @@ export function AdminScreen({ navigation }: any) {
                           title: atlasVideoTitle, description: atlasVideoDesc,
                           instructorName: atlasVideoInstructor, youtubeEmbedUrl: atlasVideoYoutube,
                           thumbnailUrl: atlasVideoThumb, durationSeconds: parseInt(atlasVideoDuration) || 0,
-                          price: parseFloat(atlasVideoPrice) || 3.99, isFree: atlasVideoIsFree,
+                          price: parseFloat(atlasVideoPrice) || 0.99, isFree: atlasVideoIsFree,
                           courseId: atlasVideoCourseId || null,
                         } : v);
                         // Update course videoIds
@@ -1181,7 +1181,7 @@ export function AdminScreen({ navigation }: any) {
                           instructorName: atlasVideoInstructor, youtubeEmbedUrl: atlasVideoYoutube,
                           thumbnailUrl: atlasVideoThumb, durationSeconds: parseInt(atlasVideoDuration) || 0,
                           courseId: atlasVideoCourseId || null,
-                          price: parseFloat(atlasVideoPrice) || 3.99, isFree: atlasVideoIsFree,
+                          price: parseFloat(atlasVideoPrice) || 0.99, isFree: atlasVideoIsFree,
                           sortOrder: existing.length, enabled: true, createdAt: new Date().toISOString(),
                         };
                         const updatedVideos = [...existing, newVideo];
@@ -1194,7 +1194,7 @@ export function AdminScreen({ navigation }: any) {
                       }
                       // Reset form
                       setAtlasVideoTitle(''); setAtlasVideoDesc(''); setAtlasVideoYoutube('');
-                      setAtlasVideoThumb(''); setAtlasVideoDuration(''); setAtlasVideoPrice('3.99');
+                      setAtlasVideoThumb(''); setAtlasVideoDuration(''); setAtlasVideoPrice('0.99');
                       setAtlasVideoIsFree(false); setAtlasVideoCourseId('');
                     }}
                   >
@@ -1206,7 +1206,7 @@ export function AdminScreen({ navigation }: any) {
                       onPress={() => {
                         setEditingAtlasVideoId(null);
                         setAtlasVideoTitle(''); setAtlasVideoDesc(''); setAtlasVideoYoutube('');
-                        setAtlasVideoThumb(''); setAtlasVideoDuration(''); setAtlasVideoPrice('3.99');
+                        setAtlasVideoThumb(''); setAtlasVideoDuration(''); setAtlasVideoPrice('0.99');
                         setAtlasVideoIsFree(false); setAtlasVideoCourseId('');
                       }}
                     >
