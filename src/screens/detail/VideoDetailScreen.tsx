@@ -152,6 +152,7 @@ export function VideoDetailScreen({ route, navigation }: any) {
           <ActionButton icon="thumbs-up-outline" label="Rate" onPress={() => handleThumb('up')} active={rating?.thumbs === 'up'} />
           <ActionButton icon="thumbs-down-outline" label="Not for me" onPress={() => handleThumb('down')} active={rating?.thumbs === 'down'} />
           <ActionButton icon="share-outline" label="Share" onPress={handleShare} />
+          <ActionButton icon="flag-outline" label="Flag" onPress={handleRemoveVideo} />
         </View>
 
         <Text style={styles.description}>{video.description}</Text>
@@ -325,6 +326,11 @@ export function VideoDetailScreen({ route, navigation }: any) {
           <View style={removeModalStyles.container}>
             <Text style={removeModalStyles.title}>Why should this video be removed?</Text>
             <Text style={removeModalStyles.subtitle}>Please select a reason:</Text>
+
+            <TouchableOpacity style={removeModalStyles.option} onPress={() => submitRemovalRequest('broken_link', false)}>
+              <Ionicons name="link-outline" size={22} color={Colors.textSecondary} />
+              <Text style={removeModalStyles.optionText}>This link is broken</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity style={removeModalStyles.option} onPress={() => submitRemovalRequest('doesnt_belong', false)}>
               <Ionicons name="close-circle-outline" size={22} color={Colors.textSecondary} />

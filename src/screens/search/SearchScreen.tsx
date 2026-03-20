@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, Dimensio
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
-import { videos, categories, categoryThumbnails, skillTags } from '../../data';
-import { Video } from '../../types';
+import { videos, categories, categoryThumbnails, skillTags, coordinators, performers } from '../../data';
+import { Video, Coordinator, Performer } from '../../types';
 import { VideoCard } from '../../components/VideoCard';
 import { ReelCard } from '../../components/ReelCard';
 import { stuntReels, skillReels, StuntReel, SkillReel } from '../../services/StuntListingService';
@@ -244,6 +244,47 @@ export function SearchScreen({ navigation, route }: any) {
           </View>
         </View>
 
+        {/* Browse People */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>People</Text>
+          <Text style={styles.peopleSectionLabel}>Stunt Coordinators</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.peopleRow} contentContainerStyle={styles.peopleRowContent}>
+            {coordinators.map(c => {
+              const count = videos.filter(v => v.coordinators.some(vc => vc.id === c.id)).length;
+              if (count === 0) return null;
+              return (
+                <TouchableOpacity key={c.id} style={styles.personChip} onPress={() => setQuery(c.name)}>
+                  <View style={styles.personAvatar}>
+                    <Ionicons name="person" size={16} color={Colors.accent} />
+                  </View>
+                  <View style={styles.personInfo}>
+                    <Text style={styles.personName} numberOfLines={1}>{c.name}</Text>
+                    <Text style={styles.personCount}>{count} video{count !== 1 ? 's' : ''}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <Text style={styles.peopleSectionLabel}>Performers & Action Stars</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.peopleRow} contentContainerStyle={styles.peopleRowContent}>
+            {performers.map(p => {
+              const count = videos.filter(v => v.performers.some(vp => vp.id === p.id)).length;
+              if (count === 0) return null;
+              return (
+                <TouchableOpacity key={p.id} style={styles.personChip} onPress={() => setQuery(p.name)}>
+                  <View style={[styles.personAvatar, { backgroundColor: 'rgba(255,107,0,0.15)' }]}>
+                    <Ionicons name="star" size={16} color="#ff6b00" />
+                  </View>
+                  <View style={styles.personInfo}>
+                    <Text style={styles.personName} numberOfLines={1}>{p.name}</Text>
+                    <Text style={styles.personCount}>{count} video{count !== 1 ? 's' : ''}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         {/* All Categories */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Browse Categories</Text>
@@ -409,5 +450,51 @@ const styles = StyleSheet.create({
   emptyText: {
     color: Colors.textTertiary,
     fontSize: FontSize.lg,
+  },
+  peopleSectionLabel: {
+    color: Colors.textSecondary,
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    marginBottom: Spacing.sm,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 1,
+  },
+  peopleRow: {
+    marginBottom: Spacing.lg,
+    marginHorizontal: -Spacing.screen,
+  },
+  peopleRowContent: {
+    paddingHorizontal: Spacing.screen,
+    gap: Spacing.sm,
+  },
+  personChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+    minWidth: 150,
+  },
+  personAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(229,9,20,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  personInfo: {
+    flex: 1,
+  },
+  personName: {
+    color: Colors.textPrimary,
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+  },
+  personCount: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
   },
 });

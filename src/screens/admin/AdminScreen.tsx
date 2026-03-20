@@ -596,7 +596,7 @@ export function AdminScreen({ navigation }: any) {
                         <View style={{ flex: 1 }}>
                           <Text style={styles.videoTitle}>{vid?.title || req.videoId}</Text>
                           <Text style={styles.videoMeta}>
-                            {req.reason === 'owner_request' ? '🔑 Owner request' : req.reason === 'doesnt_belong' ? '🚫 Doesn\'t belong' : req.reason === 'other' ? '📝 Other reason' : req.claimsOwnership ? '🔑 Claims ownership' : '📝 General request'} — {new Date(req.requestedAt).toLocaleDateString()}
+                            {req.reason === 'broken_link' ? '🔗 Broken link' : req.reason === 'owner_request' ? '🔑 Owner request' : req.reason === 'doesnt_belong' ? '🚫 Doesn\'t belong' : req.reason === 'other' ? '📝 Other reason' : req.claimsOwnership ? '🔑 Claims ownership' : '📝 General request'} — {new Date(req.requestedAt).toLocaleDateString()}
                           </Text>
                         </View>
                         <TouchableOpacity
@@ -1023,13 +1023,12 @@ export function AdminScreen({ navigation }: any) {
           {activeTab === 'lists' && (
             <View>
               <Text style={styles.sectionTitle}>Curated Lists</Text>
-              <Text style={styles.hint}>Manage which videos appear in Featured, Top 10, Editor's Picks, and other curated sections.</Text>
+              <Text style={styles.hint}>Manage which videos appear in Featured, Editor's Picks, and other curated sections. Top 10 is auto-calculated by view count.</Text>
 
               {/* List selector */}
               <View style={styles.filterTypeRow}>
                 {[
                   { key: 'featured', label: 'Featured' },
-                  { key: 'top10', label: 'Top 10' },
                   { key: 'editors_pick', label: "Editor's Pick" },
                   { key: 'new_this_week', label: 'New This Week' },
                 ].map(list => (
@@ -1047,7 +1046,7 @@ export function AdminScreen({ navigation }: any) {
 
               {/* Videos in selected list */}
               <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>
-                {selectedList === 'featured' ? 'Featured' : selectedList === 'top10' ? 'Top 10' : selectedList === 'editors_pick' ? "Editor's Picks" : 'New This Week'}
+                {selectedList === 'featured' ? 'Featured' : selectedList === 'editors_pick' ? "Editor's Picks" : 'New This Week'}
               </Text>
 
               {getVideosInList(selectedList).length === 0 ? (
