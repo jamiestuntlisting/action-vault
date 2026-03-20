@@ -16,6 +16,7 @@ const KEYS = {
   VAULT_SUBMISSIONS: '@actionvault_vault_submissions',
   PURCHASED_ATLAS_VIDEOS: '@actionvault_purchased_atlas_videos',
   PURCHASED_ATLAS_COURSES: '@actionvault_purchased_atlas_courses',
+  AUTH_TOKEN: '@actionvault_auth_token',
 };
 
 async function get<T>(key: string): Promise<T | null> {

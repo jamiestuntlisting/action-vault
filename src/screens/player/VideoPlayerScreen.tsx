@@ -694,6 +694,13 @@ export function VideoPlayerScreen({ route, navigation }: any) {
         {/* YouTube Player Container */}
         <View style={{ flex: 1 }} nativeID="yt-player-container" />
 
+        {/* Frame-by-frame keyboard hint */}
+        <View style={{ backgroundColor: 'rgba(0,0,0,0.85)', paddingVertical: 4, paddingHorizontal: 12 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, textAlign: 'center' }}>
+            ⌨️ Frame-by-frame: pause video, then press , (back) or . (forward)  ·  ← → to skip 5s  ·  Space to play/pause
+          </Text>
+        </View>
+
         {/* Atlas Action: overlay to block YouTube logo/links */}
         {isAtlasAction && (
           <View

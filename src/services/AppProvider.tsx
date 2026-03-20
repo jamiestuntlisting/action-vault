@@ -45,11 +45,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!state.isLoading) {
       persistState();
     }
-  }, [state.myList, state.watchHistory, state.ratings, state.bookmarks, state.collections, state.follows, state.notifications, state.settings, state.downloads, state.profiles, state.activeProfile, state.currentUser, state.onboardingComplete, state.purchasedAtlasVideos, state.purchasedAtlasCourses]);
+  }, [state.myList, state.watchHistory, state.ratings, state.bookmarks, state.collections, state.follows, state.notifications, state.settings, state.downloads, state.profiles, state.activeProfile, state.currentUser, state.onboardingComplete, state.purchasedAtlasVideos, state.purchasedAtlasCourses, state.authToken]);
 
   async function loadPersistedState() {
     try {
-      const [user, profiles, activeProfile, watchHistory, myList, ratings, bookmarks, collections, follows, notifications, settings, onboarding, downloads, purchasedAtlasVideos, purchasedAtlasCourses] = await Promise.all([
+      const [user, profiles, activeProfile, watchHistory, myList, ratings, bookmarks, collections, follows, notifications, settings, onboarding, downloads, purchasedAtlasVideos, purchasedAtlasCourses, authToken] = await Promise.all([
         StorageService.get<{ id: string; email: string }>(StorageService.KEYS.USER),
         StorageService.get<any[]>(StorageService.KEYS.PROFILES),
         StorageService.get<any>(StorageService.KEYS.ACTIVE_PROFILE),
@@ -65,6 +65,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         StorageService.get<string[]>(StorageService.KEYS.VAULT_SUBMISSIONS),
         StorageService.get<string[]>(StorageService.KEYS.PURCHASED_ATLAS_VIDEOS),
         StorageService.get<string[]>(StorageService.KEYS.PURCHASED_ATLAS_COURSES),
+        StorageService.get<string>(StorageService.KEYS.AUTH_TOKEN),
       ]);
 
       // Always use code-defined Atlas Action videos/courses (pricing & content
@@ -96,6 +97,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           downloads: downloads || [],
           purchasedAtlasVideos: purchasedAtlasVideos || [],
           purchasedAtlasCourses: purchasedAtlasCourses || [],
+          authToken: authToken || null,
         },
       });
     } catch (e) {
@@ -121,6 +123,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         StorageService.set(StorageService.KEYS.VAULT_SUBMISSIONS, state.downloads),
         StorageService.set(StorageService.KEYS.PURCHASED_ATLAS_VIDEOS, state.purchasedAtlasVideos),
         StorageService.set(StorageService.KEYS.PURCHASED_ATLAS_COURSES, state.purchasedAtlasCourses),
+        state.authToken ? StorageService.set(StorageService.KEYS.AUTH_TOKEN, state.authToken) : StorageService.remove(StorageService.KEYS.AUTH_TOKEN),
       ]);
     } catch (e) {
       // Silent fail

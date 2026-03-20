@@ -200,11 +200,12 @@ interface State {
   downloads: string[]; // video IDs
   purchasedAtlasVideos: string[];
   purchasedAtlasCourses: string[];
+  authToken: string | null;
 }
 
 type Action =
   | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'LOGIN'; payload: { id: string; email: string } }
+  | { type: 'LOGIN'; payload: { id: string; email: string; name?: string; token?: string } }
   | { type: 'LOGOUT' }
   | { type: 'SET_ONBOARDING_COMPLETE'; payload: boolean }
   | { type: 'SET_PROFILES'; payload: UserProfile[] }
@@ -251,6 +252,7 @@ const initialState: State = {
   downloads: [],
   purchasedAtlasVideos: [],
   purchasedAtlasCourses: [],
+  authToken: null,
 };
 
 function reducer(state: State, action: Action): State {
@@ -258,7 +260,7 @@ function reducer(state: State, action: Action): State {
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
     case 'LOGIN':
-      return { ...state, isAuthenticated: true, currentUser: action.payload };
+      return { ...state, isAuthenticated: true, currentUser: { id: action.payload.id, email: action.payload.email }, authToken: action.payload.token || null };
     case 'LOGOUT':
       return { ...initialState, isLoading: false };
     case 'SET_ONBOARDING_COMPLETE':

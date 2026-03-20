@@ -6,13 +6,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, FontSize, FontWeight } from '../../theme';
 import { useAppState, AdminCategory, AdminVideoOverride, AtlasActionVideo, AtlasActionCourse } from '../../services/AppState';
-import { videos as allVideos } from '../../data';
+import { videos as allVideos, videoMap } from '../../data';
 import { skillTags } from '../../data/skillTags';
 import { Video } from '../../types';
 
 const MAX_WIDTH = 960;
 
-type AdminTab = 'videos' | 'categories' | 'tags' | 'bytag' | 'byproduction' | 'lists' | 'atlas';
+type AdminTab = 'videos' | 'categories' | 'tags' | 'bytag' | 'byproduction' | 'lists' | 'atlas' | 'reviews' | 'stats' | 'flags';
 
 // Autocomplete tag input component
 function TagInput({
@@ -136,6 +136,13 @@ export function AdminScreen({ navigation }: any) {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedList, setSelectedList] = useState<string>('featured');
   const [selectedProduction, setSelectedProduction] = useState<string | null>(null);
+
+  // Reviews tab state
+  const [reviewSearch, setReviewSearch] = useState('');
+  const [reviewSort, setReviewSort] = useState<'newest' | 'oldest'>('newest');
+
+  // Flags tab state
+  const [flagSearch, setFlagSearch] = useState('');
 
   // Atlas Action state
   const [atlasMode, setAtlasMode] = useState<'videos' | 'courses'>('videos');
@@ -566,20 +573,31 @@ export function AdminScreen({ navigation }: any) {
 
         {/* Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
-          {(['videos', 'byproduction', 'bytag', 'lists', 'categories', 'tags', 'atlas'] as AdminTab[]).map(tab => {
-            const label = tab === 'videos' ? 'Videos' : tab === 'byproduction' ? 'By Production' : tab === 'bytag' ? 'By Tag' : tab === 'lists' ? 'Lists' : tab === 'categories' ? 'Categories' : tab === 'atlas' ? 'Atlas Action' : 'Quick Tags';
-            return (
+          {([
+            { key: 'videos' as AdminTab, label: 'Videos', icon: 'videocam-outline' as const },
+            { key: 'byproduction' as AdminTab, label: 'By Production', icon: 'film-outline' as const },
+            { key: 'bytag' as AdminTab, label: 'By Tag', icon: 'pricetag-outline' as const },
+            { key: 'lists' as AdminTab, label: 'Lists', icon: 'list-outline' as const },
+            { key: 'categories' as AdminTab, label: 'Categories', icon: 'grid-outline' as const },
+            { key: 'tags' as AdminTab, label: 'Quick Tags', icon: 'pricetags-outline' as const },
+            { key: 'atlas' as AdminTab, label: 'Atlas Action', icon: 'globe-outline' as const },
+            { key: 'reviews' as AdminTab, label: 'Reviews', icon: 'chatbubbles-outline' as const },
+            { key: 'stats' as AdminTab, label: 'Stats', icon: 'stats-chart-outline' as const },
+            { key: 'flags' as AdminTab, label: 'Flags', icon: 'flag-outline' as const },
+          ]).map(tab => (
             <TouchableOpacity
-              key={tab}
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
-              onPress={() => setActiveTab(tab)}
+              key={tab.key}
+              style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+              onPress={() => setActiveTab(tab.key)}
             >
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {label}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name={tab.icon} size={14} color={activeTab === tab.key ? '#fff' : Colors.textSecondary} />
+                <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                  {tab.label}
+                </Text>
+              </View>
             </TouchableOpacity>
-            );
-          })}
+          ))}
         </ScrollView>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -1378,6 +1396,281 @@ export function AdminScreen({ navigation }: any) {
             </View>
           )}
 
+          {activeTab === 'reviews' && (() => {
+            const allReviews = state.ratings.filter(r => r.reviewText && r.reviewText.trim().length > 0);
+            const q = reviewSearch.toLowerCase();
+            const filtered = q
+              ? allReviews.filter(r => {
+                  const vid = videoMap.get(r.videoId);
+                  return r.reviewText.toLowerCase().includes(q) || (vid?.title || '').toLowerCase().includes(q);
+                })
+              : allReviews;
+            const sorted = [...filtered].sort((a, b) =>
+              reviewSort === 'newest'
+                ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+            );
+            return (
+              <View>
+                <Text style={styles.sectionTitle}>Reviews ({allReviews.length})</Text>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search reviews by text or video title..."
+                  placeholderTextColor={Colors.textMuted}
+                  value={reviewSearch}
+                  onChangeText={setReviewSearch}
+                />
+                <View style={styles.filterTypeRow}>
+                  {([{ key: 'newest' as const, label: 'Newest First' }, { key: 'oldest' as const, label: 'Oldest First' }]).map(s => (
+                    <TouchableOpacity
+                      key={s.key}
+                      style={[styles.filterTypeBtn, reviewSort === s.key && styles.filterTypeBtnActive]}
+                      onPress={() => setReviewSort(s.key)}
+                    >
+                      <Text style={[styles.filterTypeText, reviewSort === s.key && styles.filterTypeTextActive]}>{s.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {reviewSearch.length > 0 && (
+                  <Text style={styles.countText}>{sorted.length} result{sorted.length !== 1 ? 's' : ''} found</Text>
+                )}
+                {sorted.map((r, idx) => {
+                  const vid = videoMap.get(r.videoId);
+                  return (
+                    <View key={`${r.videoId}-${r.profileId}-${idx}`} style={styles.reviewCard}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.videoTitle}>{vid?.title || r.videoId}</Text>
+                        <Text style={styles.reviewText}>{r.reviewText}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.xs }}>
+                          <Text style={{ fontSize: 16 }}>{r.thumbs === 'up' ? '\ud83d\udc4d' : '\ud83d\udc4e'}</Text>
+                          {r.bestOfBest && (
+                            <View style={styles.customBadge}>
+                              <Text style={styles.customBadgeText}>Best of the Best</Text>
+                            </View>
+                          )}
+                          <Text style={styles.videoMeta}>{new Date(r.createdAt).toLocaleDateString()}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.videoActions}>
+                        <TouchableOpacity
+                          style={[styles.iconBtn, { backgroundColor: '#f4433622', borderRadius: BorderRadius.sm }]}
+                          onPress={() => Alert.alert('Delete Review', 'In production, this would remove the review from the database.')}
+                        >
+                          <Ionicons name="trash" size={18} color="#f44" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.iconBtn, { backgroundColor: '#ffb30022', borderRadius: BorderRadius.sm }]}
+                          onPress={() => Alert.alert('Flagged', 'Review flagged')}
+                        >
+                          <Ionicons name="flag" size={18} color="#ffb300" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+                {sorted.length === 0 && (
+                  <Text style={styles.countText}>No reviews found.</Text>
+                )}
+              </View>
+            );
+          })()}
+
+          {activeTab === 'stats' && (() => {
+            const totalVideos = allVideos.length;
+            const hiddenOverrides = (state.settings.adminVideoOverrides || []).filter(o => o.hidden);
+            const hiddenCount = hiddenOverrides.length;
+            const visibleCount = totalVideos - hiddenCount;
+
+            const totalRatings = state.ratings.length;
+            const thumbsUp = state.ratings.filter(r => r.thumbs === 'up').length;
+            const thumbsDown = state.ratings.filter(r => r.thumbs === 'down').length;
+            const totalReviews = state.ratings.filter(r => r.reviewText && r.reviewText.trim().length > 0).length;
+            const totalBookmarks = state.bookmarks.length;
+            const totalWatchHistory = state.watchHistory.length;
+            const totalMyList = state.myList.length;
+
+            const removalRequests = state.settings.removalRequests || [];
+
+            const personTags = state.settings.personTags || [];
+
+            const atlasVideos = state.settings.atlasActionVideos || [];
+            const atlasCourses = state.settings.atlasActionCourses || [];
+
+            // Most watched (by viewCount from static data)
+            const topWatched = [...allVideos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 5);
+
+            // Most rated
+            const ratingCountMap: Record<string, number> = {};
+            state.ratings.forEach(r => { ratingCountMap[r.videoId] = (ratingCountMap[r.videoId] || 0) + 1; });
+            const topRated = Object.entries(ratingCountMap)
+              .sort(([, a], [, b]) => b - a)
+              .slice(0, 5)
+              .map(([id, count]) => ({ video: videoMap.get(id), count }));
+
+            // Most bookmarked
+            const bookmarkCountMap: Record<string, number> = {};
+            state.bookmarks.forEach(b => { bookmarkCountMap[b.videoId] = (bookmarkCountMap[b.videoId] || 0) + 1; });
+            const topBookmarked = Object.entries(bookmarkCountMap)
+              .sort(([, a], [, b]) => b - a)
+              .slice(0, 5)
+              .map(([id, count]) => ({ video: videoMap.get(id), count }));
+
+            return (
+              <View>
+                <Text style={styles.sectionTitle}>App Statistics</Text>
+
+                {/* Video counts */}
+                <View style={styles.statSection}>
+                  <Text style={styles.statSectionTitle}>Videos</Text>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>Total Videos</Text><Text style={styles.statValue}>{totalVideos}</Text></View>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>Visible</Text><Text style={styles.statValue}>{visibleCount}</Text></View>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>Hidden</Text><Text style={styles.statValue}>{hiddenCount}</Text></View>
+                </View>
+
+                {/* Engagement counts */}
+                <View style={styles.statSection}>
+                  <Text style={styles.statSectionTitle}>Engagement</Text>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>Total Ratings</Text><Text style={styles.statValue}>{totalRatings}</Text></View>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>{'\ud83d\udc4d'} Thumbs Up</Text><Text style={styles.statValue}>{thumbsUp}</Text></View>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>{'\ud83d\udc4e'} Thumbs Down</Text><Text style={styles.statValue}>{thumbsDown}</Text></View>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>Reviews (with text)</Text><Text style={styles.statValue}>{totalReviews}</Text></View>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>Bookmarks</Text><Text style={styles.statValue}>{totalBookmarks}</Text></View>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>Watch History Entries</Text><Text style={styles.statValue}>{totalWatchHistory}</Text></View>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>My List Items</Text><Text style={styles.statValue}>{totalMyList}</Text></View>
+                </View>
+
+                {/* Top watched */}
+                <View style={styles.statSection}>
+                  <Text style={styles.statSectionTitle}>Most Watched (by View Count)</Text>
+                  {topWatched.map((v, i) => (
+                    <View key={v.id} style={styles.statRow}>
+                      <Text style={styles.statLabel} numberOfLines={1}>{i + 1}. {v.title}</Text>
+                      <Text style={styles.statValue}>{v.viewCount.toLocaleString()}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Top rated */}
+                {topRated.length > 0 && (
+                  <View style={styles.statSection}>
+                    <Text style={styles.statSectionTitle}>Most Rated (by Rating Count)</Text>
+                    {topRated.map((item, i) => (
+                      <View key={item.video?.id || i} style={styles.statRow}>
+                        <Text style={styles.statLabel} numberOfLines={1}>{i + 1}. {item.video?.title || 'Unknown'}</Text>
+                        <Text style={styles.statValue}>{item.count}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Top bookmarked */}
+                {topBookmarked.length > 0 && (
+                  <View style={styles.statSection}>
+                    <Text style={styles.statSectionTitle}>Most Bookmarked</Text>
+                    {topBookmarked.map((item, i) => (
+                      <View key={item.video?.id || i} style={styles.statRow}>
+                        <Text style={styles.statLabel} numberOfLines={1}>{i + 1}. {item.video?.title || 'Unknown'}</Text>
+                        <Text style={styles.statValue}>{item.count}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Other stats */}
+                <View style={styles.statSection}>
+                  <Text style={styles.statSectionTitle}>Other</Text>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>Removal Requests</Text><Text style={styles.statValue}>{removalRequests.length}</Text></View>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>Person Tags</Text><Text style={styles.statValue}>{personTags.length}</Text></View>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>Atlas Action Videos</Text><Text style={styles.statValue}>{atlasVideos.length}</Text></View>
+                  <View style={styles.statRow}><Text style={styles.statLabel}>Atlas Action Courses</Text><Text style={styles.statValue}>{atlasCourses.length}</Text></View>
+                </View>
+              </View>
+            );
+          })()}
+
+          {activeTab === 'flags' && (() => {
+            const allRequests = state.settings.removalRequests || [];
+            const fq = flagSearch.toLowerCase();
+            const filtered = fq
+              ? allRequests.filter(req => {
+                  const vid = videoMap.get(req.videoId);
+                  return (vid?.title || '').toLowerCase().includes(fq);
+                })
+              : allRequests;
+            return (
+              <View>
+                <Text style={styles.sectionTitle}>Removal Requests & Flags ({allRequests.length})</Text>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search by video title..."
+                  placeholderTextColor={Colors.textMuted}
+                  value={flagSearch}
+                  onChangeText={setFlagSearch}
+                />
+                {filtered.length === 0 && (
+                  <Text style={styles.countText}>{allRequests.length === 0 ? 'No removal requests.' : 'No matching requests.'}</Text>
+                )}
+                {filtered.map((req, i) => {
+                  const vid = videoMap.get(req.videoId);
+                  const reasonLabel = req.reason === 'broken_link' ? '\ud83d\udd17 Broken Link'
+                    : req.reason === 'owner_request' ? '\ud83d\udd11 Owner Request'
+                    : req.reason === 'doesnt_belong' ? '\ud83d\udeab Doesn\'t Belong'
+                    : req.reason === 'other' ? '\ud83d\udcdd Other'
+                    : req.claimsOwnership ? '\ud83d\udd11 Claims Ownership'
+                    : '\ud83d\udcdd General Request';
+                  return (
+                    <View key={`${req.videoId}-${i}`} style={styles.flagCard}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.videoTitle}>{vid?.title || req.videoId}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.xs }}>
+                          <Text style={styles.videoMeta}>{reasonLabel}</Text>
+                          {req.claimsOwnership && (
+                            <View style={[styles.customBadge, { backgroundColor: '#f4433633' }]}>
+                              <Text style={[styles.customBadgeText, { color: '#f44' }]}>Claims Ownership</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.videoMeta}>{new Date(req.requestedAt).toLocaleDateString()}</Text>
+                      </View>
+                      <View style={styles.videoActions}>
+                        <TouchableOpacity
+                          style={[styles.iconBtn, { backgroundColor: Colors.primary + '22', borderRadius: BorderRadius.sm }]}
+                          onPress={() => {
+                            const updated = (state.settings.removalRequests || []).filter((_, idx) => idx !== i);
+                            dispatch({ type: 'UPDATE_SETTINGS', payload: { removalRequests: updated } });
+                          }}
+                        >
+                          <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.iconBtn, { backgroundColor: '#f4433622', borderRadius: BorderRadius.sm }]}
+                          onPress={() => {
+                            // Hide the video and remove the request
+                            const existingOverrides = state.settings.adminVideoOverrides || [];
+                            const overrideIdx = existingOverrides.findIndex(o => o.videoId === req.videoId);
+                            let updatedOverrides: AdminVideoOverride[];
+                            if (overrideIdx >= 0) {
+                              updatedOverrides = existingOverrides.map((o, oi) =>
+                                oi === overrideIdx ? { ...o, hidden: true } : o
+                              );
+                            } else {
+                              updatedOverrides = [...existingOverrides, { videoId: req.videoId, hidden: true }];
+                            }
+                            const updatedRequests = (state.settings.removalRequests || []).filter((_, idx) => idx !== i);
+                            dispatch({ type: 'UPDATE_SETTINGS', payload: { removalRequests: updatedRequests, adminVideoOverrides: updatedOverrides } });
+                            Alert.alert('Done', 'Video hidden and request resolved.');
+                          }}
+                        >
+                          <Ionicons name="eye-off" size={18} color="#f44" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          })()}
+
           <View style={{ height: 100 }} />
         </ScrollView>
       </View>
@@ -1473,5 +1766,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
     borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+
+  // Reviews tab
+  reviewCard: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    backgroundColor: Colors.surface, borderRadius: BorderRadius.md,
+    padding: Spacing.md, marginBottom: Spacing.sm, gap: Spacing.sm,
+  },
+  reviewText: {
+    color: Colors.textSecondary, fontSize: FontSize.sm, marginTop: Spacing.xs, lineHeight: 20,
+  },
+
+  // Flags tab
+  flagCard: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    backgroundColor: Colors.surface, borderRadius: BorderRadius.md,
+    padding: Spacing.md, marginBottom: Spacing.sm, gap: Spacing.sm,
+    borderLeftWidth: 3, borderLeftColor: '#ffb300',
+  },
+
+  // Stats tab
+  statSection: {
+    backgroundColor: Colors.surface, borderRadius: BorderRadius.md,
+    padding: Spacing.md, marginBottom: Spacing.md,
+  },
+  statSectionTitle: {
+    color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.bold,
+    marginBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border,
+    paddingBottom: Spacing.xs,
+  },
+  statRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: Spacing.xs,
+  },
+  statLabel: {
+    color: Colors.textSecondary, fontSize: FontSize.sm, flex: 1,
+  },
+  statValue: {
+    color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.semibold,
+    marginLeft: Spacing.sm,
   },
 });

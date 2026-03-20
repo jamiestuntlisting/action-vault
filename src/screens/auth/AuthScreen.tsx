@@ -1,64 +1,89 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
 
+const API_BASE = Platform.OS === 'web'
+  ? '' // Same origin on web
+  : 'https://actionvault.stuntlisting.com'; // Production URL for native
+
 export function AuthScreen({ navigation }: any) {
   const { dispatch } = useAppState();
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  function handleSubmit() {
+  async function handleStuntListingLogin() {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-    if (!isLogin && password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      setErrorMessage('Please enter your email and password');
       return;
     }
 
-    // Mock auth
-    const userId = 'user-' + Date.now();
-    dispatch({ type: 'LOGIN', payload: { id: userId, email: email.trim() } });
-    dispatch({
-      type: 'ADD_PROFILE',
-      payload: {
-        id: 'profile-' + Date.now(),
-        userId,
-        name: email.split('@')[0],
-        avatarKey: 'stunt',
-        experienceLevel: 'fan',
-        onboardingComplete: false,
-        interests: [],
-      },
-    });
-    navigation.replace('Onboarding');
+    setErrorMessage('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/api/stuntlisting-auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setErrorMessage(data.error || 'Invalid email or password');
+        setIsLoading(false);
+        return;
+      }
+
+      // Dispatch login with user data and token
+      dispatch({
+        type: 'LOGIN',
+        payload: {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name,
+          token: data.token,
+        },
+      });
+
+      // Create a profile for the user
+      dispatch({
+        type: 'ADD_PROFILE',
+        payload: {
+          id: 'profile-' + data.user.id,
+          userId: data.user.id,
+          name: data.user.name || email.split('@')[0],
+          avatarKey: 'stunt',
+          experienceLevel: data.user.role === 'coordinator' ? 'professional' : 'fan',
+          onboardingComplete: false,
+          interests: [],
+        },
+      });
+
+      navigation.replace('Onboarding');
+    } catch (error) {
+      setErrorMessage('Unable to connect. Please check your connection and try again.');
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  function handleAppleSignIn() {
-    const userId = 'user-apple-' + Date.now();
-    dispatch({ type: 'LOGIN', payload: { id: userId, email: 'user@icloud.com' } });
-    dispatch({
-      type: 'ADD_PROFILE',
-      payload: {
-        id: 'profile-' + Date.now(),
-        userId,
-        name: 'Stunt Fan',
-        avatarKey: 'stunt',
-        experienceLevel: 'fan',
-        onboardingComplete: false,
-        interests: [],
-      },
-    });
-    navigation.replace('Onboarding');
-  }
-
-  function handleBypass() {
+  function handleGuestAccess() {
     const userId = 'user-guest-' + Date.now();
     dispatch({ type: 'LOGIN', payload: { id: userId, email: 'guest@actionvault.app' } });
     dispatch({
@@ -78,96 +103,120 @@ export function AuthScreen({ navigation }: any) {
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        {/* StuntListing Branding */}
         <View style={styles.header}>
-          <Ionicons name="film" size={48} color={Colors.primary} />
-          <Text style={styles.logo}>ACTION VAULT</Text>
-          <Text style={styles.tagline}>{isLogin ? 'Welcome back' : 'Join the action'}</Text>
+          <View style={styles.logoContainer}>
+            <Ionicons name="flash" size={36} color={Colors.accent} />
+            <Text style={styles.logoText}>STUNTLISTING</Text>
+          </View>
+          <Text style={styles.appName}>ACTION VAULT</Text>
+          <Text style={styles.tagline}>Sign in with your StuntListing account</Text>
         </View>
 
+        {/* Error Message */}
+        {errorMessage ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={18} color={Colors.error} />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {/* Login Form */}
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color={Colors.textTertiary} style={styles.inputIcon} />
+            <Ionicons
+              name="mail-outline"
+              size={20}
+              color={Colors.textTertiary}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Email"
               placeholderTextColor={Colors.inputPlaceholder}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                setErrorMessage('');
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!isLoading}
             />
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color={Colors.textTertiary} style={styles.inputIcon} />
+            <Ionicons
+              name="lock-closed-outline"
+              size={20}
+              color={Colors.textTertiary}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Password"
               placeholderTextColor={Colors.inputPlaceholder}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                setErrorMessage('');
+              }}
               secureTextEntry={!showPassword}
+              editable={!isLoading}
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={Colors.textTertiary} />
-            </TouchableOpacity>
-          </View>
-
-          {!isLogin && (
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color={Colors.textTertiary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Confirm Password"
-                placeholderTextColor={Colors.inputPlaceholder}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showPassword}
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={isLoading}>
+              <Ionicons
+                name={showPassword ? 'eye-off' : 'eye'}
+                size={20}
+                color={Colors.textTertiary}
               />
-            </View>
-          )}
-
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} activeOpacity={0.8}>
-            <Text style={styles.submitText}>{isLogin ? 'Sign In' : 'Create Account'}</Text>
-          </TouchableOpacity>
-
-          {isLogin && (
-            <TouchableOpacity style={styles.forgotButton}>
-              <Text style={styles.forgotText}>Forgot Password?</Text>
             </TouchableOpacity>
-          )}
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
           </View>
 
-          <TouchableOpacity style={styles.socialButton} onPress={handleAppleSignIn} activeOpacity={0.8}>
-            <Ionicons name="logo-apple" size={22} color={Colors.white} />
-            <Text style={styles.socialText}>Sign in with Apple</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.socialButton, styles.googleButton]} onPress={handleAppleSignIn} activeOpacity={0.8}>
-            <Ionicons name="logo-google" size={20} color={Colors.white} />
-            <Text style={styles.socialText}>Sign in with Google</Text>
+          <TouchableOpacity
+            style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+            onPress={handleStuntListingLogin}
+            activeOpacity={0.8}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color={Colors.white} size="small" />
+            ) : (
+              <View style={styles.submitContent}>
+                <Ionicons name="flash" size={20} color={Colors.white} style={{ marginRight: 8 }} />
+                <Text style={styles.submitText}>Sign In with StuntListing</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.bypassButton} onPress={handleBypass} activeOpacity={0.8}>
-          <Ionicons name="flash" size={24} color={Colors.white} />
-          <Text style={styles.bypassText}>Skip Login & Explore</Text>
+        {/* Divider */}
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>OR</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* Continue as Guest */}
+        <TouchableOpacity
+          style={styles.guestButton}
+          onPress={handleGuestAccess}
+          activeOpacity={0.8}
+          disabled={isLoading}
+        >
+          <Text style={styles.guestText}>Continue as Guest</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.switchButton} onPress={() => setIsLogin(!isLogin)}>
-          <Text style={styles.switchText}>
-            {isLogin ? "Don't have an account? " : 'Already have an account? '}
-            <Text style={styles.switchHighlight}>{isLogin ? 'Sign Up' : 'Sign In'}</Text>
-          </Text>
-        </TouchableOpacity>
+        <Text style={styles.guestNote}>
+          Guest access provides limited features. Sign in with your StuntListing account for full
+          access.
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -187,17 +236,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.section,
   },
-  logo: {
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  logoText: {
+    color: Colors.accent,
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.heavy,
+    letterSpacing: 3,
+    marginLeft: Spacing.sm,
+  },
+  appName: {
     color: Colors.primary,
     fontSize: FontSize.hero,
     fontWeight: FontWeight.heavy,
     letterSpacing: 4,
-    marginTop: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   tagline: {
     color: Colors.textSecondary,
-    fontSize: FontSize.lg,
-    marginTop: Spacing.sm,
+    fontSize: FontSize.md,
+    marginTop: Spacing.md,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(229, 9, 20, 0.15)',
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 9, 20, 0.3)',
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: FontSize.md,
+    marginLeft: Spacing.sm,
+    flex: 1,
   },
   form: {
     gap: Spacing.lg,
@@ -221,29 +300,29 @@ const styles = StyleSheet.create({
     fontSize: FontSize.lg,
   },
   submitButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.accent,
     borderRadius: BorderRadius.md,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: Spacing.sm,
   },
+  submitButtonDisabled: {
+    opacity: 0.7,
+  },
+  submitContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   submitText: {
     color: Colors.white,
     fontSize: FontSize.lg,
     fontWeight: FontWeight.bold,
   },
-  forgotButton: {
-    alignItems: 'center',
-  },
-  forgotText: {
-    color: Colors.textTertiary,
-    fontSize: FontSize.md,
-  },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: Spacing.sm,
+    marginVertical: Spacing.xl,
   },
   dividerLine: {
     flex: 1,
@@ -255,51 +334,24 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     marginHorizontal: Spacing.lg,
   },
-  socialButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.surfaceLight,
+  guestButton: {
     borderRadius: BorderRadius.md,
-    height: 52,
-    gap: Spacing.md,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  googleButton: {
-    backgroundColor: Colors.surface,
-  },
-  socialText: {
-    color: Colors.textPrimary,
+  guestText: {
+    color: Colors.textSecondary,
     fontSize: FontSize.lg,
     fontWeight: FontWeight.medium,
   },
-  bypassButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.lg,
-    height: 64,
-    gap: Spacing.md,
-    marginTop: Spacing.xxl,
-  },
-  bypassText: {
-    color: Colors.white,
-    fontSize: FontSize.xl,
-    fontWeight: FontWeight.heavy,
-    letterSpacing: 1,
-  },
-  switchButton: {
-    alignItems: 'center',
-    marginTop: Spacing.xl,
-  },
-  switchText: {
-    color: Colors.textTertiary,
-    fontSize: FontSize.md,
-  },
-  switchHighlight: {
-    color: Colors.primary,
-    fontWeight: FontWeight.bold,
+  guestNote: {
+    color: Colors.textMuted,
+    fontSize: FontSize.sm,
+    textAlign: 'center',
+    marginTop: Spacing.lg,
+    lineHeight: 18,
   },
 });

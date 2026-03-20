@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, FlatList, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, FlatList, NativeSyntheticEvent, NativeScrollEvent, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,77 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAX_WIDTH = 960;
 const EFFECTIVE_WIDTH = Math.min(SCREEN_WIDTH, MAX_WIDTH);
 const BANNER_HEIGHT = EFFECTIVE_WIDTH * 0.55;
+
+function extractYouTubeVideoId(url: string): string | null {
+  if (!url) return null;
+  // Match embed URLs like https://www.youtube.com/embed/VIDEO_ID
+  const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
+  if (embedMatch) return embedMatch[1];
+  // Match watch URLs like https://www.youtube.com/watch?v=VIDEO_ID
+  const watchMatch = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
+  if (watchMatch) return watchMatch[1];
+  // Match short URLs like https://youtu.be/VIDEO_ID
+  const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+  if (shortMatch) return shortMatch[1];
+  return null;
+}
+
+interface HeroVideoPreviewProps {
+  video: Video | null;
+  activeIndex: number;
+}
+
+function HeroVideoPreview({ video, activeIndex }: HeroVideoPreviewProps) {
+  const [showVideo, setShowVideo] = useState(false);
+  const timerRef = useRef<any>(null);
+
+  useEffect(() => {
+    setShowVideo(false);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+
+    if (!video) return;
+
+    const videoId = extractYouTubeVideoId(video.embedUrl || video.sourceUrl);
+    if (!videoId) return;
+
+    timerRef.current = setTimeout(() => {
+      setShowVideo(true);
+    }, 1500);
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [activeIndex, video]);
+
+  if (!video || !showVideo) return null;
+
+  const videoId = extractYouTubeVideoId(video.embedUrl || video.sourceUrl);
+  if (!videoId) return null;
+
+  const iframeSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&modestbranding=1&loop=1&playlist=${videoId}`;
+
+  return (
+    <View style={styles.videoPreviewContainer} pointerEvents="none">
+      <iframe
+        src={iframeSrc}
+        style={{
+          width: '100%',
+          height: '100%',
+          border: 'none',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+        } as any}
+        allow="autoplay; encrypted-media"
+        allowFullScreen={false}
+      />
+    </View>
+  );
+}
 
 interface HeroCarouselProps {
   videos: Video[];
@@ -23,6 +94,9 @@ export function HeroCarousel({ videos, onPlay, onInfo, onAddToList, isInList }: 
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const autoPlayTimer = useRef<any>(null);
+
+  const isWeb = Platform.OS === 'web';
+  const activeVideo = videos.length > 0 ? videos[activeIndex] : null;
 
   // Auto-rotate every 6 seconds
   useEffect(() => {
@@ -64,28 +138,6 @@ export function HeroCarousel({ videos, onPlay, onInfo, onAddToList, isInList }: 
           contentFit="cover"
           transition={300}
         />
-        <LinearGradient
-          colors={['transparent', 'rgba(10,10,10,0.4)', 'rgba(10,10,10,0.95)']}
-          style={styles.gradient}
-        />
-        <View style={styles.content}>
-          <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-          <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.playButton} onPress={() => onPlay(item)} activeOpacity={0.8}>
-              <Ionicons name="play" size={22} color={Colors.black} />
-              <Text style={styles.playText}>Play</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => onAddToList(item)} activeOpacity={0.8}>
-              <Ionicons name={inList ? 'checkmark' : 'add'} size={22} color={Colors.white} />
-              <Text style={styles.secondaryText}>My List</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => onInfo(item)} activeOpacity={0.8}>
-              <Ionicons name="information-circle-outline" size={22} color={Colors.white} />
-              <Text style={styles.secondaryText}>Info</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </View>
     );
   }
@@ -108,6 +160,40 @@ export function HeroCarousel({ videos, onPlay, onInfo, onAddToList, isInList }: 
           index,
         })}
       />
+      {/* Video preview overlay - web only, sits behind gradient */}
+      {isWeb && (
+        <HeroVideoPreview
+          video={activeVideo}
+          activeIndex={activeIndex}
+        />
+      )}
+      {/* Gradient overlay */}
+      <LinearGradient
+        colors={['transparent', 'rgba(10,10,10,0.4)', 'rgba(10,10,10,0.95)']}
+        style={styles.gradientOverlay}
+        pointerEvents="none"
+      />
+      {/* Content overlay */}
+      {activeVideo && (
+        <View style={styles.contentOverlay}>
+          <Text style={styles.title} numberOfLines={2}>{activeVideo.title}</Text>
+          <Text style={styles.description} numberOfLines={2}>{activeVideo.description}</Text>
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.playButton} onPress={() => onPlay(activeVideo)} activeOpacity={0.8}>
+              <Ionicons name="play" size={22} color={Colors.black} />
+              <Text style={styles.playText}>Play</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => onAddToList(activeVideo)} activeOpacity={0.8}>
+              <Ionicons name={isInList(activeVideo.id) ? 'checkmark' : 'add'} size={22} color={Colors.white} />
+              <Text style={styles.secondaryText}>My List</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => onInfo(activeVideo)} activeOpacity={0.8}>
+              <Ionicons name="information-circle-outline" size={22} color={Colors.white} />
+              <Text style={styles.secondaryText}>Info</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
       {/* Dot indicators */}
       {videos.length > 1 && (
         <View style={styles.dots}>
@@ -128,6 +214,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: BANNER_HEIGHT,
     marginBottom: Spacing.xl,
+    overflow: 'hidden',
   },
   slide: {
     width: EFFECTIVE_WIDTH,
@@ -137,15 +224,30 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  gradient: {
-    ...StyleSheet.absoluteFillObject,
+  videoPreviewContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: EFFECTIVE_WIDTH,
+    height: BANNER_HEIGHT,
+    zIndex: 1,
+    overflow: 'hidden',
   },
-  content: {
+  gradientOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2,
+  },
+  contentOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     padding: Spacing.screen,
+    zIndex: 3,
   },
   title: {
     color: Colors.white,
@@ -194,6 +296,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 6,
+    zIndex: 4,
   },
   dot: {
     width: 8,
