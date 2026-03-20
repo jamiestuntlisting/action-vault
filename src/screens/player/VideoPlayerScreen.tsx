@@ -58,6 +58,9 @@ export function VideoPlayerScreen({ route, navigation }: any) {
   const isReel = !!(currentReelId || (directEmbedUrl && !videoId));
   const canTagPerson = !!videoId; // Only library videos support person tagging
 
+  // Atlas Action videos: no videoId, no reelId, just directEmbedUrl
+  const isAtlasAction = !!(directEmbedUrl && !videoId && !currentReelId);
+
   // Build list of known names for autocomplete
   const knownNames = useMemo(() => {
     const names = new Set<string>();
@@ -374,12 +377,15 @@ export function VideoPlayerScreen({ route, navigation }: any) {
         playerVars: {
           autoplay: 1,
           playsinline: 1,
-          controls: 1,
+          controls: isAtlasAction ? 0 : 1,
           rel: 0,
           modestbranding: 1,
           start: startTime,
           iv_load_policy: 3,
           cc_load_policy: 0,
+          disablekb: isAtlasAction ? 1 : 0,
+          fs: isAtlasAction ? 0 : 1,
+          showinfo: 0,
         },
         events: {
           onReady: (event: any) => {
@@ -687,6 +693,26 @@ export function VideoPlayerScreen({ route, navigation }: any) {
 
         {/* YouTube Player Container */}
         <View style={{ flex: 1 }} nativeID="yt-player-container" />
+
+        {/* Atlas Action: overlay to block YouTube logo/links */}
+        {isAtlasAction && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 44,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 5,
+            }}
+            pointerEvents="box-none"
+          >
+            {/* Block top-right YouTube logo area */}
+            <View style={{ position: 'absolute', top: 0, right: 0, width: 120, height: 50 }} />
+            {/* Block bottom-right YouTube logo area */}
+            <View style={{ position: 'absolute', bottom: 0, right: 0, width: 140, height: 40 }} />
+          </View>
+        )}
 
         {tagOverlay}
         {toasts}
