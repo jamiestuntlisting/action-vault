@@ -40,6 +40,19 @@ export const productions: Production[] = [
   { id: 'prod-37', title: 'Crouching Tiger, Hidden Dragon', year: 2000, studio: 'Sony Pictures Classics', budgetTier: 'mid' },
   { id: 'prod-38', title: 'Black Panther: Wakanda Forever', year: 2022, studio: 'Marvel/Disney', budgetTier: 'tentpole' },
   { id: 'prod-39', title: 'Skyfall', year: 2012, studio: 'MGM/Sony', budgetTier: 'tentpole' },
+  { id: 'prod-40', title: 'Ballerina', year: 2025, studio: 'Lionsgate', budgetTier: 'tentpole' },
+  { id: 'prod-41', title: 'Ferrari', year: 2023, studio: 'STX Entertainment', budgetTier: 'mid' },
+  { id: 'prod-42', title: 'Hawkeye', year: 2021, studio: 'Marvel/Disney+', budgetTier: 'tentpole' },
+  { id: 'prod-43', title: 'Thunderbolts', year: 2025, studio: 'Marvel/Disney', budgetTier: 'tentpole' },
+  { id: 'prod-44', title: 'Titans', year: 2018, studio: 'DC/HBO Max', budgetTier: 'mid' },
+  { id: 'prod-45', title: 'The Last of Us', year: 2023, studio: 'HBO', budgetTier: 'tentpole' },
+  { id: 'prod-46', title: 'GLOW', year: 2017, studio: 'Netflix', budgetTier: 'mid' },
+  { id: 'prod-47', title: 'Masters of the Air', year: 2024, studio: 'Apple TV+', budgetTier: 'tentpole' },
+  { id: 'prod-48', title: 'The Wheel of Time', year: 2021, studio: 'Amazon', budgetTier: 'tentpole' },
+  { id: 'prod-49', title: 'Gotham', year: 2014, studio: 'Fox/Warner Bros.', budgetTier: 'mid' },
+  { id: 'prod-50', title: 'The Lone Ranger', year: 2013, studio: 'Disney', budgetTier: 'tentpole' },
+  { id: 'prod-51', title: 'John Wick', year: 2014, studio: 'Lionsgate', budgetTier: 'mid' },
+  { id: 'prod-52', title: 'Rings of Power', year: 2022, studio: 'Amazon', budgetTier: 'tentpole' },
 ];
 
 export const productionMap = new Map(productions.map(p => [p.id, p]));

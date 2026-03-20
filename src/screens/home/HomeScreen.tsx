@@ -15,7 +15,7 @@ import { stuntReels, skillReels, getSkillReelsByCategory, SkillReel } from '../.
 
 const MAX_WIDTH = 960;
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
-const ROTATING_ROWS_TO_SHOW = 7; // Show 7 rotating categories per day
+const ROTATING_ROWS_TO_SHOW = 10; // Show 10 rotating categories per load
 
 // Deterministic shuffle using a seed (same seed = same order each day)
 function seededShuffle<T>(arr: T[], seed: number): T[] {
@@ -267,17 +267,17 @@ export function HomeScreen({ navigation }: any) {
     return rows;
   }, [fightChoreography, carWork, classicStunts, actionActors, bondAndSpy, marvelDC, wireAndRigWork, tvBTS, stuntDocs, stuntmenReact, fallsVideos, fireVideos, trainingVideos, martialArts, gunFu, howStuntsAreMade, atlantaStunts, newYorkStunts, chicagoStunts]);
 
-  // Pick today's rotating rows using the daily seed
+  // Pick rotating rows — reshuffle on every load / pull-to-refresh
   const todaysRows = useMemo(() => {
     if (allRotatingRows.length <= ROTATING_ROWS_TO_SHOW) return allRotatingRows;
-    return seededShuffle(allRotatingRows, daySeed).slice(0, ROTATING_ROWS_TO_SHOW);
-  }, [allRotatingRows, daySeed]);
+    return seededShuffle(allRotatingRows, shuffleKey).slice(0, ROTATING_ROWS_TO_SHOW);
+  }, [allRotatingRows, shuffleKey]);
 
-  // Also rotate which skill reel rows to show (pick 3 per day)
+  // Also rotate which skill reel rows to show (pick 3 per load)
   const todaysSkillReels = useMemo(() => {
     if (skillReelSubCategories.length <= 3) return skillReelSubCategories;
-    return seededShuffle(skillReelSubCategories, daySeed + 1).slice(0, 3);
-  }, [skillReelSubCategories, daySeed]);
+    return seededShuffle(skillReelSubCategories, shuffleKey + 1).slice(0, 3);
+  }, [skillReelSubCategories, shuffleKey]);
 
   function navigateToVideo(video: Video) {
     navigation.navigate('VideoDetail', { videoId: video.id });
