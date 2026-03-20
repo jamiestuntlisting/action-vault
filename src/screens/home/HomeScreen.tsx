@@ -15,7 +15,7 @@ import { stuntReels, skillReels, getSkillReelsByCategory, SkillReel } from '../.
 
 const MAX_WIDTH = 960;
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
-const ROTATING_ROWS_TO_SHOW = 5; // Show 5 rotating categories per day
+const ROTATING_ROWS_TO_SHOW = 7; // Show 7 rotating categories per day
 
 // Deterministic shuffle using a seed (same seed = same order each day)
 function seededShuffle<T>(arr: T[], seed: number): T[] {
@@ -131,7 +131,9 @@ export function HomeScreen({ navigation }: any) {
     visibleVideos.filter(v => {
       const t = v.title.toLowerCase();
       return t.includes('bond') || t.includes('007') || t.includes('no time to die') ||
-        t.includes('atomic blonde') || t.includes('mission: impossible') || t.includes('matrix');
+        t.includes('skyfall') || t.includes('casino royale') ||
+        t.includes('atomic blonde') || t.includes('mission') || t.includes('matrix') ||
+        v.productions.some(p => ['prod-26', 'prod-33', 'prod-39', 'prod-24'].includes(p.id));
     }), [visibleVideos]);
 
   const tvBTS = useMemo(() =>
@@ -139,7 +141,9 @@ export function HomeScreen({ navigation }: any) {
       const t = v.title.toLowerCase();
       return t.includes('game of thrones') || t.includes('stranger things') ||
         t.includes('daredevil') || t.includes('walking dead') || t.includes('breaking bad') ||
-        (t.includes('season') && v.skillTags.some(s => s.id === 'bts-featurette'));
+        t.includes('house of the dragon') || t.includes('cobra kai') ||
+        (t.includes('season') && v.skillTags.some(s => s.id === 'bts-featurette')) ||
+        v.productions.some(p => ['prod-21', 'prod-22', 'prod-23', 'prod-31'].includes(p.id));
     }), [visibleVideos]);
 
   const stuntDocs = useMemo(() =>
@@ -153,7 +157,35 @@ export function HomeScreen({ navigation }: any) {
 
   // Stuntmen React (Corridor Crew series)
   const stuntmenReact = useMemo(() =>
-    visibleVideos.filter(v => v.title.toLowerCase().includes('stuntmen react')), [visibleVideos]);
+    visibleVideos.filter(v => v.title.toLowerCase().includes('stuntmen react') || v.title.toLowerCase().includes('stuntwomen react')), [visibleVideos]);
+
+  // Martial Arts Masters
+  const martialArts = useMemo(() =>
+    visibleVideos.filter(v =>
+      v.skillTags.some(t => t?.id === 'martial-arts') ||
+      v.title.toLowerCase().includes('ip man') ||
+      v.title.toLowerCase().includes('ong-bak') ||
+      v.title.toLowerCase().includes('tony jaa') ||
+      v.title.toLowerCase().includes('donnie yen') ||
+      v.title.toLowerCase().includes('the raid') ||
+      v.title.toLowerCase().includes('crouching tiger')
+    ), [visibleVideos]);
+
+  // Guns, Tactics & Gun-Fu
+  const gunFu = useMemo(() =>
+    visibleVideos.filter(v =>
+      v.skillTags.some(t => t?.id === 'gun-fu') ||
+      v.title.toLowerCase().includes('tactical') ||
+      v.title.toLowerCase().includes('firearms')
+    ), [visibleVideos]);
+
+  // How Stunts Are Made (educational/breakdown content)
+  const howStuntsAreMade = useMemo(() =>
+    visibleVideos.filter(v => {
+      const t = v.title.toLowerCase();
+      return t.includes('how ') && (t.includes('stunt') || t.includes('fight') || t.includes('scene') || t.includes('chase') || t.includes('burn')) ||
+        t.includes('breaks down') || t.includes('breakdown') || t.includes('movies insider') || t.includes('vanity fair');
+    }), [visibleVideos]);
 
   // Location-based categories
   const atlantaStunts = useMemo(() =>
@@ -226,11 +258,14 @@ export function HomeScreen({ navigation }: any) {
     if (fireVideos.length > 0) rows.push({ key: 'fire', title: 'Fire & Pyro', videos: fireVideos });
     if (trainingVideos.length > 0) rows.push({ key: 'training', title: 'Training & Safety', videos: trainingVideos });
     if (stuntmenReact.length > 0) rows.push({ key: 'stuntmenreact', title: 'Stuntmen React (Corridor Crew)', videos: stuntmenReact });
-    if (atlantaStunts.length > 0) rows.push({ key: 'atlanta', title: 'Atlanta Stunts', videos: atlantaStunts });
-    if (newYorkStunts.length > 0) rows.push({ key: 'nyc', title: 'New York Stunts', videos: newYorkStunts });
-    if (chicagoStunts.length > 0) rows.push({ key: 'chicago', title: 'Chicago Stunts', videos: chicagoStunts });
+    if (martialArts.length > 0) rows.push({ key: 'martialarts', title: 'Martial Arts Masters', videos: martialArts });
+    if (gunFu.length > 0) rows.push({ key: 'gunfu', title: 'Gun-Fu & Tactical Action', videos: gunFu });
+    if (howStuntsAreMade.length > 0) rows.push({ key: 'howto', title: 'How Stunts Are Made', videos: howStuntsAreMade });
+    if (atlantaStunts.length > 0) rows.push({ key: 'atlanta', title: 'Filmed in Atlanta', videos: atlantaStunts });
+    if (newYorkStunts.length > 0) rows.push({ key: 'nyc', title: 'Filmed in New York', videos: newYorkStunts });
+    if (chicagoStunts.length > 0) rows.push({ key: 'chicago', title: 'Filmed in Chicago', videos: chicagoStunts });
     return rows;
-  }, [fightChoreography, carWork, classicStunts, actionActors, bondAndSpy, marvelDC, wireAndRigWork, tvBTS, stuntDocs, stuntmenReact, fallsVideos, fireVideos, trainingVideos, atlantaStunts, newYorkStunts, chicagoStunts]);
+  }, [fightChoreography, carWork, classicStunts, actionActors, bondAndSpy, marvelDC, wireAndRigWork, tvBTS, stuntDocs, stuntmenReact, fallsVideos, fireVideos, trainingVideos, martialArts, gunFu, howStuntsAreMade, atlantaStunts, newYorkStunts, chicagoStunts]);
 
   // Pick today's rotating rows using the daily seed
   const todaysRows = useMemo(() => {
@@ -294,13 +329,15 @@ export function HomeScreen({ navigation }: any) {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesList}>
             {[
               { label: 'Fight Choreography', icon: 'fitness-outline', query: 'fight' },
+              { label: 'Martial Arts', icon: 'body-outline', query: 'martial arts' },
               { label: 'Car Work', icon: 'car-outline', query: 'car' },
               { label: 'Falls & High Work', icon: 'arrow-down-outline', query: 'falls' },
-              { label: 'Fire & Pyro', icon: 'flame-outline', query: 'fire' },
-              { label: 'Action Actors', icon: 'star-outline', query: 'action star' },
-              { label: 'Documentaries', icon: 'film-outline', query: 'documentary' },
+              { label: 'Fire & Burns', icon: 'flame-outline', query: 'fire burn' },
+              { label: 'Action Stars', icon: 'star-outline', query: 'action star' },
               { label: 'Wire & Rigs', icon: 'resize-outline', query: 'wire rig' },
-              { label: 'Training', icon: 'barbell-outline', query: 'training' },
+              { label: 'Gun-Fu & Tactical', icon: 'shield-outline', query: 'gun tactical' },
+              { label: 'Documentaries', icon: 'film-outline', query: 'documentary' },
+              { label: 'Training & Safety', icon: 'barbell-outline', query: 'training safety' },
               { label: 'Classic Stunts', icon: 'time-outline', query: 'classic' },
             ].map(cat => (
               <TouchableOpacity

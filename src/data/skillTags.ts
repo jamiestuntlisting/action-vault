@@ -28,6 +28,12 @@ export const skillTags: SkillTag[] = [
   { id: 'training', name: 'training_gym', displayName: 'Training & Gym', category: 'Training', icon: 'barbell' },
   { id: 'rig-breakdown', name: 'rig_breakdown', displayName: 'Rig Breakdowns', category: 'Safety', icon: 'construct' },
   { id: 'safety-walkthrough', name: 'safety_walkthrough', displayName: 'Safety Walkthroughs', category: 'Safety', icon: 'shield-checkmark' },
+  { id: 'parkour', name: 'parkour_freerunning', displayName: 'Parkour & Freerunning', category: 'Falls', icon: 'walk' },
+  { id: 'aerial', name: 'aerial_skydive', displayName: 'Aerial & Skydiving', category: 'Specialty', icon: 'airplane' },
+  { id: 'sword-fighting', name: 'sword_fighting', displayName: 'Sword Fighting', category: 'Fight Choreography', icon: 'fitness' },
+  { id: 'full-body-burn', name: 'full_body_burn', displayName: 'Full Body Burns', category: 'Fire', icon: 'flame' },
+  { id: 'martial-arts', name: 'martial_arts', displayName: 'Martial Arts', category: 'Fight Choreography', icon: 'fitness' },
+  { id: 'gun-fu', name: 'gun_fu', displayName: 'Gun-Fu & Tactical', category: 'Fight Choreography', icon: 'fitness' },
 ];
 
 export const skillTagMap = new Map(skillTags.map(t => [t.id, t]));

@@ -106,6 +106,38 @@ export const coordinators: Coordinator[] = [
     knownFor: ['God of War (mocap)', 'The Stunt People', 'Rope A Dope', 'Action analysis'],
     videoCount: 4,
   },
+  {
+    id: 'coord-14',
+    name: 'Guy Norris',
+    bio: 'Australian stunt coordinator and second unit director. Legendary action designer behind the Mad Max franchise. Also served as stunt coordinator on Furiosa.',
+    photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/e50914?text=GN',
+    knownFor: ['Mad Max: Fury Road', 'Furiosa', 'Mad Max 2', 'Superman Returns'],
+    videoCount: 2,
+  },
+  {
+    id: 'coord-15',
+    name: 'Brahim Chab',
+    bio: 'French-Moroccan fight coordinator based in Thailand. Found on YouTube by Dev Patel and hired to choreograph all of Monkey Man\'s fight sequences.',
+    photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/e50914?text=BC',
+    knownFor: ['Monkey Man', 'Thai Action Design'],
+    videoCount: 1,
+  },
+  {
+    id: 'coord-16',
+    name: 'Yuen Woo-ping',
+    bio: 'Legendary Hong Kong fight choreographer. Revolutionized wire-fu in The Matrix and Crouching Tiger. One of the most influential action designers in cinema history.',
+    photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/e50914?text=YWP',
+    knownFor: ['The Matrix', 'Crouching Tiger, Hidden Dragon', 'Kill Bill', 'Kung Fu Hustle'],
+    videoCount: 2,
+  },
+  {
+    id: 'coord-17',
+    name: 'Darrin Prescott',
+    bio: 'Stunt coordinator and second unit director known for his vehicle work on John Wick 2 and Baby Driver. Expert in precision car choreography.',
+    photoUrl: 'https://via.placeholder.com/200x200/1a1a1a/e50914?text=DP',
+    knownFor: ['John Wick 2', 'Baby Driver', 'Black Panther', 'Drive'],
+    videoCount: 1,
+  },
 ];
 
 export const coordinatorMap = new Map(coordinators.map(c => [c.id, c]));
