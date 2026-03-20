@@ -12,7 +12,7 @@ import { Video } from '../../types';
 
 const MAX_WIDTH = 960;
 
-type AdminTab = 'videos' | 'categories' | 'tags' | 'bytag' | 'lists' | 'atlas';
+type AdminTab = 'videos' | 'categories' | 'tags' | 'bytag' | 'byproduction' | 'lists' | 'atlas';
 
 // Autocomplete tag input component
 function TagInput({
@@ -135,6 +135,7 @@ export function AdminScreen({ navigation }: any) {
   const [newCatType, setNewCatType] = useState<'tag' | 'title' | 'location' | 'custom'>('title');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedList, setSelectedList] = useState<string>('featured');
+  const [selectedProduction, setSelectedProduction] = useState<string | null>(null);
 
   // Atlas Action state
   const [atlasMode, setAtlasMode] = useState<'videos' | 'courses'>('videos');
@@ -178,6 +179,29 @@ export function AdminScreen({ navigation }: any) {
       o.tagOverrides?.forEach(t => names.add(t));
     });
     return Array.from(names).sort();
+  }, [overrides]);
+
+  // Group videos by production/movie
+  const productionGroups = useMemo(() => {
+    const groups: Record<string, { production: string; videos: typeof allVideos }> = {};
+    const noProduction: typeof allVideos = [];
+    allVideos.forEach(v => {
+      const override = overrides.find(o => o.videoId === v.id);
+      const movieNames = override?.movieTags || v.productions.map(p => p.title);
+      if (movieNames.length === 0) {
+        noProduction.push(v);
+      } else {
+        movieNames.forEach(name => {
+          if (!groups[name]) groups[name] = { production: name, videos: [] };
+          groups[name].videos.push(v);
+        });
+      }
+    });
+    const sorted = Object.values(groups).sort((a, b) => b.videos.length - a.videos.length);
+    if (noProduction.length > 0) {
+      sorted.push({ production: 'Uncategorized', videos: noProduction });
+    }
+    return sorted;
   }, [overrides]);
 
   const getOverride = (videoId: string) => overrides.find(o => o.videoId === videoId);
@@ -542,17 +566,20 @@ export function AdminScreen({ navigation }: any) {
 
         {/* Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
-          {(['videos', 'bytag', 'lists', 'categories', 'tags', 'atlas'] as AdminTab[]).map(tab => (
+          {(['videos', 'byproduction', 'bytag', 'lists', 'categories', 'tags', 'atlas'] as AdminTab[]).map(tab => {
+            const label = tab === 'videos' ? 'Videos' : tab === 'byproduction' ? 'By Production' : tab === 'bytag' ? 'By Tag' : tab === 'lists' ? 'Lists' : tab === 'categories' ? 'Categories' : tab === 'atlas' ? 'Atlas Action' : 'Quick Tags';
+            return (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, activeTab === tab && styles.tabActive]}
               onPress={() => setActiveTab(tab)}
             >
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {tab === 'videos' ? 'Videos' : tab === 'bytag' ? 'By Tag' : tab === 'lists' ? 'Lists' : tab === 'categories' ? 'Categories' : tab === 'atlas' ? 'Atlas Action' : 'Quick Tags'}
+                {label}
               </Text>
             </TouchableOpacity>
-          ))}
+            );
+          })}
         </ScrollView>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -608,6 +635,112 @@ export function AdminScreen({ navigation }: any) {
                 {filteredVideos.length} videos ({overrides.filter(o => o.hidden).length} hidden)
               </Text>
               {filteredVideos.map(renderVideoItem)}
+            </View>
+          )}
+
+          {activeTab === 'byproduction' && (
+            <View>
+              <Text style={styles.sectionTitle}>Videos by Movie / Production</Text>
+              <Text style={styles.hint}>
+                {productionGroups.length} productions. Tap a production to see its videos.
+              </Text>
+
+              {/* Production search */}
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search productions..."
+                placeholderTextColor={Colors.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+
+              {/* Production grid */}
+              <View style={styles.tagGrid}>
+                {productionGroups
+                  .filter(g => !searchQuery || g.production.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map(group => {
+                    const isSelected = selectedProduction === group.production;
+                    return (
+                      <TouchableOpacity
+                        key={group.production}
+                        style={[
+                          styles.readOnlyTag,
+                          isSelected && { backgroundColor: '#ab47bc33', borderWidth: 1, borderColor: '#ab47bc' },
+                        ]}
+                        onPress={() => setSelectedProduction(isSelected ? null : group.production)}
+                      >
+                        <Text style={[styles.readOnlyTagText, isSelected && { color: '#ab47bc' }]} numberOfLines={1}>
+                          {group.production}
+                        </Text>
+                        <Text style={styles.readOnlyTagCategory}>{group.videos.length} videos</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+              </View>
+
+              {/* Videos for selected production */}
+              {selectedProduction && (() => {
+                const group = productionGroups.find(g => g.production === selectedProduction);
+                if (!group) return null;
+                return (
+                  <View style={{ marginTop: Spacing.xl }}>
+                    <Text style={styles.sectionTitle}>{selectedProduction}</Text>
+                    <Text style={styles.hint}>{group.videos.length} videos in this production.</Text>
+                    {group.videos.map(video => {
+                      const override = getOverride(video.id);
+                      const isHidden = override?.hidden;
+                      return (
+                        <View key={video.id} style={[styles.byTagVideoRow, isHidden && { opacity: 0.4 }]}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.videoTitle} numberOfLines={2}>{video.title}</Text>
+                            <Text style={styles.videoMeta}>
+                              {video.skillTags.map(t => t.displayName).join(', ')}
+                            </Text>
+                          </View>
+                          <TouchableOpacity onPress={() => toggleHideVideo(video.id)} style={{ marginLeft: 8 }}>
+                            <Ionicons name={isHidden ? 'eye-off' : 'eye'} size={20} color={isHidden ? '#f44' : Colors.textSecondary} />
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
+
+                    {/* Add video to this production */}
+                    <Text style={[styles.hint, { marginTop: Spacing.lg }]}>Add a video to "{selectedProduction}":</Text>
+                    <TextInput
+                      style={[styles.searchInput, { marginTop: Spacing.sm }]}
+                      placeholder="Search videos to add..."
+                      placeholderTextColor={Colors.textMuted}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                    />
+                    {searchQuery.trim().length > 1 && (
+                      <View>
+                        {allVideos
+                          .filter(v => v.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .filter(v => !group.videos.some(gv => gv.id === v.id))
+                          .slice(0, 10)
+                          .map(video => (
+                            <TouchableOpacity
+                              key={video.id}
+                              style={styles.byTagAddRow}
+                              onPress={() => {
+                                const override = getOverride(video.id);
+                                const currentMovies = override?.movieTags || video.productions.map(p => p.title);
+                                if (!currentMovies.includes(selectedProduction!)) {
+                                  updateVideoMovies(video.id, [...currentMovies, selectedProduction!]);
+                                }
+                              }}
+                            >
+                              <Ionicons name="add-circle-outline" size={18} color="#ab47bc" />
+                              <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
+                            </TouchableOpacity>
+                          ))
+                        }
+                      </View>
+                    )}
+                  </View>
+                );
+              })()}
             </View>
           )}
 
