@@ -9,28 +9,44 @@ import { VideoCard } from '../../components/VideoCard';
 import { ReelCard } from '../../components/ReelCard';
 import { stuntReels, skillReels, StuntReel, SkillReel } from '../../services/StuntListingService';
 
-// All browseable categories with thumbnails and search queries
-const ALL_CATEGORIES: { label: string; query: string; thumbnail: string; icon: string }[] = [
-  { label: 'Fight Choreography', query: 'fight', icon: 'fitness-outline', thumbnail: 'https://img.youtube.com/vi/psWUuuoYMy8/hqdefault.jpg' },
-  { label: 'Car Work & Driving', query: 'car', icon: 'car-outline', thumbnail: 'https://img.youtube.com/vi/Vntap_wZDKI/hqdefault.jpg' },
-  { label: 'Falls & High Work', query: 'falls', icon: 'arrow-down-outline', thumbnail: 'https://img.youtube.com/vi/I7lYjYnPOyU/hqdefault.jpg' },
-  { label: 'Fire & Pyro', query: 'fire', icon: 'flame-outline', thumbnail: 'https://img.youtube.com/vi/gwn0J2OVDG4/hqdefault.jpg' },
-  { label: 'Wire & Rig Work', query: 'wire rig', icon: 'resize-outline', thumbnail: 'https://img.youtube.com/vi/ACEL0WwgdDU/hqdefault.jpg' },
-  { label: 'Action Actors', query: 'jackie chan keanu tom cruise', icon: 'star-outline', thumbnail: 'https://img.youtube.com/vi/ERc9grpxINg/hqdefault.jpg' },
-  { label: 'Superhero Stunts', query: 'marvel spider shang', icon: 'shield-outline', thumbnail: 'https://img.youtube.com/vi/Oh7svEBK6I8/hqdefault.jpg' },
-  { label: 'Spy & Action Thrillers', query: 'bond mission impossible matrix', icon: 'eye-outline', thumbnail: 'https://img.youtube.com/vi/mLvu5oyQZek/hqdefault.jpg' },
-  { label: 'Classic Stunts', query: 'classic keaton indiana jones', icon: 'time-outline', thumbnail: 'https://img.youtube.com/vi/b-DVRCUhinQ/hqdefault.jpg' },
-  { label: 'TV Show Stunts', query: 'game of thrones daredevil walking dead', icon: 'tv-outline', thumbnail: 'https://img.youtube.com/vi/-lsFs2615gw/hqdefault.jpg' },
-  { label: 'Documentaries & Interviews', query: 'documentary interview', icon: 'film-outline', thumbnail: 'https://img.youtube.com/vi/ZSl8_ylM3-I/hqdefault.jpg' },
-  { label: 'Stuntmen React', query: 'stuntmen react', icon: 'videocam-outline', thumbnail: 'https://img.youtube.com/vi/ERc9grpxINg/hqdefault.jpg' },
-  { label: 'Training & Safety', query: 'training safety', icon: 'barbell-outline', thumbnail: 'https://img.youtube.com/vi/ZSl8_ylM3-I/hqdefault.jpg' },
-  { label: 'Water Stunts', query: 'water', icon: 'water-outline', thumbnail: 'https://img.youtube.com/vi/b-DVRCUhinQ/hqdefault.jpg' },
-  { label: 'Gags & Specialty', query: 'gag specialty', icon: 'sparkles-outline', thumbnail: 'https://img.youtube.com/vi/Oh7svEBK6I8/hqdefault.jpg' },
-  { label: 'Vehicle Stunts', query: 'vehicle motorcycle', icon: 'bicycle-outline', thumbnail: 'https://img.youtube.com/vi/-lsFs2615gw/hqdefault.jpg' },
-];
+// Build browseable categories from every skill tag + curated genre categories
+function buildCategories(): { label: string; query: string; thumbnail: string; icon: string }[] {
+  const iconMap: Record<string, string> = {
+    'arrow-down': 'arrow-down-outline', 'flame': 'flame-outline', 'car': 'car-outline',
+    'fitness': 'fitness-outline', 'resize': 'resize-outline', 'flash': 'flash-outline',
+    'water': 'water-outline', 'paw': 'paw-outline', 'bicycle': 'bicycle-outline',
+    'speedometer': 'speedometer-outline', 'body': 'body-outline', 'videocam': 'videocam-outline',
+    'film': 'film-outline', 'mic': 'mic-outline', 'barbell': 'barbell-outline',
+    'construct': 'construct-outline', 'shield-checkmark': 'shield-checkmark-outline',
+    'walk': 'walk-outline', 'airplane': 'airplane-outline',
+  };
+
+  // Generate a category for each skill tag
+  const skillCategories = skillTags.map(tag => {
+    const v = videos.find(v => v.skillTags.some(t => t.id === tag.id));
+    return {
+      label: tag.displayName,
+      query: tag.displayName.toLowerCase(),
+      icon: iconMap[tag.icon] || 'fitness-outline',
+      thumbnail: v?.thumbnailUrl || 'https://img.youtube.com/vi/I7lYjYnPOyU/hqdefault.jpg',
+    };
+  });
+
+  // Add curated genre categories
+  const genreCategories = [
+    { label: 'Stuntmen React', query: 'stuntmen react', icon: 'videocam-outline', thumbnail: 'https://img.youtube.com/vi/OL83p4GxAvw/hqdefault.jpg' },
+    { label: 'Stuntwomen React', query: 'stuntwomen react', icon: 'videocam-outline', thumbnail: 'https://img.youtube.com/vi/SgGpPRBTBTI/hqdefault.jpg' },
+    { label: 'Stunt Rigging Toolbox', query: 'stunt rigging toolbox', icon: 'construct-outline', thumbnail: 'https://img.youtube.com/vi/Y8Kzgpwgfwc/hqdefault.jpg' },
+    { label: 'Superhero Stunts', query: 'marvel spider shang', icon: 'shield-outline', thumbnail: 'https://img.youtube.com/vi/Oh7svEBK6I8/hqdefault.jpg' },
+    { label: 'Spy & Action Thrillers', query: 'bond mission impossible matrix', icon: 'eye-outline', thumbnail: 'https://img.youtube.com/vi/mLvu5oyQZek/hqdefault.jpg' },
+  ];
+
+  return [...skillCategories, ...genreCategories];
+}
+
+const ALL_CATEGORIES = buildCategories();
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CATEGORY_WIDTH = (SCREEN_WIDTH - Spacing.screen * 2 - Spacing.md) / 2;
 
 export function SearchScreen({ navigation, route }: any) {
   const [query, setQuery] = useState(route?.params?.query || '');
@@ -285,11 +301,11 @@ export function SearchScreen({ navigation, route }: any) {
           </ScrollView>
         </View>
 
-        {/* All Categories */}
+        {/* All Categories — full-width wide cards */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Browse Categories</Text>
         </View>
-        <View style={styles.categoryGrid}>
+        <View style={styles.categoryList}>
           {ALL_CATEGORIES.map(cat => (
             <TouchableOpacity
               key={cat.label}
@@ -304,7 +320,7 @@ export function SearchScreen({ navigation, route }: any) {
               />
               <View style={styles.categoryOverlay} />
               <View style={styles.categoryContent}>
-                <Ionicons name={cat.icon as any} size={18} color={Colors.white} />
+                <Ionicons name={cat.icon as any} size={20} color={Colors.white} />
                 <Text style={styles.categoryName}>{cat.label}</Text>
               </View>
             </TouchableOpacity>
@@ -363,15 +379,13 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: FontSize.md,
   },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  categoryList: {
     paddingHorizontal: Spacing.screen,
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   categoryCard: {
-    width: CATEGORY_WIDTH,
-    height: 100,
+    width: '100%',
+    height: 110,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
     justifyContent: 'flex-end',
