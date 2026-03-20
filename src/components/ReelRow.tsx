@@ -25,6 +25,13 @@ export function ReelRow({ title, subtitle, reels, onReelPress, onSeeAll }: ReelR
 
   if (reels.length === 0) return null;
 
+  // Dynamic card width based on actual container width (~4.5 cards on wide, ~2.3 on narrow)
+  const effectiveCardWidth = (() => {
+    const w = containerWidth;
+    if (w < 500) return Math.max(w * 0.42, 120);
+    return Math.max(w * 0.21, 120);
+  })();
+
   const SCROLL_AMOUNT = containerWidth * 0.75;
   const canScrollLeft = scrollOffset > 10;
   const canScrollRight = contentWidth > containerWidth && scrollOffset < contentWidth - containerWidth - 10;
@@ -91,7 +98,7 @@ export function ReelRow({ title, subtitle, reels, onReelPress, onSeeAll }: ReelR
           decelerationRate="fast"
           snapToAlignment="start"
           renderItem={({ item }) => (
-            <ReelCard reel={item} onPress={() => handlePress(item)} />
+            <ReelCard reel={item} onPress={() => handlePress(item)} width={effectiveCardWidth} />
           )}
         />
 

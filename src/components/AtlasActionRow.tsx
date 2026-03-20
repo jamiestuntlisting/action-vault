@@ -25,6 +25,13 @@ export function AtlasActionRow({ title, videos, onVideoPress, onSeeAll, cardWidt
 
   if (videos.length === 0) return null;
 
+  // Dynamic card width based on actual container width (~4.5 cards on wide, ~2.3 on narrow)
+  const effectiveCardWidth = cardWidth ?? (() => {
+    const w = containerWidth;
+    if (w < 500) return Math.max(w * 0.42, 120);
+    return Math.max(w * 0.21, 120);
+  })();
+
   const SCROLL_AMOUNT = containerWidth * 0.75;
   const canScrollLeft = scrollOffset > 10;
   const canScrollRight = contentWidth > containerWidth && scrollOffset < contentWidth - containerWidth - 10;
@@ -89,7 +96,7 @@ export function AtlasActionRow({ title, videos, onVideoPress, onSeeAll, cardWidt
             <AtlasActionCard
               video={item}
               onPress={() => onVideoPress(item)}
-              width={cardWidth}
+              width={effectiveCardWidth}
             />
           )}
         />

@@ -27,6 +27,15 @@ export function ContentRow({ title, videos, onVideoPress, onSeeAll, showProgress
 
   if (videos.length === 0) return null;
 
+  // Compute dynamic card width based on actual container width
+  // Target ~4.5 cards visible on wider screens, ~2.3 on narrow phones
+  const effectiveCardWidth = cardWidth ?? (() => {
+    const w = containerWidth;
+    if (w < 500) return Math.max(w * 0.42, 120);
+    // Show ~4.5 cards: account for padding (Spacing.screen * 2 ≈ 32px) and gaps (Spacing.sm ≈ 8px)
+    return Math.max(w * 0.21, 120);
+  })();
+
   const SCROLL_AMOUNT = containerWidth * 0.75;
   const canScrollLeft = scrollOffset > 10;
   const canScrollRight = contentWidth > containerWidth && scrollOffset < contentWidth - containerWidth - 10;
@@ -91,7 +100,7 @@ export function ContentRow({ title, videos, onVideoPress, onSeeAll, showProgress
               onPress={() => onVideoPress(item)}
               showProgress={showProgress}
               showRank={showRanks ? index + 1 : undefined}
-              width={cardWidth}
+              width={effectiveCardWidth}
             />
           )}
         />
