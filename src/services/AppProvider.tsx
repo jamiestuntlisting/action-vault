@@ -67,6 +67,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         StorageService.get<string[]>(StorageService.KEYS.PURCHASED_ATLAS_COURSES),
       ]);
 
+      // Always use code-defined Atlas Action videos/courses (pricing & content
+      // are controlled in code, not user-editable settings that should persist)
+      const mergedSettings = settings
+        ? {
+            ...settings,
+            atlasActionVideos: initialState.settings.atlasActionVideos,
+            atlasActionCourses: initialState.settings.atlasActionCourses,
+          }
+        : initialState.settings;
+
       dispatch({
         type: 'LOAD_STATE',
         payload: {
@@ -81,7 +91,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           collections: collections || [],
           follows: follows || [],
           notifications: notifications || [],
-          settings: settings || initialState.settings,
+          settings: mergedSettings,
           onboardingComplete: onboarding || false,
           downloads: downloads || [],
           purchasedAtlasVideos: purchasedAtlasVideos || [],
