@@ -74,7 +74,14 @@ export function ContentRow({ title, videos, onVideoPress, onSeeAll, showProgress
   return (
     <View style={styles.container} {...(hoverProps as any)}>
       <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
+        {onSeeAll ? (
+          <TouchableOpacity onPress={onSeeAll} style={styles.titleTouchable}>
+            <Text style={styles.title}>{title}</Text>
+            <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} style={{ marginLeft: 4, marginTop: 2 }} />
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.title}>{title}</Text>
+        )}
         {onSeeAll && (
           <TouchableOpacity onPress={onSeeAll}>
             <Text style={styles.seeAll}>See All</Text>
@@ -146,6 +153,10 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: FontSize.xl,
     fontWeight: FontWeight.bold,
+  },
+  titleTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   seeAll: {
     color: Colors.textTertiary,
