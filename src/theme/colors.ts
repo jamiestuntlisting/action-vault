@@ -8,7 +8,7 @@ export const Colors = {
   cardHover: '#222222',
 
   // Brand
-  primary: '#E50914', // Netflix-style red
+  primary: '#E50914', // Action Vault red
   primaryDark: '#B20710',
   primaryLight: '#FF1A25',
   accent: '#FF6B00', // Stunt-themed orange/fire

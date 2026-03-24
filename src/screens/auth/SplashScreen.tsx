@@ -19,6 +19,8 @@ export function SplashScreen({ navigation }: any) {
       if (state.isLoading) return;
       if (!state.isAuthenticated) {
         navigation.replace('Auth');
+      } else if (!state.onboardingComplete) {
+        navigation.replace('Onboarding');
       } else {
         navigation.replace('MainTabs');
       }

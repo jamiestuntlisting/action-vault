@@ -75,7 +75,12 @@ export function AuthScreen({ navigation }: any) {
         },
       });
 
-      navigation.replace('Onboarding');
+      // Only show onboarding once — skip if already completed
+      if (state.onboardingComplete) {
+        navigation.replace('MainTabs');
+      } else {
+        navigation.replace('Onboarding');
+      }
     } catch (error) {
       setErrorMessage('Unable to connect. Please check your connection and try again.');
     } finally {

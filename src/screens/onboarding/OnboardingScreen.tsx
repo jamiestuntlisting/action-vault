@@ -65,7 +65,7 @@ export function OnboardingScreen({ navigation }: any) {
             <Text style={styles.welcomeTitle}>Welcome to Action Vault</Text>
             <Text style={styles.welcomeSubtitle}>The best behind-the-scenes stunt content, all in one place.</Text>
             <Text style={styles.welcomeDescription}>
-              Browse, study, and celebrate the craft of stunts with Netflix-caliber UX and stunt-specific tools.
+              Browse, study, and learn the craft of stunts with curated videos, courses, and stunt-specific tools.
             </Text>
           </View>
         );
