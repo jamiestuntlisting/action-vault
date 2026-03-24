@@ -21,6 +21,43 @@ function buildCategories(): { label: string; query: string; thumbnail: string; i
     'walk': 'walk-outline', 'airplane': 'airplane-outline',
   };
 
+  // Unique thumbnails per skill tag to avoid duplicate images
+  const categoryThumbnails: Record<string, string> = {
+    'high-falls': 'https://img.youtube.com/vi/I7lYjYnPOyU/hqdefault.jpg',
+    'fire-burns': 'https://img.youtube.com/vi/gwn0J2OVDG4/hqdefault.jpg',
+    'car-hits': 'https://img.youtube.com/vi/Vntap_wZDKI/hqdefault.jpg',
+    'car-rolls': 'https://img.youtube.com/vi/-lsFs2615gw/hqdefault.jpg',
+    'car-chases': 'https://img.youtube.com/vi/eUmFHQJwRHY/hqdefault.jpg',
+    'cannon-rolls': 'https://img.youtube.com/vi/nNWGcYcBhUc/hqdefault.jpg',
+    'fight-h2h': 'https://img.youtube.com/vi/psWUuuoYMy8/hqdefault.jpg',
+    'fight-weapons': 'https://img.youtube.com/vi/Dq0HVGBxNTY/hqdefault.jpg',
+    'fight-mma': 'https://img.youtube.com/vi/BGCMfprPJoA/hqdefault.jpg',
+    'wire-work': 'https://img.youtube.com/vi/ACEL0WwgdDU/hqdefault.jpg',
+    'glass-breakaway': 'https://img.youtube.com/vi/Oh7svEBK6I8/hqdefault.jpg',
+    'explosions': 'https://img.youtube.com/vi/LcxYwwIL5zQ/hqdefault.jpg',
+    'water-work': 'https://img.youtube.com/vi/b-DVRCUhinQ/hqdefault.jpg',
+    'horse-work': 'https://img.youtube.com/vi/mLvu5oyQZek/hqdefault.jpg',
+    'motorcycle': 'https://img.youtube.com/vi/Q3_2entulkw/hqdefault.jpg',
+    'specialty-vehicle': 'https://img.youtube.com/vi/7_RCn90O0pA/hqdefault.jpg',
+    'ratchet': 'https://img.youtube.com/vi/PhhEToWeFVE/hqdefault.jpg',
+    'stair-falls': 'https://img.youtube.com/vi/saNhWj7IXGA/hqdefault.jpg',
+    'body-falls': 'https://img.youtube.com/vi/T8_BIkN7wFY/hqdefault.jpg',
+    'precision-driving': 'https://img.youtube.com/vi/LNiGfBbKj_E/hqdefault.jpg',
+    'mocap': 'https://img.youtube.com/vi/aXqkNIgjXmc/hqdefault.jpg',
+    'virtual-production': 'https://img.youtube.com/vi/aXqkNIgjXmc/hqdefault.jpg',
+    'bts-featurette': 'https://img.youtube.com/vi/ERc9grpxINg/hqdefault.jpg',
+    'interview': 'https://img.youtube.com/vi/e4jTj4OvZNg/hqdefault.jpg',
+    'training': 'https://img.youtube.com/vi/ZSl8_ylM3-I/hqdefault.jpg',
+    'rig-breakdown': 'https://img.youtube.com/vi/Y8Kzgpwgfwc/hqdefault.jpg',
+    'safety-walkthrough': 'https://img.youtube.com/vi/ACEL0WwgdDU/hqdefault.jpg',
+    'parkour': 'https://img.youtube.com/vi/k2mFvwDTTt0/hqdefault.jpg',
+    'aerial': 'https://img.youtube.com/vi/mLvu5oyQZek/hqdefault.jpg',
+    'sword-fighting': 'https://img.youtube.com/vi/Dq0HVGBxNTY/hqdefault.jpg',
+    'full-body-burn': 'https://img.youtube.com/vi/gwn0J2OVDG4/hqdefault.jpg',
+    'martial-arts': 'https://img.youtube.com/vi/jD9VJ98guO4/hqdefault.jpg',
+    'gun-fu': 'https://img.youtube.com/vi/psWUuuoYMy8/hqdefault.jpg',
+  };
+
   // Generate a category for each skill tag
   const skillCategories = skillTags.map(tag => {
     const v = videos.find(v => v.skillTags.some(t => t.id === tag.id));
@@ -28,7 +65,7 @@ function buildCategories(): { label: string; query: string; thumbnail: string; i
       label: tag.displayName,
       query: tag.displayName.toLowerCase(),
       icon: iconMap[tag.icon] || 'fitness-outline',
-      thumbnail: v?.thumbnailUrl || 'https://img.youtube.com/vi/I7lYjYnPOyU/hqdefault.jpg',
+      thumbnail: categoryThumbnails[tag.id] || v?.thumbnailUrl || 'https://img.youtube.com/vi/I7lYjYnPOyU/hqdefault.jpg',
     };
   });
 
@@ -39,6 +76,7 @@ function buildCategories(): { label: string; query: string; thumbnail: string; i
     { label: 'Stunt Rigging Toolbox', query: 'stunt rigging toolbox', icon: 'construct-outline', thumbnail: 'https://img.youtube.com/vi/Y8Kzgpwgfwc/hqdefault.jpg' },
     { label: 'Superhero Stunts', query: 'marvel spider shang', icon: 'shield-outline', thumbnail: 'https://img.youtube.com/vi/Oh7svEBK6I8/hqdefault.jpg' },
     { label: 'Spy & Action Thrillers', query: 'bond mission impossible matrix', icon: 'eye-outline', thumbnail: 'https://img.youtube.com/vi/mLvu5oyQZek/hqdefault.jpg' },
+    { label: 'Atlas Action', query: 'atlas action intro to stunts', icon: 'school-outline', thumbnail: 'https://img.youtube.com/vi/RRWdgHTU1po/hqdefault.jpg' },
   ];
 
   return [...skillCategories, ...genreCategories];

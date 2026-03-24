@@ -120,9 +120,11 @@ export function AtlasActionDetailScreen({ navigation, route }: any) {
           {/* Info */}
           <View style={styles.infoSection}>
             <Text style={styles.videoTitle}>{video.title}</Text>
-            <Text style={styles.instructor}>
-              <Ionicons name="person" size={14} color={Colors.textMuted} /> {video.instructorName}
-            </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Search', { query: video.instructorName })}>
+              <Text style={styles.instructor}>
+                <Ionicons name="person" size={14} color={Colors.textMuted} /> {video.instructorName}
+              </Text>
+            </TouchableOpacity>
             <Text style={styles.duration}>
               <Ionicons name="time" size={14} color={Colors.textMuted} /> {Math.floor(video.durationSeconds / 60)} min
             </Text>
@@ -217,7 +219,9 @@ export function AtlasActionDetailScreen({ navigation, route }: any) {
 
           <View style={styles.infoSection}>
             <Text style={styles.videoTitle}>{course.title}</Text>
-            <Text style={styles.instructor}>{course.instructorName}</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Search', { query: course.instructorName })}>
+              <Text style={styles.instructor}>{course.instructorName}</Text>
+            </TouchableOpacity>
             <Text style={styles.duration}>{courseVideos.length} videos</Text>
             {course.description && <Text style={styles.description}>{course.description}</Text>}
 

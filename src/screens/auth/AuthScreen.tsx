@@ -83,25 +83,6 @@ export function AuthScreen({ navigation }: any) {
     }
   }
 
-  function handleGuestAccess() {
-    const userId = 'user-guest-' + Date.now();
-    dispatch({ type: 'LOGIN', payload: { id: userId, email: 'guest@actionvault.app' } });
-    dispatch({
-      type: 'ADD_PROFILE',
-      payload: {
-        id: 'profile-' + Date.now(),
-        userId,
-        name: 'Guest',
-        avatarKey: 'stunt',
-        experienceLevel: 'fan',
-        onboardingComplete: true,
-        interests: [],
-      },
-    });
-    dispatch({ type: 'SET_ONBOARDING_COMPLETE', payload: true });
-    navigation.replace('MainTabs');
-  }
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -196,27 +177,6 @@ export function AuthScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* Divider */}
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* Continue as Guest */}
-        <TouchableOpacity
-          style={styles.guestButton}
-          onPress={handleGuestAccess}
-          activeOpacity={0.8}
-          disabled={isLoading}
-        >
-          <Text style={styles.guestText}>Continue as Guest</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.guestNote}>
-          Guest access provides limited features. Sign in with your StuntListing account for full
-          access.
-        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -318,40 +278,5 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: FontSize.lg,
     fontWeight: FontWeight.bold,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: Spacing.xl,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.border,
-  },
-  dividerText: {
-    color: Colors.textMuted,
-    fontSize: FontSize.sm,
-    marginHorizontal: Spacing.lg,
-  },
-  guestButton: {
-    borderRadius: BorderRadius.md,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  guestText: {
-    color: Colors.textSecondary,
-    fontSize: FontSize.lg,
-    fontWeight: FontWeight.medium,
-  },
-  guestNote: {
-    color: Colors.textMuted,
-    fontSize: FontSize.sm,
-    textAlign: 'center',
-    marginTop: Spacing.lg,
-    lineHeight: 18,
   },
 });
