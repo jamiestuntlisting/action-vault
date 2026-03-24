@@ -38,7 +38,20 @@ export const StripeService = {
     const { sessionUrl } = await response.json();
 
     if (Platform.OS === 'web') {
-      window.location.href = sessionUrl;
+      // Open Stripe checkout in a centered popup window
+      const width = 500;
+      const height = 700;
+      const left = Math.round((window.screen.width - width) / 2);
+      const top = Math.round((window.screen.height - height) / 2);
+      const popup = window.open(
+        sessionUrl,
+        'stripe-checkout',
+        `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+      );
+      // If popup was blocked, fall back to redirect
+      if (!popup || popup.closed) {
+        window.location.href = sessionUrl;
+      }
     } else {
       // For native, use Linking to open Stripe checkout in browser
       const { Linking } = require('react-native');
