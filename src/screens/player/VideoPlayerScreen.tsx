@@ -6,6 +6,7 @@ import { useAppState } from '../../services/AppState';
 import { videoMap, videos } from '../../data';
 import { performers } from '../../data/performers';
 import { coordinators } from '../../data/coordinators';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const isWeb = Platform.OS === 'web';
 
@@ -22,6 +23,7 @@ const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 export function VideoPlayerScreen({ route, navigation }: any) {
   const { videoId, startTime = 0, embedUrl: directEmbedUrl, title: reelTitle, queue: reelQueue, videoQueue, reelId: currentReelId } = route.params;
   const video = videoId ? videoMap.get(videoId) : null;
+  usePageTitle(route?.params?.title || 'Now Playing');
   const { state, dispatch, getRating } = useAppState();
   const webviewRef = useRef<any>(null);
   const webPlayerRef = useRef<any>(null);

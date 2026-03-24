@@ -16,6 +16,7 @@ import { books } from '../../data/books';
 import { BooksSection } from '../../components/BookRow';
 import { podcasts } from '../../data/podcasts';
 import { PodcastSection } from '../../components/PodcastRow';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const MAX_WIDTH = 960;
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -32,6 +33,7 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
 }
 
 export function HomeScreen({ navigation }: any) {
+  usePageTitle('Home');
   const { state, dispatch, isInMyList, getContinueWatching } = useAppState();
   const [refreshing, setRefreshing] = React.useState(false);
   const [shuffleKey, setShuffleKey] = React.useState(Date.now());

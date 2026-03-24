@@ -9,6 +9,7 @@ import { useAppState, AdminCategory, AdminVideoOverride, AtlasActionVideo, Atlas
 import { videos as allVideos, videoMap } from '../../data';
 import { skillTags } from '../../data/skillTags';
 import { Video } from '../../types';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const MAX_WIDTH = 960;
 
@@ -136,6 +137,7 @@ const ADMIN_EMAILS = [
 ];
 
 export function AdminScreen({ navigation }: any) {
+  usePageTitle('Admin Panel');
   const { state, dispatch } = useAppState();
 
   // Admin email check

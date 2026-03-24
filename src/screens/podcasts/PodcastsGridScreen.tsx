@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { podcasts, StuntPodcast } from '../../data/podcasts';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 function PodcastGridCard({ podcast, onPress }: { podcast: StuntPodcast; onPress: () => void }) {
   return (
@@ -30,6 +31,7 @@ function PodcastGridCard({ podcast, onPress }: { podcast: StuntPodcast; onPress:
 }
 
 export function PodcastsGridScreen({ navigation }: any) {
+  usePageTitle('Stunt Podcasts');
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const filtered = filter === 'all' ? podcasts :
     podcasts.filter(p => p.status === filter);

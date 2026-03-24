@@ -7,12 +7,14 @@ import { skillTags } from '../../data';
 import { avatarOptions } from '../../data/avatars';
 import { SkillTagChip } from '../../components/SkillTagChip';
 import { ExperienceLevel, SkillTag } from '../../types';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const STEPS = ['welcome', 'skills', 'experience', 'profile'] as const;
 
 export function OnboardingScreen({ navigation }: any) {
+  usePageTitle('Welcome');
   const { state, dispatch } = useAppState();
   const [step, setStep] = useState(0);
   const [selectedSkills, setSelectedSkills] = useState<SkillTag[]>([]);

@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { podcasts } from '../../data/podcasts';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 export function PodcastDetailScreen({ route, navigation }: any) {
   const { podcastId } = route.params;
   const podcast = podcasts.find(p => p.id === podcastId);
+  usePageTitle(podcast?.title);
 
   if (!podcast) {
     return (

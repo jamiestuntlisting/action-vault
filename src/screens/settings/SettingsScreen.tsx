@@ -6,6 +6,7 @@ import { useAppState } from '../../services/AppState';
 import { StorageService } from '../../services/StorageService';
 import { avatarMap } from '../../data/avatars';
 import { TmdbService } from '../../services/TmdbService';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const ADMIN_EMAILS = [
   'james.northrup@gmail.com',
@@ -17,6 +18,7 @@ const ADMIN_EMAILS = [
 ];
 
 export function SettingsScreen({ navigation }: any) {
+  usePageTitle('Profile');
   const { state, dispatch } = useAppState();
   const profile = state.activeProfile;
   const avatar = profile ? avatarMap.get(profile.avatarKey) : null;
@@ -176,12 +178,12 @@ export function SettingsScreen({ navigation }: any) {
         <SettingsRow icon="list-outline" label="My List" onPress={() => navigation.navigate('MyList')} />
       </View>
 
-      {/* YouTube Channel / Add Videos */}
-      <Text style={styles.sectionTitle}>Your Channel</Text>
+      {/* Submit Videos */}
+      <Text style={styles.sectionTitle}>Submit Videos</Text>
       <View style={styles.section}>
         <View style={styles.channelInfo}>
-          <Ionicons name="logo-youtube" size={22} color="#FF0000" />
-          <Text style={styles.channelLabel}>Add videos from your YouTube channel to the public Action Vault</Text>
+          <Ionicons name="videocam-outline" size={22} color={Colors.primary} />
+          <Text style={styles.channelLabel}>Submit a video to the Action Vault. Our team will review and add it.</Text>
         </View>
 
         <View style={styles.urlInputRow}>
@@ -200,13 +202,23 @@ export function SettingsScreen({ navigation }: any) {
             disabled={!channelUrl.trim() || loadingChannel}
             activeOpacity={0.7}
           >
-            <Text style={styles.addButtonText}>{loadingChannel ? '...' : 'Add'}</Text>
+            <Text style={styles.addButtonText}>{loadingChannel ? '...' : 'Submit'}</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* StuntListing Plus Note */}
+        <View style={styles.plusNote}>
+          <Ionicons name="star" size={16} color="#FFD700" />
+          <Text style={styles.plusNoteText}>
+            Want to add your Stunt Reel or Skill Reel? You'll need to be a{' '}
+            <Text style={styles.plusNoteHighlight}>StuntListing Plus</Text> member.
+            Visit stuntlisting.com to upgrade.
+          </Text>
         </View>
 
         {submissions.length > 0 && (
           <View style={styles.submissionsList}>
-            <Text style={styles.submissionsTitle}>Submitted Videos ({submissions.length})</Text>
+            <Text style={styles.submissionsTitle}>Your Submissions ({submissions.length})</Text>
             {submissions.slice(-5).reverse().map((sub: any, i: number) => (
               <View key={i} style={styles.submissionItem}>
                 <Ionicons name="checkmark-circle" size={16} color={Colors.primary} />
@@ -367,6 +379,25 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: FontSize.xs,
     marginBottom: Spacing.md,
+  },
+  plusNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  plusNoteText: {
+    flex: 1,
+    color: Colors.textSecondary,
+    fontSize: FontSize.xs,
+    lineHeight: 18,
+  },
+  plusNoteHighlight: {
+    color: '#FFD700',
+    fontWeight: FontWeight.bold,
   },
   signOutButton: {
     marginHorizontal: Spacing.screen, marginTop: Spacing.xxl,

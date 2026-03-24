@@ -6,6 +6,7 @@ import { useAppState } from '../../services/AppState';
 import { videoMap } from '../../data';
 import { VideoCard } from '../../components/VideoCard';
 import { Video } from '../../types';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.screen * 2 - Spacing.md) / 2;
@@ -14,6 +15,7 @@ type Tab = 'mylist' | 'liked';
 type SortMode = 'date' | 'alpha' | 'duration';
 
 export function MyListScreen({ navigation }: any) {
+  usePageTitle('My List');
   const { state, dispatch } = useAppState();
   const [tab, setTab] = useState<Tab>('mylist');
   const [sortMode, setSortMode] = useState<SortMode>('date');

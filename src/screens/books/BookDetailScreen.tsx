@@ -4,11 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
 import { books, bookCategoryLabels } from '../../data/books';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 export function BookDetailScreen({ route, navigation }: any) {
   const { bookId } = route.params;
   const { state, dispatch } = useAppState();
   const book = books.find(b => b.id === bookId);
+  usePageTitle(book?.title);
   const [imgError, setImgError] = useState(false);
 
   if (!book) {

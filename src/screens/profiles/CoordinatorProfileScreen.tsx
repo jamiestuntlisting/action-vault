@@ -6,12 +6,14 @@ import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme
 import { useAppState } from '../../services/AppState';
 import { coordinatorMap, videos } from '../../data';
 import { VideoCard } from '../../components/VideoCard';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export function CoordinatorProfileScreen({ route, navigation }: any) {
   const { coordinatorId } = route.params;
   const coordinator = coordinatorMap.get(coordinatorId);
+  usePageTitle(coordinator?.name);
   const { dispatch, isFollowing } = useAppState();
 
   const coordVideos = useMemo(() =>

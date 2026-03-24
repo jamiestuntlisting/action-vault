@@ -6,12 +6,14 @@ import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme
 import { useAppState } from '../../services/AppState';
 import { performerMap, videos } from '../../data';
 import { VideoCard } from '../../components/VideoCard';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export function PerformerProfileScreen({ route, navigation }: any) {
   const { performerId } = route.params;
   const performer = performerMap.get(performerId);
+  usePageTitle(performer?.name);
   const { dispatch, isFollowing } = useAppState();
 
   const perfVideos = useMemo(() =>

@@ -5,8 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
 import { videoMap } from '../../data';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 export function BookmarksScreen({ navigation }: any) {
+  usePageTitle('Bookmarks');
   const { getProfileBookmarks, dispatch } = useAppState();
   const bookmarks = getProfileBookmarks();
 

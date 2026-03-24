@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState, AtlasActionVideo, AtlasActionCourse } from '../../services/AppState';
 import { StripeService } from '../../services/StripeService';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const MAX_WIDTH = 960;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -22,6 +23,8 @@ export function AtlasActionDetailScreen({ navigation, route }: any) {
   const course = useMemo(() =>
     state.settings.atlasActionCourses.find(c => c.id === atlasCourseId),
     [atlasCourseId, state.settings.atlasActionCourses]);
+
+  usePageTitle(video?.title || course?.title);
 
   // If viewing a video, find its parent course
   const parentCourse = useMemo(() => {

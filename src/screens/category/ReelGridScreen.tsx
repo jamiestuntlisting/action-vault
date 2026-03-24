@@ -6,12 +6,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { stuntReels, skillReels, StuntReel, SkillReel, getEmbedUrl } from '../../services/StuntListingService';
 import { ReelCard } from '../../components/ReelCard';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const MAX_WIDTH = 960;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export function ReelGridScreen({ navigation, route }: any) {
   const { title, reelIds } = route.params as { title: string; reelIds: string[] };
+  usePageTitle(route?.params?.title || 'Reels');
 
   // Build a lookup from all reels
   const allReels = [...stuntReels, ...skillReels];

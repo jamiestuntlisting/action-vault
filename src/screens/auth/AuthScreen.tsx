@@ -13,12 +13,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const API_BASE = Platform.OS === 'web'
   ? '' // Same origin on web
   : 'https://actionvault.stuntlisting.com'; // Production URL for native
 
 export function AuthScreen({ navigation }: any) {
+  usePageTitle('Sign In');
   const { state, dispatch } = useAppState();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

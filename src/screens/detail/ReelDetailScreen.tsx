@@ -8,6 +8,7 @@ import { useAppState } from '../../services/AppState';
 import { StuntReel, SkillReel, getEmbedUrl, getProfileUrl } from '../../services/StuntListingService';
 import { stuntReels, skillReels } from '../../services/StuntListingService';
 import { ReelRow } from '../../components/ReelRow';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAX_WIDTH = 960;
@@ -19,6 +20,9 @@ export function ReelDetailScreen({ route, navigation }: any) {
   // Find the reel from both lists
   const allReels = [...stuntReels, ...skillReels];
   const reel = allReels.find(r => r.id === reelId);
+
+  const reelTitle = reel ? ('skill' in reel ? (reel as SkillReel).skill : (reel as StuntReel).title) : undefined;
+  usePageTitle(reelTitle);
 
   if (!reel) return null;
 

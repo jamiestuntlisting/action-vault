@@ -10,6 +10,7 @@ import { SkillTagChip } from '../../components/SkillTagChip';
 import { ContentRow } from '../../components/ContentRow';
 import { Video } from '../../types';
 import { TmdbService, StuntCrewMember, posterUrl } from '../../services/TmdbService';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAX_WIDTH = 960;
@@ -18,6 +19,7 @@ const CONTENT_WIDTH = Math.min(SCREEN_WIDTH, MAX_WIDTH);
 export function VideoDetailScreen({ route, navigation }: any) {
   const { videoId } = route.params;
   const video = videoMap.get(videoId);
+  usePageTitle(video?.title);
   const { state, dispatch, isInMyList, getRating } = useAppState();
   const rating = getRating(videoId);
 

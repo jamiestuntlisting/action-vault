@@ -8,6 +8,7 @@ import { Video, Coordinator, Performer } from '../../types';
 import { VideoCard } from '../../components/VideoCard';
 import { ReelCard } from '../../components/ReelCard';
 import { stuntReels, skillReels, StuntReel, SkillReel } from '../../services/StuntListingService';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 // Build browseable categories from every skill tag + curated genre categories
 function buildCategories(): { label: string; query: string; thumbnail: string; icon: string }[] {
@@ -87,6 +88,7 @@ const ALL_CATEGORIES = buildCategories();
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export function SearchScreen({ navigation, route }: any) {
+  usePageTitle('Search');
   const [query, setQuery] = useState(route?.params?.query || '');
   const [recentSearches] = useState(['high falls', 'John Wick', 'fire burns', 'car stunts']);
 
