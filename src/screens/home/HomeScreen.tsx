@@ -12,6 +12,8 @@ import { Video } from '../../types';
 import { AtlasActionVideo } from '../../services/AppState';
 import { skillTags } from '../../data/skillTags';
 import { stuntReels, skillReels, getSkillReelsByCategory, SkillReel } from '../../services/StuntListingService';
+import { books } from '../../data/books';
+import { BooksSection } from '../../components/BookRow';
 
 const MAX_WIDTH = 960;
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -420,6 +422,9 @@ export function HomeScreen({ navigation }: any) {
             onSeeAll={() => navigation.navigate('ReelGrid', { title: skillName, reelIds: reels.map(r => r.id) })}
           />
         ))}
+
+        {/* Books Section — at the bottom */}
+        <BooksSection books={books} />
       </View>
     </ScrollView>
   );

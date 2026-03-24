@@ -19,7 +19,7 @@ const API_BASE = Platform.OS === 'web'
   : 'https://actionvault.stuntlisting.com'; // Production URL for native
 
 export function AuthScreen({ navigation }: any) {
-  const { dispatch } = useAppState();
+  const { state, dispatch } = useAppState();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
