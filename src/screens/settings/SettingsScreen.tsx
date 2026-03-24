@@ -7,6 +7,15 @@ import { StorageService } from '../../services/StorageService';
 import { avatarMap } from '../../data/avatars';
 import { TmdbService } from '../../services/TmdbService';
 
+const ADMIN_EMAILS = [
+  'james.northrup@gmail.com',
+  'warrenhullstunts@gmail.com',
+  'greg@stuntlisting.com',
+  'info@stuntlisting.com',
+  'jamie@stuntlisting.com',
+  'warren@stuntlisting.com',
+];
+
 export function SettingsScreen({ navigation }: any) {
   const { state, dispatch } = useAppState();
   const profile = state.activeProfile;
@@ -208,43 +217,15 @@ export function SettingsScreen({ navigation }: any) {
         )}
       </View>
 
-      {/* TMDB Integration */}
-      <Text style={styles.sectionTitle}>TMDB Integration</Text>
-      <View style={styles.section}>
-        <View style={styles.channelInfo}>
-          <Ionicons name="film-outline" size={22} color="#01b4e4" />
-          <Text style={styles.channelLabel}>Connect TMDB to auto-lookup stunt coordinators, movie details, and crew credits</Text>
-        </View>
-        <View style={styles.urlInputRow}>
-          <TextInput
-            style={styles.urlInput}
-            placeholder="TMDB API Key (v3)"
-            placeholderTextColor={Colors.inputPlaceholder}
-            value={tmdbKey}
-            onChangeText={(t) => { setTmdbKey(t); setTmdbStatus('idle'); }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            secureTextEntry
-          />
-          <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: tmdbStatus === 'valid' ? '#2ecc71' : tmdbStatus === 'invalid' ? '#e74c3c' : Colors.primary }]}
-            onPress={handleTestTmdbKey}
-            disabled={!tmdbKey.trim() || tmdbStatus === 'testing'}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.addButtonText}>
-              {tmdbStatus === 'testing' ? '...' : tmdbStatus === 'valid' ? '✓' : tmdbStatus === 'invalid' ? '✗' : 'Test'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.tmdbHint}>Free at themoviedb.org/settings/api</Text>
-      </View>
-
-      {/* Admin */}
-      <Text style={styles.sectionTitle}>Admin</Text>
-      <View style={styles.section}>
-        <SettingsRow icon="settings-outline" label="Admin Panel" onPress={() => navigation.navigate('Admin')} />
-      </View>
+      {/* Admin — only visible to admin users */}
+      {state.currentUser?.email && ADMIN_EMAILS.includes(state.currentUser.email.toLowerCase()) && (
+        <>
+          <Text style={styles.sectionTitle}>Admin</Text>
+          <View style={styles.section}>
+            <SettingsRow icon="settings-outline" label="Admin Panel" onPress={() => navigation.navigate('Admin')} />
+          </View>
+        </>
+      )}
 
       {/* About */}
       <Text style={styles.sectionTitle}>About</Text>

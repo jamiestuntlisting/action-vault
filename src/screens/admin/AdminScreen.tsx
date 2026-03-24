@@ -144,6 +144,10 @@ export function AdminScreen({ navigation }: any) {
   // Flags tab state
   const [flagSearch, setFlagSearch] = useState('');
 
+  // TMDB state
+  const [tmdbKey, setTmdbKey] = useState('');
+  const [tmdbStatus, setTmdbStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
+
   // Atlas Action state
   const [atlasMode, setAtlasMode] = useState<'videos' | 'courses'>('videos');
   const [atlasVideoTitle, setAtlasVideoTitle] = useState('');
@@ -1583,6 +1587,43 @@ export function AdminScreen({ navigation }: any) {
                   <View style={styles.statRow}><Text style={styles.statLabel}>Person Tags</Text><Text style={styles.statValue}>{personTags.length}</Text></View>
                   <View style={styles.statRow}><Text style={styles.statLabel}>Atlas Action Videos</Text><Text style={styles.statValue}>{atlasVideos.length}</Text></View>
                   <View style={styles.statRow}><Text style={styles.statLabel}>Atlas Action Courses</Text><Text style={styles.statValue}>{atlasCourses.length}</Text></View>
+                </View>
+
+                {/* TMDB Integration */}
+                <View style={styles.statSection}>
+                  <Text style={styles.statSectionTitle}>TMDB Integration</Text>
+                  <Text style={{ color: Colors.textSecondary, fontSize: 13, marginBottom: 8 }}>
+                    Connect TMDB to auto-lookup stunt coordinators, movie details, and crew credits
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TextInput
+                      style={[styles.searchInput, { flex: 1, marginBottom: 0 }]}
+                      placeholder="TMDB API Key (v3)"
+                      placeholderTextColor={Colors.textMuted}
+                      value={tmdbKey}
+                      onChangeText={(t) => { setTmdbKey(t); setTmdbStatus('idle'); }}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      secureTextEntry
+                    />
+                    <TouchableOpacity
+                      style={{ backgroundColor: tmdbStatus === 'valid' ? '#2ecc71' : tmdbStatus === 'invalid' ? '#e74c3c' : Colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 }}
+                      onPress={async () => {
+                        if (!tmdbKey.trim()) return;
+                        setTmdbStatus('testing');
+                        try {
+                          const res = await fetch(`https://api.themoviedb.org/3/configuration?api_key=${tmdbKey}`);
+                          setTmdbStatus(res.ok ? 'valid' : 'invalid');
+                        } catch { setTmdbStatus('invalid'); }
+                      }}
+                      disabled={!tmdbKey.trim() || tmdbStatus === 'testing'}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: '700' }}>
+                        {tmdbStatus === 'testing' ? '...' : tmdbStatus === 'valid' ? '✓' : tmdbStatus === 'invalid' ? '✗' : 'Test'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 4 }}>Free at themoviedb.org/settings/api</Text>
                 </View>
               </View>
             );
