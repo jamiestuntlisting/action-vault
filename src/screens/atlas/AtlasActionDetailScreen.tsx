@@ -145,20 +145,20 @@ export function AtlasActionDetailScreen({ navigation, route }: any) {
                   <Ionicons name="card" size={20} color={Colors.white} />
                   <Text style={styles.purchaseText}>Purchase for ${video.price.toFixed(2)}</Text>
                 </TouchableOpacity>
-
-                {/* Show course bundle option if available */}
-                {parentCourse && !state.purchasedAtlasCourses.includes(parentCourse.id) && (
-                  <TouchableOpacity
-                    style={styles.courseBundleButton}
-                    onPress={() => handlePurchaseCourse(parentCourse)}
-                  >
-                    <Ionicons name="albums" size={18} color={Colors.primary} />
-                    <Text style={styles.courseBundleText}>
-                      Or get the full "{parentCourse.title}" course for ${parentCourse.price.toFixed(2)}
-                    </Text>
-                  </TouchableOpacity>
-                )}
               </View>
+            )}
+
+            {/* Show course bundle option on ALL videos (free and paid) */}
+            {parentCourse && !state.purchasedAtlasCourses.includes(parentCourse.id) && (
+              <TouchableOpacity
+                style={styles.courseBundleButton}
+                onPress={() => handlePurchaseCourse(parentCourse)}
+              >
+                <Ionicons name="albums" size={18} color={Colors.primary} />
+                <Text style={styles.courseBundleText}>
+                  Get the full "{parentCourse.title}" course for ${parentCourse.price.toFixed(2)}
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
 
