@@ -426,7 +426,7 @@ export function HomeScreen({ navigation }: any) {
         ))}
 
         {/* Podcasts — show every other day based on date */}
-        {new Date().getDate() % 2 === 0 && <PodcastSection podcasts={podcasts} />}
+        {new Date().getDate() % 2 === 0 && <PodcastSection podcasts={podcasts} navigation={navigation} />}
 
         {/* Books Section — at the bottom */}
         <BooksSection books={books} navigation={navigation} />

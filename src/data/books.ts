@@ -227,8 +227,6 @@ export const books: StuntBook[] = [
     ebaySearchUrl: ebaySearch('Siverio Stunts Word Search'),
     asin: 'B0F2ZSL1XT',
   },
-];
-
   // ── Additional Books ──
   {
     id: 'book-19',
