@@ -10,10 +10,12 @@ import { videos as allVideos, videoMap } from '../../data';
 import { skillTags } from '../../data/skillTags';
 import { Video } from '../../types';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { books as allBooks, bookCategoryLabels } from '../../data/books';
+import { podcasts as allPodcasts } from '../../data/podcasts';
 
 const MAX_WIDTH = 960;
 
-type AdminTab = 'videos' | 'categories' | 'tags' | 'bytag' | 'byproduction' | 'lists' | 'atlas' | 'reviews' | 'stats' | 'flags';
+type AdminTab = 'videos' | 'categories' | 'bytag' | 'byproduction' | 'lists' | 'atlas' | 'books' | 'podcasts' | 'reviews' | 'stats' | 'flags';
 
 // Autocomplete tag input component
 function TagInput({
@@ -617,8 +619,9 @@ export function AdminScreen({ navigation }: any) {
             { key: 'bytag' as AdminTab, label: 'By Tag', icon: 'pricetag-outline' as const },
             { key: 'lists' as AdminTab, label: 'Lists', icon: 'list-outline' as const },
             { key: 'categories' as AdminTab, label: 'Categories', icon: 'grid-outline' as const },
-            { key: 'tags' as AdminTab, label: 'Quick Tags', icon: 'pricetags-outline' as const },
             { key: 'atlas' as AdminTab, label: 'Atlas Action', icon: 'globe-outline' as const },
+            { key: 'books' as AdminTab, label: 'Books', icon: 'book-outline' as const },
+            { key: 'podcasts' as AdminTab, label: 'Podcasts', icon: 'mic-outline' as const },
             { key: 'reviews' as AdminTab, label: 'Reviews', icon: 'chatbubbles-outline' as const },
             { key: 'stats' as AdminTab, label: 'Stats', icon: 'stats-chart-outline' as const },
             { key: 'flags' as AdminTab, label: 'Flags', icon: 'flag-outline' as const },
@@ -963,20 +966,6 @@ export function AdminScreen({ navigation }: any) {
                   <Ionicons name="add" size={20} color="#fff" />
                   <Text style={styles.addBtnText}>Add Category</Text>
                 </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {activeTab === 'tags' && (
-            <View>
-              <Text style={styles.sectionTitle}>All Skill Tags</Text>
-              <View style={styles.tagGrid}>
-                {skillTags.map(tag => (
-                  <View key={tag.id} style={styles.readOnlyTag}>
-                    <Text style={styles.readOnlyTagText}>{tag.displayName}</Text>
-                    <Text style={styles.readOnlyTagCategory}>{tag.category}</Text>
-                  </View>
-                ))}
               </View>
             </View>
           )}
@@ -1680,6 +1669,78 @@ export function AdminScreen({ navigation }: any) {
               </View>
             );
           })()}
+
+          {activeTab === 'books' && (
+            <View>
+              <Text style={styles.sectionTitle}>Books ({allBooks.length})</Text>
+              <Text style={styles.hint}>All books in the Action Vault library. Books are defined in code — contact dev to add/remove.</Text>
+              <View style={styles.filterTypeRow}>
+                {['all', 'memoir', 'history', 'training', 'reference'].map(cat => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.filterTypeBtn, searchQuery === cat && styles.filterTypeBtnActive]}
+                    onPress={() => setSearchQuery(searchQuery === cat ? '' : cat)}
+                  >
+                    <Text style={[styles.filterTypeText, searchQuery === cat && styles.filterTypeTextActive]}>
+                      {cat === 'all' ? 'All' : bookCategoryLabels[cat] || cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {allBooks
+                .filter(b => {
+                  if (searchQuery && ['memoir', 'history', 'training', 'reference'].includes(searchQuery)) {
+                    return b.category === searchQuery;
+                  }
+                  return true;
+                })
+                .map(book => (
+                <View key={book.id} style={styles.videoItem}>
+                  <View style={styles.videoHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.videoTitle}>{book.title}</Text>
+                      <Text style={styles.videoMeta}>{book.author}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 }}>
+                        <View style={styles.customBadge}>
+                          <Text style={styles.customBadgeText}>{bookCategoryLabels[book.category] || book.category}</Text>
+                        </View>
+                        <Text style={styles.videoMeta}>ASIN: {book.asin}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Text style={{ color: Colors.textSecondary, fontSize: FontSize.sm, lineHeight: 18 }}>{book.description}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {activeTab === 'podcasts' && (
+            <View>
+              <Text style={styles.sectionTitle}>Podcasts ({allPodcasts.length})</Text>
+              <Text style={styles.hint}>All podcasts in the Action Vault library. Podcasts are defined in code — contact dev to add/remove.</Text>
+              {allPodcasts.map(podcast => (
+                <View key={podcast.id} style={styles.videoItem}>
+                  <View style={styles.videoHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.videoTitle}>{podcast.title}</Text>
+                      <Text style={styles.videoMeta}>Hosted by {podcast.hosts}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 }}>
+                        <View style={[styles.customBadge, { backgroundColor: podcast.status === 'active' ? '#1DB95433' : Colors.surface }]}>
+                          <Text style={[styles.customBadgeText, { color: podcast.status === 'active' ? '#1DB954' : Colors.textMuted }]}>
+                            {podcast.status === 'active' ? 'Active' : 'Archived'}
+                          </Text>
+                        </View>
+                        {podcast.links.spotify && <Text style={styles.videoMeta}>Spotify ✓</Text>}
+                        {podcast.links.apple && <Text style={styles.videoMeta}>Apple ✓</Text>}
+                        {podcast.links.youtube && <Text style={styles.videoMeta}>YouTube ✓</Text>}
+                      </View>
+                    </View>
+                  </View>
+                  <Text style={{ color: Colors.textSecondary, fontSize: FontSize.sm, lineHeight: 18, marginTop: 4 }}>{podcast.description}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
           {activeTab === 'flags' && (() => {
             const allRequests = state.settings.removalRequests || [];

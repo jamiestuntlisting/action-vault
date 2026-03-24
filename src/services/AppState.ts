@@ -87,6 +87,7 @@ export interface AppSettings {
   bookList: string[];
   booksRead: string[];
   blockedReviewers: string[];
+  playlists: Array<{ id: string; name: string; videoIds: string[]; createdAt: string }>;
 }
 
 const defaultSettings: AppSettings = {
@@ -181,6 +182,7 @@ const defaultSettings: AppSettings = {
   bookList: [],
   booksRead: [],
   blockedReviewers: [],
+  playlists: [],
 };
 
 interface State {

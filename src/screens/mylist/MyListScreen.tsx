@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
@@ -11,16 +11,22 @@ import { usePageTitle } from '../../hooks/usePageTitle';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.screen * 2 - Spacing.md) / 2;
 
-type Tab = 'mylist' | 'liked';
+type Tab = 'mylist' | 'liked' | 'playlist';
 type SortMode = 'date' | 'alpha' | 'duration';
 
-export function MyListScreen({ navigation }: any) {
-  usePageTitle('My List');
+export function MyListScreen({ navigation, route }: any) {
+  const initialPlaylistId = route?.params?.playlistId || null;
   const { state, dispatch } = useAppState();
-  const [tab, setTab] = useState<Tab>('mylist');
+  const [tab, setTab] = useState<Tab>(initialPlaylistId ? 'playlist' : 'mylist');
   const [sortMode, setSortMode] = useState<SortMode>('date');
   const [isEditing, setIsEditing] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [activePlaylistId, setActivePlaylistId] = useState<string | null>(initialPlaylistId);
+
+  const playlists = state.settings.playlists || [];
+  const activePlaylist = playlists.find((p: any) => p.id === activePlaylistId);
+
+  usePageTitle(tab === 'playlist' && activePlaylist ? activePlaylist.name : 'My List');
 
   const myVideos = useMemo(() => {
     const profileId = state.activeProfile?.id || '';
@@ -50,7 +56,20 @@ export function MyListScreen({ navigation }: any) {
     }
   }, [state.ratings, sortMode]);
 
-  const displayedVideos = tab === 'mylist' ? myVideos : likedVideos;
+  const playlistVideos = useMemo(() => {
+    if (!activePlaylist) return [];
+    const vids = (activePlaylist as any).videoIds
+      .map((id: string) => videoMap.get(id))
+      .filter(Boolean) as Video[];
+
+    switch (sortMode) {
+      case 'alpha': return vids.sort((a, b) => a.title.localeCompare(b.title));
+      case 'duration': return vids.sort((a, b) => a.durationSeconds - b.durationSeconds);
+      default: return vids;
+    }
+  }, [activePlaylist, sortMode]);
+
+  const displayedVideos = tab === 'mylist' ? myVideos : tab === 'liked' ? likedVideos : playlistVideos;
 
   function toggleSelect(videoId: string) {
     const next = new Set(selected);
@@ -59,7 +78,15 @@ export function MyListScreen({ navigation }: any) {
   }
 
   function removeSelected() {
-    selected.forEach(id => dispatch({ type: 'REMOVE_FROM_MY_LIST', payload: id }));
+    if (tab === 'mylist') {
+      selected.forEach(id => dispatch({ type: 'REMOVE_FROM_MY_LIST', payload: id }));
+    } else if (tab === 'playlist' && activePlaylist) {
+      const updatedVideoIds = (activePlaylist as any).videoIds.filter((id: string) => !selected.has(id));
+      const updatedPlaylists = playlists.map((p: any) =>
+        p.id === activePlaylistId ? { ...p, videoIds: updatedVideoIds } : p
+      );
+      dispatch({ type: 'UPDATE_SETTINGS', payload: { playlists: updatedPlaylists } });
+    }
     setSelected(new Set());
     setIsEditing(false);
   }
@@ -67,14 +94,16 @@ export function MyListScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>My List</Text>
+        <Text style={styles.title}>
+          {tab === 'playlist' && activePlaylist ? (activePlaylist as any).name : 'My List'}
+        </Text>
         <View style={styles.headerRight}>
-          {isEditing && selected.size > 0 && tab === 'mylist' && (
+          {isEditing && selected.size > 0 && (tab === 'mylist' || tab === 'playlist') && (
             <TouchableOpacity onPress={removeSelected}>
               <Text style={styles.removeText}>Remove ({selected.size})</Text>
             </TouchableOpacity>
           )}
-          {tab === 'mylist' && (
+          {(tab === 'mylist' || tab === 'playlist') && (
             <TouchableOpacity onPress={() => { setIsEditing(!isEditing); setSelected(new Set()); }}>
               <Text style={styles.editText}>{isEditing ? 'Done' : 'Edit'}</Text>
             </TouchableOpacity>
@@ -86,18 +115,28 @@ export function MyListScreen({ navigation }: any) {
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={[styles.tabButton, tab === 'mylist' && styles.tabButtonActive]}
-          onPress={() => { setTab('mylist'); setIsEditing(false); setSelected(new Set()); }}
+          onPress={() => { setTab('mylist'); setIsEditing(false); setSelected(new Set()); setActivePlaylistId(null); }}
         >
           <Ionicons name="bookmark-outline" size={16} color={tab === 'mylist' ? Colors.white : Colors.textTertiary} />
           <Text style={[styles.tabText, tab === 'mylist' && styles.tabTextActive]}>My List</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabButton, tab === 'liked' && styles.tabButtonActive]}
-          onPress={() => { setTab('liked'); setIsEditing(false); setSelected(new Set()); }}
+          onPress={() => { setTab('liked'); setIsEditing(false); setSelected(new Set()); setActivePlaylistId(null); }}
         >
           <Ionicons name="thumbs-up-outline" size={16} color={tab === 'liked' ? Colors.white : Colors.textTertiary} />
-          <Text style={[styles.tabText, tab === 'liked' && styles.tabTextActive]}>Liked Videos</Text>
+          <Text style={[styles.tabText, tab === 'liked' && styles.tabTextActive]}>Liked</Text>
         </TouchableOpacity>
+        {playlists.map((pl: any) => (
+          <TouchableOpacity
+            key={pl.id}
+            style={[styles.tabButton, tab === 'playlist' && activePlaylistId === pl.id && styles.tabButtonActive]}
+            onPress={() => { setTab('playlist'); setActivePlaylistId(pl.id); setIsEditing(false); setSelected(new Set()); }}
+          >
+            <Ionicons name="musical-notes-outline" size={16} color={tab === 'playlist' && activePlaylistId === pl.id ? Colors.white : Colors.textTertiary} />
+            <Text style={[styles.tabText, tab === 'playlist' && activePlaylistId === pl.id && styles.tabTextActive]}>{pl.name}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <View style={styles.sortBar}>
@@ -115,14 +154,14 @@ export function MyListScreen({ navigation }: any) {
       </View>
 
       <FlatList
-        data={displayedVideos}
+        data={displayedVideos as any}
         numColumns={2}
-        keyExtractor={item => item.id}
+        keyExtractor={(item: any) => item.id}
         contentContainerStyle={styles.grid}
         columnWrapperStyle={styles.row}
-        renderItem={({ item }) => (
+        renderItem={({ item }: any) => (
           <View>
-            {isEditing && tab === 'mylist' && (
+            {isEditing && (tab === 'mylist' || tab === 'playlist') && (
               <TouchableOpacity style={styles.selectCircle} onPress={() => toggleSelect(item.id)}>
                 <Ionicons
                   name={selected.has(item.id) ? 'checkmark-circle' : 'ellipse-outline'}
@@ -133,21 +172,27 @@ export function MyListScreen({ navigation }: any) {
             )}
             <VideoCard
               video={item}
-              onPress={() => isEditing && tab === 'mylist' ? toggleSelect(item.id) : navigation.navigate('VideoDetail', { videoId: item.id })}
+              onPress={() => isEditing && (tab === 'mylist' || tab === 'playlist') ? toggleSelect(item.id) : navigation.navigate('VideoDetail', { videoId: item.id })}
               width={CARD_WIDTH}
             />
           </View>
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name={tab === 'mylist' ? 'bookmark-outline' : 'thumbs-up-outline'} size={64} color={Colors.textMuted} />
+            <Ionicons
+              name={tab === 'mylist' ? 'bookmark-outline' : tab === 'liked' ? 'thumbs-up-outline' : 'musical-notes-outline'}
+              size={64}
+              color={Colors.textMuted}
+            />
             <Text style={styles.emptyTitle}>
-              {tab === 'mylist' ? 'Your list is empty' : 'No liked videos yet'}
+              {tab === 'mylist' ? 'Your list is empty' : tab === 'liked' ? 'No liked videos yet' : 'Playlist is empty'}
             </Text>
             <Text style={styles.emptySubtitle}>
               {tab === 'mylist'
                 ? 'Add videos to your list to watch later'
-                : 'Give a thumbs up to videos you enjoy'}
+                : tab === 'liked'
+                ? 'Give a thumbs up to videos you enjoy'
+                : 'Add videos from their detail page'}
             </Text>
           </View>
         }
@@ -192,6 +237,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.screen,
     gap: Spacing.sm,
     marginBottom: Spacing.md,
+    flexWrap: 'wrap',
   },
   tabButton: {
     flexDirection: 'row',
