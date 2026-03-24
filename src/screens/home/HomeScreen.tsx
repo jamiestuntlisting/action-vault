@@ -389,6 +389,7 @@ export function HomeScreen({ navigation }: any) {
             title="Atlas Action - Stunt Training"
             videos={atlasActionVideos}
             onVideoPress={(video: AtlasActionVideo) => navigation.navigate('AtlasActionDetail', { atlasVideoId: video.id })}
+            onSeeAll={() => navigateToCategory('Atlas Action', videos.filter(v => v.title.includes('Atlas') || v.title.includes('Intro to Stunts')))}
           />
         )}
 

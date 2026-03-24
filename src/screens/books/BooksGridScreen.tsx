@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { books, bookCategoryLabels, StuntBook } from '../../data/books';
 
-const CARD_WIDTH = 140;
-const CARD_HEIGHT = 210;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const NUM_COLUMNS = Math.max(3, Math.floor((SCREEN_WIDTH - 32) / 140));
+const CARD_WIDTH = Math.floor((SCREEN_WIDTH - 32 - (NUM_COLUMNS - 1) * 12) / NUM_COLUMNS);
+const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.5);
 
 function BookGridCard({ book, onPress }: { book: StuntBook; onPress: () => void }) {
   const [imgError, setImgError] = useState(false);
@@ -77,7 +79,8 @@ export function BooksGridScreen({ navigation }: any) {
 
       <FlatList
         data={filtered}
-        numColumns={3}
+        numColumns={NUM_COLUMNS}
+        key={`grid-${NUM_COLUMNS}`}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.grid}
         columnWrapperStyle={styles.row}
@@ -123,7 +126,7 @@ const styles = StyleSheet.create({
   filterChipTextActive: { color: '#fff' },
   grid: { paddingHorizontal: Spacing.screen, paddingBottom: 80 },
   row: { gap: 12, marginBottom: 16 },
-  card: { width: CARD_WIDTH, flex: 1, maxWidth: CARD_WIDTH },
+  card: { flex: 1 },
   coverContainer: {
     width: '100%', height: CARD_HEIGHT, borderRadius: BorderRadius.md,
     overflow: 'hidden', backgroundColor: Colors.surface, marginBottom: 6,
