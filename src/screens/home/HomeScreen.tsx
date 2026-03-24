@@ -14,6 +14,8 @@ import { skillTags } from '../../data/skillTags';
 import { stuntReels, skillReels, getSkillReelsByCategory, SkillReel } from '../../services/StuntListingService';
 import { books } from '../../data/books';
 import { BooksSection } from '../../components/BookRow';
+import { podcasts } from '../../data/podcasts';
+import { PodcastSection } from '../../components/PodcastRow';
 
 const MAX_WIDTH = 960;
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -423,8 +425,11 @@ export function HomeScreen({ navigation }: any) {
           />
         ))}
 
+        {/* Podcasts — show every other day based on date */}
+        {new Date().getDate() % 2 === 0 && <PodcastSection podcasts={podcasts} />}
+
         {/* Books Section — at the bottom */}
-        <BooksSection books={books} />
+        <BooksSection books={books} navigation={navigation} />
       </View>
     </ScrollView>
   );

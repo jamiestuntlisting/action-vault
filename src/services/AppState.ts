@@ -84,6 +84,9 @@ export interface AppSettings {
   personTags: Array<{ videoId: string; name: string; timestampSeconds: number; role: string; taggedAt: string }>;
   atlasActionVideos: AtlasActionVideo[];
   atlasActionCourses: AtlasActionCourse[];
+  bookList: string[];
+  booksRead: string[];
+  blockedReviewers: string[];
 }
 
 const defaultSettings: AppSettings = {
@@ -175,6 +178,9 @@ const defaultSettings: AppSettings = {
       createdAt: '2025-01-15T00:00:00.000Z',
     },
   ],
+  bookList: [],
+  booksRead: [],
+  blockedReviewers: [],
 };
 
 interface State {

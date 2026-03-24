@@ -423,7 +423,8 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     width: '100%',
-    height: 110,
+    maxWidth: 600,
+    height: 80,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
     justifyContent: 'flex-end',

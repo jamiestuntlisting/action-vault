@@ -126,8 +126,40 @@ const tagInputStyles = StyleSheet.create({
   suggestionText: { color: Colors.textPrimary, fontSize: FontSize.sm },
 });
 
+const ADMIN_EMAILS = [
+  'james.northrup@gmail.com',
+  'warrenhullstunts@gmail.com',
+  'greg@stuntlisting.com',
+  'info@stuntlisting.com',
+  'jamie@stuntlisting.com',
+  'warren@stuntlisting.com',
+];
+
 export function AdminScreen({ navigation }: any) {
   const { state, dispatch } = useAppState();
+
+  // Admin email check
+  const currentUserEmail = state.currentUser?.email;
+  if (!currentUserEmail || !ADMIN_EMAILS.includes(currentUserEmail)) {
+    return (
+      <View style={{ flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center', padding: Spacing.xl }}>
+        <Ionicons name="lock-closed" size={64} color={Colors.textMuted} />
+        <Text style={{ color: Colors.textPrimary, fontSize: FontSize.xxl, fontWeight: FontWeight.bold, marginTop: Spacing.lg, textAlign: 'center' }}>
+          Access Denied
+        </Text>
+        <Text style={{ color: Colors.textSecondary, fontSize: FontSize.md, marginTop: Spacing.md, textAlign: 'center' }}>
+          You do not have permission to access the admin panel.
+        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{ marginTop: Spacing.xl, backgroundColor: Colors.primary, paddingVertical: Spacing.md, paddingHorizontal: Spacing.xxl, borderRadius: BorderRadius.md }}
+        >
+          <Text style={{ color: '#fff', fontSize: FontSize.md, fontWeight: FontWeight.semibold }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState<AdminTab>('videos');
   const [searchQuery, setSearchQuery] = useState('');
   const [newCatTitle, setNewCatTitle] = useState('');
@@ -935,19 +967,7 @@ export function AdminScreen({ navigation }: any) {
 
           {activeTab === 'tags' && (
             <View>
-              <Text style={styles.sectionTitle}>Bulk Location Tagging</Text>
-              <Text style={styles.hint}>Quickly tag multiple videos with a location.</Text>
-              {allLocationNames.map(loc => {
-                const taggedCount = overrides.filter(o => o.locationTags?.includes(loc)).length;
-                return (
-                  <View key={loc} style={styles.bulkTagRow}>
-                    <Text style={styles.bulkTagName}>📍 {loc}</Text>
-                    <Text style={styles.bulkTagCount}>{taggedCount} videos</Text>
-                  </View>
-                );
-              })}
-
-              <Text style={[styles.sectionTitle, { marginTop: Spacing.xxl }]}>All Skill Tags</Text>
+              <Text style={styles.sectionTitle}>All Skill Tags</Text>
               <View style={styles.tagGrid}>
                 {skillTags.map(tag => (
                   <View key={tag.id} style={styles.readOnlyTag}>
@@ -1042,77 +1062,94 @@ export function AdminScreen({ navigation }: any) {
             </View>
           )}
 
-          {activeTab === 'lists' && (
-            <View>
-              <Text style={styles.sectionTitle}>Curated Lists</Text>
-              <Text style={styles.hint}>Manage which videos appear in Featured, Editor's Picks, and other curated sections. Top 10 is auto-calculated by view count.</Text>
+          {activeTab === 'lists' && (() => {
+            const visibleVideos = allVideos.filter(v => {
+              const ov = overrides.find(o => o.videoId === v.id);
+              return !ov?.hidden;
+            });
 
-              {/* List selector */}
-              <View style={styles.filterTypeRow}>
-                {[
-                  { key: 'featured', label: 'Featured' },
-                  { key: 'editors_pick', label: "Editor's Pick" },
-                  { key: 'new_this_week', label: 'New This Week' },
-                ].map(list => (
-                  <TouchableOpacity
-                    key={list.key}
-                    style={[styles.filterTypeBtn, selectedList === list.key && styles.filterTypeBtnActive]}
-                    onPress={() => setSelectedList(list.key)}
-                  >
-                    <Text style={[styles.filterTypeText, selectedList === list.key && styles.filterTypeTextActive]}>
-                      {list.label} ({getVideosInList(list.key).length})
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            const autoLists = [
+              {
+                key: 'trending',
+                label: 'Trending Now',
+                description: 'Auto-generated: Top 10 videos sorted by view count.',
+                videos: [...visibleVideos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10),
+              },
+              {
+                key: 'top10',
+                label: 'Top 10 This Week',
+                description: 'Auto-generated: Top 10 videos sorted by view count.',
+                videos: [...visibleVideos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10),
+              },
+              {
+                key: 'new_this_week',
+                label: 'New This Week',
+                description: 'Auto-generated: Most recently added videos.',
+                videos: [...visibleVideos].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10),
+              },
+              {
+                key: 'most_discussed',
+                label: 'Most Discussed',
+                description: 'Auto-generated: Videos with the most reviews.',
+                videos: (() => {
+                  const reviewCounts: Record<string, number> = {};
+                  state.ratings.filter(r => r.reviewText && r.reviewText.trim().length > 0)
+                    .forEach(r => { reviewCounts[r.videoId] = (reviewCounts[r.videoId] || 0) + 1; });
+                  return visibleVideos
+                    .filter(v => reviewCounts[v.id])
+                    .sort((a, b) => (reviewCounts[b.id] || 0) - (reviewCounts[a.id] || 0))
+                    .slice(0, 10);
+                })(),
+              },
+            ];
 
-              {/* Videos in selected list */}
-              <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>
-                {selectedList === 'featured' ? 'Featured' : selectedList === 'editors_pick' ? "Editor's Picks" : 'New This Week'}
-              </Text>
+            return (
+              <View>
+                <Text style={styles.sectionTitle}>Auto-Generated Lists</Text>
+                <Text style={styles.hint}>
+                  These lists are automatically populated based on video view counts and engagement data. No manual curation needed.
+                </Text>
 
-              {getVideosInList(selectedList).length === 0 ? (
-                <Text style={styles.hint}>No videos in this list yet. Search below to add videos.</Text>
-              ) : (
-                getVideosInList(selectedList).map(video => (
-                  <View key={video.id} style={styles.byTagVideoRow}>
-                    <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
-                    <TouchableOpacity onPress={() => toggleVideoInList(video.id, selectedList)}>
-                      <Ionicons name="close-circle" size={20} color="#f44" />
+                {/* List selector */}
+                <View style={styles.filterTypeRow}>
+                  {autoLists.map(list => (
+                    <TouchableOpacity
+                      key={list.key}
+                      style={[styles.filterTypeBtn, selectedList === list.key && styles.filterTypeBtnActive]}
+                      onPress={() => setSelectedList(list.key)}
+                    >
+                      <Text style={[styles.filterTypeText, selectedList === list.key && styles.filterTypeTextActive]}>
+                        {list.label} ({list.videos.length})
+                      </Text>
                     </TouchableOpacity>
-                  </View>
-                ))
-              )}
-
-              {/* Add video to list */}
-              <TextInput
-                style={[styles.searchInput, { marginTop: Spacing.lg }]}
-                placeholder="Search videos to add to this list..."
-                placeholderTextColor={Colors.textMuted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.trim().length > 1 && (
-                <View>
-                  {allVideos
-                    .filter(v => v.title.toLowerCase().includes(searchQuery.toLowerCase()))
-                    .filter(v => !isVideoInList(v.id, selectedList))
-                    .slice(0, 10)
-                    .map(video => (
-                      <TouchableOpacity
-                        key={video.id}
-                        style={styles.byTagAddRow}
-                        onPress={() => toggleVideoInList(video.id, selectedList)}
-                      >
-                        <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
-                        <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
-                      </TouchableOpacity>
-                    ))
-                  }
+                  ))}
                 </View>
-              )}
-            </View>
-          )}
+
+                {/* Show selected list */}
+                {(() => {
+                  const currentList = autoLists.find(l => l.key === selectedList) || autoLists[0];
+                  return (
+                    <View>
+                      <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>{currentList.label}</Text>
+                      <Text style={[styles.hint, { fontStyle: 'italic' }]}>{currentList.description}</Text>
+
+                      {currentList.videos.length === 0 ? (
+                        <Text style={styles.hint}>No videos match the criteria for this list.</Text>
+                      ) : (
+                        currentList.videos.map((video, idx) => (
+                          <View key={video.id} style={styles.byTagVideoRow}>
+                            <Text style={{ color: Colors.textMuted, fontSize: FontSize.sm, width: 28 }}>{idx + 1}.</Text>
+                            <Text style={[styles.videoTitle, { flex: 1 }]} numberOfLines={1}>{video.title}</Text>
+                            <Text style={styles.videoMeta}>{video.viewCount.toLocaleString()} views</Text>
+                          </View>
+                        ))
+                      )}
+                    </View>
+                  );
+                })()}
+              </View>
+            );
+          })()}
 
           {activeTab === 'atlas' && (
             <View>
@@ -1461,6 +1498,19 @@ export function AdminScreen({ navigation }: any) {
                           onPress={() => Alert.alert('Delete Review', 'In production, this would remove the review from the database.')}
                         >
                           <Ionicons name="trash" size={18} color="#f44" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.iconBtn, { backgroundColor: '#e91e6322', borderRadius: BorderRadius.sm }]}
+                          onPress={() => Alert.alert(
+                            'Block User',
+                            `Are you sure you want to block the user who posted this review? They will no longer be able to post reviews or interact with content.`,
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'Block User', style: 'destructive', onPress: () => Alert.alert('User Blocked', 'In production, this user would be blocked from the platform.') },
+                            ]
+                          )}
+                        >
+                          <Ionicons name="ban" size={18} color="#e91e63" />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.iconBtn, { backgroundColor: '#ffb30022', borderRadius: BorderRadius.sm }]}
