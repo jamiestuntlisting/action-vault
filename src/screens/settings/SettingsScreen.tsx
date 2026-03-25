@@ -89,53 +89,100 @@ export function SettingsScreen({ navigation }: any) {
     }
   }
 
-  async function handleAddVideoUrl() {
-    const videoIdMatch = channelUrl.match(/(?:v=|\/embed\/|youtu\.be\/)([\w-]{11})/);
-    if (!videoIdMatch) {
-      Alert.alert('Invalid URL', 'Please enter a valid YouTube video URL');
+  function detectSubmissionType(url: string): 'video' | 'book' | 'podcast' | 'unknown' {
+    const u = url.toLowerCase().trim();
+    if (u.match(/(?:youtube\.com|youtu\.be)/)) return 'video';
+    if (u.match(/(?:amazon\.|amzn\.|goodreads\.com|bookshop\.org)/)) return 'book';
+    if (u.match(/(?:podcasts\.apple|spotify\.com\/show|open\.spotify|anchor\.fm|rss|feed|podcast)/)) return 'podcast';
+    return 'unknown';
+  }
+
+  async function handleSubmitContent() {
+    const url = channelUrl.trim();
+    if (!url) return;
+
+    const type = detectSubmissionType(url);
+
+    // YouTube video
+    const videoIdMatch = url.match(/(?:v=|\/embed\/|youtu\.be\/)([\w-]{11})/);
+    if (videoIdMatch) {
+      const videoId = videoIdMatch[1];
+      setLoadingChannel(true);
+      try {
+        const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+        if (!response.ok) throw new Error('Video not found');
+        const data = await response.json();
+        Alert.alert(
+          'Submit Video?',
+          `"${data.title}" by ${data.author_name}\n\nSubmit this video to the Action Vault for review?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Submit',
+              onPress: () => {
+                const submissions = state.settings.vaultSubmissions || [];
+                dispatch({
+                  type: 'UPDATE_SETTINGS',
+                  payload: {
+                    vaultSubmissions: [...submissions, {
+                      videoId,
+                      title: data.title,
+                      author: data.author_name,
+                      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+                      submittedAt: new Date().toISOString(),
+                      category: submitCategory,
+                      status: 'pending' as const,
+                      submittedByEmail: state.currentUser?.email || 'unknown',
+                      contentType: 'video' as const,
+                    }]
+                  }
+                });
+                Alert.alert('Submitted!', 'Your video has been submitted for review.');
+                setChannelUrl('');
+              }
+            }
+          ]
+        );
+      } catch (e) {
+        Alert.alert('Error', 'Could not find that video. Please check the URL.');
+      }
+      setLoadingChannel(false);
       return;
     }
-    const videoId = videoIdMatch[1];
-    setLoadingChannel(true);
-    try {
-      const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
-      if (!response.ok) throw new Error('Video not found');
-      const data = await response.json();
-      Alert.alert(
-        'Add to Vault?',
-        `"${data.title}" by ${data.author_name}\n\nSubmit this video to the public Action Vault?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Submit',
-            onPress: () => {
-              // Store submitted video
-              const submissions = state.settings.vaultSubmissions || [];
-              dispatch({
-                type: 'UPDATE_SETTINGS',
-                payload: {
-                  vaultSubmissions: [...submissions, {
-                    videoId,
-                    title: data.title,
-                    author: data.author_name,
-                    thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-                    submittedAt: new Date().toISOString(),
-                    category: submitCategory,
-                    status: 'pending' as const,
-                    submittedByEmail: state.currentUser?.email || 'unknown',
-                  }]
-                }
-              });
-              Alert.alert('Submitted!', 'Your video has been submitted to the Action Vault for review.');
-              setChannelUrl('');
-            }
+
+    // Book or podcast or generic — submit with the URL and let admin review
+    const contentLabel = type === 'book' ? 'book' : type === 'podcast' ? 'podcast' : 'content';
+    Alert.alert(
+      `Submit ${contentLabel.charAt(0).toUpperCase() + contentLabel.slice(1)}?`,
+      `Submit this ${contentLabel} link to the Action Vault for review?\n\n${url}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Submit',
+          onPress: () => {
+            const submissions = state.settings.vaultSubmissions || [];
+            dispatch({
+              type: 'UPDATE_SETTINGS',
+              payload: {
+                vaultSubmissions: [...submissions, {
+                  videoId: url,
+                  title: url,
+                  author: '',
+                  thumbnailUrl: '',
+                  submittedAt: new Date().toISOString(),
+                  category: submitCategory,
+                  status: 'pending' as const,
+                  submittedByEmail: state.currentUser?.email || 'unknown',
+                  contentType: contentLabel as any,
+                }]
+              }
+            });
+            Alert.alert('Submitted!', `Your ${contentLabel} has been submitted for review. Our team will add it to the vault.`);
+            setChannelUrl('');
           }
-        ]
-      );
-    } catch (e) {
-      Alert.alert('Error', 'Could not find that video. Please check the URL.');
-    }
-    setLoadingChannel(false);
+        }
+      ]
+    );
   }
 
   async function handleTestTmdbKey() {
@@ -193,7 +240,7 @@ export function SettingsScreen({ navigation }: any) {
         <View style={styles.urlInputRow}>
           <TextInput
             style={styles.urlInput}
-            placeholder="Paste YouTube video URL..."
+            placeholder="Paste URL (YouTube, Amazon, podcast link)..."
             placeholderTextColor={Colors.inputPlaceholder}
             value={channelUrl}
             onChangeText={setChannelUrl}
@@ -202,7 +249,7 @@ export function SettingsScreen({ navigation }: any) {
           />
           <TouchableOpacity
             style={[styles.addButton, !channelUrl.trim() && styles.addButtonDisabled]}
-            onPress={handleAddVideoUrl}
+            onPress={handleSubmitContent}
             disabled={!channelUrl.trim() || loadingChannel}
             activeOpacity={0.7}
           >

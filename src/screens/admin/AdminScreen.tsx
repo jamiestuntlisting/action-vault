@@ -621,33 +621,38 @@ export function AdminScreen({ navigation }: any) {
 
         {/* Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
-          {([
-            { key: 'videos' as AdminTab, label: 'Videos', icon: 'videocam-outline' as const },
-            { key: 'byproduction' as AdminTab, label: 'By Production', icon: 'film-outline' as const },
-            { key: 'bytag' as AdminTab, label: 'By Tag', icon: 'pricetag-outline' as const },
-            { key: 'lists' as AdminTab, label: 'Lists', icon: 'list-outline' as const },
-            { key: 'categories' as AdminTab, label: 'Categories', icon: 'grid-outline' as const },
-            { key: 'atlas' as AdminTab, label: 'Atlas Action', icon: 'globe-outline' as const },
-            { key: 'books' as AdminTab, label: 'Books', icon: 'book-outline' as const },
-            { key: 'podcasts' as AdminTab, label: 'Podcasts', icon: 'mic-outline' as const },
-            { key: 'submissions' as AdminTab, label: 'Submissions', icon: 'cloud-upload-outline' as const },
-            { key: 'reviews' as AdminTab, label: 'Reviews', icon: 'chatbubbles-outline' as const },
-            { key: 'stats' as AdminTab, label: 'Stats', icon: 'stats-chart-outline' as const },
-            { key: 'flags' as AdminTab, label: 'Flags', icon: 'flag-outline' as const },
-          ]).map(tab => (
-            <TouchableOpacity
-              key={tab.key}
-              style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-              onPress={() => setActiveTab(tab.key)}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name={tab.icon} size={14} color={activeTab === tab.key ? '#fff' : Colors.textSecondary} />
-                <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-                  {tab.label}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {(() => {
+            const pendingCount = (state.settings.vaultSubmissions || []).filter(s => !s.status || s.status === 'pending').length;
+            return ([
+              { key: 'videos' as AdminTab, label: 'Videos', icon: 'videocam-outline' as const },
+              { key: 'submissions' as AdminTab, label: `Submissions${pendingCount > 0 ? ` (${pendingCount})` : ''}`, icon: 'cloud-upload-outline' as const },
+              { key: 'byproduction' as AdminTab, label: 'By Production', icon: 'film-outline' as const },
+              { key: 'bytag' as AdminTab, label: 'By Tag', icon: 'pricetag-outline' as const },
+              { key: 'lists' as AdminTab, label: 'Lists', icon: 'list-outline' as const },
+              { key: 'categories' as AdminTab, label: 'Categories', icon: 'grid-outline' as const },
+              { key: 'atlas' as AdminTab, label: 'Atlas Action', icon: 'globe-outline' as const },
+              { key: 'books' as AdminTab, label: 'Books', icon: 'book-outline' as const },
+              { key: 'podcasts' as AdminTab, label: 'Podcasts', icon: 'mic-outline' as const },
+              { key: 'reviews' as AdminTab, label: 'Reviews', icon: 'chatbubbles-outline' as const },
+              { key: 'stats' as AdminTab, label: 'Stats', icon: 'stats-chart-outline' as const },
+              { key: 'flags' as AdminTab, label: 'Flags', icon: 'flag-outline' as const },
+            ]).map(tab => (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, activeTab === tab.key && styles.tabActive,
+                  tab.key === 'submissions' && pendingCount > 0 && activeTab !== tab.key && { borderColor: '#f59e0b', borderWidth: 1 }]}
+                onPress={() => setActiveTab(tab.key)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name={tab.icon} size={14} color={activeTab === tab.key ? '#fff' : tab.key === 'submissions' && pendingCount > 0 ? '#f59e0b' : Colors.textSecondary} />
+                  <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive,
+                    tab.key === 'submissions' && pendingCount > 0 && activeTab !== tab.key && { color: '#f59e0b' }]}>
+                    {tab.label}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ));
+          })()}
         </ScrollView>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -2048,7 +2053,10 @@ export function AdminScreen({ navigation }: any) {
                               {!isEditing ? (
                                 <>
                                   <Text style={styles.videoTitle}>{sub.title}</Text>
-                                  <Text style={styles.videoMeta}>{sub.author} · {sub.category || 'Uncategorized'}</Text>
+                                  <Text style={styles.videoMeta}>
+                                    {(sub as any).contentType === 'book' ? '📚' : (sub as any).contentType === 'podcast' ? '🎙️' : '🎬'}{' '}
+                                    {(sub as any).contentType || 'video'} · {sub.author || 'Unknown'} · {sub.category || 'Uncategorized'}
+                                  </Text>
                                   <Text style={styles.videoMeta}>
                                     Submitted by {sub.submittedByEmail || 'unknown'} · {new Date(sub.submittedAt).toLocaleDateString()}
                                   </Text>
