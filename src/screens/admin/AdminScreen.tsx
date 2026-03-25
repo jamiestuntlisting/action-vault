@@ -203,6 +203,15 @@ export function AdminScreen({ navigation }: any) {
   const [editingAtlasVideoId, setEditingAtlasVideoId] = useState<string | null>(null);
   const [editingAtlasCourseId, setEditingAtlasCourseId] = useState<string | null>(null);
 
+  // Submissions tab state
+  const [editingSubIndex, setEditingSubIndex] = useState<number | null>(null);
+  const [editSubTitle, setEditSubTitle] = useState('');
+  const [editSubDescription, setEditSubDescription] = useState('');
+  const [editSubCategory, setEditSubCategory] = useState('');
+  const [editSubTags, setEditSubTags] = useState<string[]>([]);
+  const [editSubPeople, setEditSubPeople] = useState<string[]>([]);
+  const [editSubMovies, setEditSubMovies] = useState<string[]>([]);
+
   const overrides = state.settings.adminVideoOverrides || [];
   const categories = state.settings.adminCategories || [];
 
@@ -1943,15 +1952,6 @@ export function AdminScreen({ navigation }: any) {
             const pending = submissions.filter(s => !s.status || s.status === 'pending');
             const approved = submissions.filter(s => s.status === 'approved');
             const rejected = submissions.filter(s => s.status === 'rejected');
-
-            // Track which submission is being edited (by index)
-            const [editingSubIndex, setEditingSubIndex] = React.useState<number | null>(null);
-            const [editSubTitle, setEditSubTitle] = React.useState('');
-            const [editSubDescription, setEditSubDescription] = React.useState('');
-            const [editSubCategory, setEditSubCategory] = React.useState('');
-            const [editSubTags, setEditSubTags] = React.useState<string[]>([]);
-            const [editSubPeople, setEditSubPeople] = React.useState<string[]>([]);
-            const [editSubMovies, setEditSubMovies] = React.useState<string[]>([]);
 
             const startEditingSubmission = (index: number) => {
               const sub = submissions[index];

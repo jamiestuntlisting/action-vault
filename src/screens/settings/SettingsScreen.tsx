@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, TextInput, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, TextInput, FlatList, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
@@ -36,7 +36,7 @@ export function SettingsScreen({ navigation }: any) {
   }
 
   function handleSignOut() {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+    showAlert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out', style: 'destructive',
@@ -97,6 +97,22 @@ export function SettingsScreen({ navigation }: any) {
     return 'unknown';
   }
 
+  function showAlert(title: string, message: string, buttons?: Array<{ text: string; onPress?: () => void; style?: string }>) {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (buttons && buttons.length > 1) {
+        const confirmed = window.confirm(`${title}\n\n${message}`);
+        if (confirmed) {
+          const action = buttons.find(b => b.style !== 'cancel' && b.onPress);
+          action?.onPress?.();
+        }
+      } else {
+        window.alert(`${title}\n\n${message}`);
+      }
+    } else {
+      Alert.alert(title, message, buttons as any);
+    }
+  }
+
   async function handleSubmitContent() {
     const url = channelUrl.trim();
     if (!url) return;
@@ -112,7 +128,7 @@ export function SettingsScreen({ navigation }: any) {
         const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
         if (!response.ok) throw new Error('Video not found');
         const data = await response.json();
-        Alert.alert(
+        showAlert(
           'Submit Video?',
           `"${data.title}" by ${data.author_name}\n\nSubmit this video to the Action Vault for review?`,
           [
@@ -137,14 +153,14 @@ export function SettingsScreen({ navigation }: any) {
                     }]
                   }
                 });
-                Alert.alert('Submitted!', 'Your video has been submitted for review.');
+                showAlert('Submitted!', 'Your video has been submitted for review.');
                 setChannelUrl('');
               }
             }
           ]
         );
       } catch (e) {
-        Alert.alert('Error', 'Could not find that video. Please check the URL.');
+        showAlert('Error', 'Could not find that video. Please check the URL.');
       }
       setLoadingChannel(false);
       return;
@@ -152,7 +168,7 @@ export function SettingsScreen({ navigation }: any) {
 
     // Book or podcast or generic — submit with the URL and let admin review
     const contentLabel = type === 'book' ? 'book' : type === 'podcast' ? 'podcast' : 'content';
-    Alert.alert(
+    showAlert(
       `Submit ${contentLabel.charAt(0).toUpperCase() + contentLabel.slice(1)}?`,
       `Submit this ${contentLabel} link to the Action Vault for review?\n\n${url}`,
       [
@@ -177,7 +193,7 @@ export function SettingsScreen({ navigation }: any) {
                 }]
               }
             });
-            Alert.alert('Submitted!', `Your ${contentLabel} has been submitted for review. Our team will add it to the vault.`);
+            showAlert('Submitted!', `Your ${contentLabel} has been submitted for review. Our team will add it to the vault.`);
             setChannelUrl('');
           }
         }
