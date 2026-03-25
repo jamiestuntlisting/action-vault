@@ -41,6 +41,8 @@ export function HomeScreen({ navigation }: any) {
   const overrides = state.settings.adminVideoOverrides || [];
   const hiddenIds = new Set(overrides.filter(o => o.hidden).map(o => o.videoId));
   const visibleVideos = useMemo(() => videos.filter(v => !hiddenIds.has(v.id)), [hiddenIds.size]);
+  const hiddenBookIds = new Set(state.settings.hiddenBooks || []);
+  const hiddenPodcastIds = new Set(state.settings.hiddenPodcasts || []);
 
   // Daily seed for deterministic rotation
   const daySeed = useMemo(() => {
@@ -429,10 +431,10 @@ export function HomeScreen({ navigation }: any) {
         ))}
 
         {/* Podcasts — show every other day based on date */}
-        {new Date().getDate() % 2 === 0 && <PodcastSection podcasts={podcasts} navigation={navigation} />}
+        {new Date().getDate() % 2 === 0 && <PodcastSection podcasts={podcasts.filter(p => !hiddenPodcastIds.has(p.id))} navigation={navigation} />}
 
         {/* Books Section — at the bottom */}
-        <BooksSection books={books} navigation={navigation} />
+        <BooksSection books={books.filter(b => !hiddenBookIds.has(b.id))} navigation={navigation} />
       </View>
     </ScrollView>
   );

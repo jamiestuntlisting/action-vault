@@ -1670,77 +1670,239 @@ export function AdminScreen({ navigation }: any) {
             );
           })()}
 
-          {activeTab === 'books' && (
-            <View>
-              <Text style={styles.sectionTitle}>Books ({allBooks.length})</Text>
-              <Text style={styles.hint}>All books in the Action Vault library. Books are defined in code — contact dev to add/remove.</Text>
-              <View style={styles.filterTypeRow}>
-                {['all', 'memoir', 'history', 'training', 'reference'].map(cat => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[styles.filterTypeBtn, searchQuery === cat && styles.filterTypeBtnActive]}
-                    onPress={() => setSearchQuery(searchQuery === cat ? '' : cat)}
-                  >
-                    <Text style={[styles.filterTypeText, searchQuery === cat && styles.filterTypeTextActive]}>
-                      {cat === 'all' ? 'All' : bookCategoryLabels[cat] || cat}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {allBooks
-                .filter(b => {
-                  if (searchQuery && ['memoir', 'history', 'training', 'reference'].includes(searchQuery)) {
-                    return b.category === searchQuery;
-                  }
-                  return true;
-                })
-                .map(book => (
-                <View key={book.id} style={styles.videoItem}>
-                  <View style={styles.videoHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.videoTitle}>{book.title}</Text>
-                      <Text style={styles.videoMeta}>{book.author}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 }}>
-                        <View style={styles.customBadge}>
-                          <Text style={styles.customBadgeText}>{bookCategoryLabels[book.category] || book.category}</Text>
-                        </View>
-                        <Text style={styles.videoMeta}>ASIN: {book.asin}</Text>
-                      </View>
-                    </View>
-                  </View>
-                  <Text style={{ color: Colors.textSecondary, fontSize: FontSize.sm, lineHeight: 18 }}>{book.description}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {activeTab === 'podcasts' && (
-            <View>
-              <Text style={styles.sectionTitle}>Podcasts ({allPodcasts.length})</Text>
-              <Text style={styles.hint}>All podcasts in the Action Vault library. Podcasts are defined in code — contact dev to add/remove.</Text>
-              {allPodcasts.map(podcast => (
-                <View key={podcast.id} style={styles.videoItem}>
-                  <View style={styles.videoHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.videoTitle}>{podcast.title}</Text>
-                      <Text style={styles.videoMeta}>Hosted by {podcast.hosts}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 }}>
-                        <View style={[styles.customBadge, { backgroundColor: podcast.status === 'active' ? '#1DB95433' : Colors.surface }]}>
-                          <Text style={[styles.customBadgeText, { color: podcast.status === 'active' ? '#1DB954' : Colors.textMuted }]}>
-                            {podcast.status === 'active' ? 'Active' : 'Archived'}
+          {activeTab === 'books' && (() => {
+            const hiddenBooks: string[] = state.settings.hiddenBooks || [];
+            const bookOverrides: Array<{ bookId: string; title?: string; author?: string; description?: string; category?: string }> = state.settings.adminBookOverrides || [];
+            const getBookOverride = (id: string) => bookOverrides.find(o => o.bookId === id);
+            const toggleHideBook = (id: string) => {
+              const updated = hiddenBooks.includes(id)
+                ? hiddenBooks.filter(b => b !== id)
+                : [...hiddenBooks, id];
+              dispatch({ type: 'UPDATE_SETTINGS', payload: { hiddenBooks: updated } });
+            };
+            const updateBookField = (bookId: string, field: string, value: string) => {
+              const existing = getBookOverride(bookId);
+              if (existing) {
+                const updated = bookOverrides.map(o => o.bookId === bookId ? { ...o, [field]: value } : o);
+                dispatch({ type: 'UPDATE_SETTINGS', payload: { adminBookOverrides: updated } });
+              } else {
+                dispatch({ type: 'UPDATE_SETTINGS', payload: { adminBookOverrides: [...bookOverrides, { bookId, [field]: value }] } });
+              }
+            };
+            const bq = searchQuery.toLowerCase();
+            const categoryFilter = ['memoir', 'history', 'training', 'reference'].includes(bq) ? bq : null;
+            const filteredBooks = allBooks.filter(b => {
+              if (categoryFilter) return b.category === categoryFilter;
+              if (bq) return b.title.toLowerCase().includes(bq) || b.author.toLowerCase().includes(bq);
+              return true;
+            });
+            return (
+              <View>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search books or filter by category (memoir, history, training, reference)..."
+                  placeholderTextColor={Colors.textMuted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                <Text style={styles.countText}>
+                  {filteredBooks.length} books ({hiddenBooks.length} hidden)
+                </Text>
+                {filteredBooks.map(book => {
+                  const isHidden = hiddenBooks.includes(book.id);
+                  const override = getBookOverride(book.id);
+                  return (
+                    <View key={book.id} style={[styles.videoItem, isHidden && styles.videoItemHidden]}>
+                      <View style={styles.videoHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.videoTitle, isHidden && styles.textHidden]} numberOfLines={1}>
+                            {override?.title || book.title}
                           </Text>
+                          <Text style={styles.videoMeta}>{override?.author || book.author}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 }}>
+                            <View style={styles.customBadge}>
+                              <Text style={styles.customBadgeText}>{bookCategoryLabels[override?.category || book.category] || book.category}</Text>
+                            </View>
+                            <Text style={styles.videoMeta}>ASIN: {book.asin}</Text>
+                          </View>
                         </View>
-                        {podcast.links.spotify && <Text style={styles.videoMeta}>Spotify ✓</Text>}
-                        {podcast.links.apple && <Text style={styles.videoMeta}>Apple ✓</Text>}
-                        {podcast.links.youtube && <Text style={styles.videoMeta}>YouTube ✓</Text>}
+                        <TouchableOpacity onPress={() => toggleHideBook(book.id)} style={styles.iconBtn}>
+                          <Ionicons name={isHidden ? 'eye-off' : 'eye'} size={20} color={isHidden ? '#f44' : Colors.textSecondary} />
+                        </TouchableOpacity>
+                      </View>
+                      {/* Editable fields */}
+                      <View style={styles.tagColumns}>
+                        <View style={[styles.tagColumn, { flex: 2 }]}>
+                          <Text style={styles.columnLabel}>Title</Text>
+                          <TextInput
+                            style={styles.editInput}
+                            value={override?.title || book.title}
+                            onChangeText={(v) => updateBookField(book.id, 'title', v)}
+                            placeholderTextColor={Colors.textMuted}
+                          />
+                        </View>
+                        <View style={styles.tagColumn}>
+                          <Text style={styles.columnLabel}>Author</Text>
+                          <TextInput
+                            style={styles.editInput}
+                            value={override?.author || book.author}
+                            onChangeText={(v) => updateBookField(book.id, 'author', v)}
+                            placeholderTextColor={Colors.textMuted}
+                          />
+                        </View>
+                        <View style={styles.tagColumn}>
+                          <Text style={styles.columnLabel}>Category</Text>
+                          <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
+                            {['memoir', 'history', 'training', 'reference'].map(cat => (
+                              <TouchableOpacity
+                                key={cat}
+                                onPress={() => updateBookField(book.id, 'category', cat)}
+                                style={[styles.filterTypeBtn, { paddingHorizontal: 8, paddingVertical: 3 },
+                                  (override?.category || book.category) === cat && styles.filterTypeBtnActive]}
+                              >
+                                <Text style={[styles.filterTypeText, { fontSize: 10 },
+                                  (override?.category || book.category) === cat && styles.filterTypeTextActive]}>
+                                  {bookCategoryLabels[cat]}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      </View>
+                      <View style={{ marginTop: Spacing.sm }}>
+                        <Text style={styles.columnLabel}>Description</Text>
+                        <TextInput
+                          style={[styles.editInput, { minHeight: 50 }]}
+                          value={override?.description || book.description}
+                          onChangeText={(v) => updateBookField(book.id, 'description', v)}
+                          multiline
+                          placeholderTextColor={Colors.textMuted}
+                        />
                       </View>
                     </View>
-                  </View>
-                  <Text style={{ color: Colors.textSecondary, fontSize: FontSize.sm, lineHeight: 18, marginTop: 4 }}>{podcast.description}</Text>
-                </View>
-              ))}
-            </View>
-          )}
+                  );
+                })}
+              </View>
+            );
+          })()}
+
+          {activeTab === 'podcasts' && (() => {
+            const hiddenPodcasts: string[] = state.settings.hiddenPodcasts || [];
+            const podcastOverrides: Array<{ podcastId: string; title?: string; hosts?: string; description?: string; status?: string }> = state.settings.adminPodcastOverrides || [];
+            const getPodcastOverride = (id: string) => podcastOverrides.find(o => o.podcastId === id);
+            const toggleHidePodcast = (id: string) => {
+              const updated = hiddenPodcasts.includes(id)
+                ? hiddenPodcasts.filter(p => p !== id)
+                : [...hiddenPodcasts, id];
+              dispatch({ type: 'UPDATE_SETTINGS', payload: { hiddenPodcasts: updated } });
+            };
+            const updatePodcastField = (podcastId: string, field: string, value: string) => {
+              const existing = getPodcastOverride(podcastId);
+              if (existing) {
+                const updated = podcastOverrides.map(o => o.podcastId === podcastId ? { ...o, [field]: value } : o);
+                dispatch({ type: 'UPDATE_SETTINGS', payload: { adminPodcastOverrides: updated } });
+              } else {
+                dispatch({ type: 'UPDATE_SETTINGS', payload: { adminPodcastOverrides: [...podcastOverrides, { podcastId, [field]: value }] } });
+              }
+            };
+            const pq = searchQuery.toLowerCase();
+            const filteredPodcasts = pq
+              ? allPodcasts.filter(p => p.title.toLowerCase().includes(pq) || p.hosts.toLowerCase().includes(pq))
+              : allPodcasts;
+            return (
+              <View>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search podcasts..."
+                  placeholderTextColor={Colors.textMuted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                <Text style={styles.countText}>
+                  {filteredPodcasts.length} podcasts ({hiddenPodcasts.length} hidden)
+                </Text>
+                {filteredPodcasts.map(podcast => {
+                  const isHidden = hiddenPodcasts.includes(podcast.id);
+                  const override = getPodcastOverride(podcast.id);
+                  const currentStatus = override?.status || podcast.status;
+                  return (
+                    <View key={podcast.id} style={[styles.videoItem, isHidden && styles.videoItemHidden]}>
+                      <View style={styles.videoHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.videoTitle, isHidden && styles.textHidden]} numberOfLines={1}>
+                            {override?.title || podcast.title}
+                          </Text>
+                          <Text style={styles.videoMeta}>Hosted by {override?.hosts || podcast.hosts}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 }}>
+                            <View style={[styles.customBadge, { backgroundColor: currentStatus === 'active' ? '#1DB95433' : Colors.surface }]}>
+                              <Text style={[styles.customBadgeText, { color: currentStatus === 'active' ? '#1DB954' : Colors.textMuted }]}>
+                                {currentStatus === 'active' ? 'Active' : 'Archived'}
+                              </Text>
+                            </View>
+                            {podcast.links.spotify && <Text style={styles.videoMeta}>Spotify ✓</Text>}
+                            {podcast.links.apple && <Text style={styles.videoMeta}>Apple ✓</Text>}
+                            {podcast.links.youtube && <Text style={styles.videoMeta}>YouTube ✓</Text>}
+                          </View>
+                        </View>
+                        <TouchableOpacity onPress={() => toggleHidePodcast(podcast.id)} style={styles.iconBtn}>
+                          <Ionicons name={isHidden ? 'eye-off' : 'eye'} size={20} color={isHidden ? '#f44' : Colors.textSecondary} />
+                        </TouchableOpacity>
+                      </View>
+                      {/* Editable fields */}
+                      <View style={styles.tagColumns}>
+                        <View style={[styles.tagColumn, { flex: 2 }]}>
+                          <Text style={styles.columnLabel}>Title</Text>
+                          <TextInput
+                            style={styles.editInput}
+                            value={override?.title || podcast.title}
+                            onChangeText={(v) => updatePodcastField(podcast.id, 'title', v)}
+                            placeholderTextColor={Colors.textMuted}
+                          />
+                        </View>
+                        <View style={styles.tagColumn}>
+                          <Text style={styles.columnLabel}>Hosts</Text>
+                          <TextInput
+                            style={styles.editInput}
+                            value={override?.hosts || podcast.hosts}
+                            onChangeText={(v) => updatePodcastField(podcast.id, 'hosts', v)}
+                            placeholderTextColor={Colors.textMuted}
+                          />
+                        </View>
+                        <View style={styles.tagColumn}>
+                          <Text style={styles.columnLabel}>Status</Text>
+                          <View style={{ flexDirection: 'row', gap: 4 }}>
+                            {['active', 'inactive'].map(s => (
+                              <TouchableOpacity
+                                key={s}
+                                onPress={() => updatePodcastField(podcast.id, 'status', s)}
+                                style={[styles.filterTypeBtn, { paddingHorizontal: 8, paddingVertical: 3 },
+                                  currentStatus === s && styles.filterTypeBtnActive]}
+                              >
+                                <Text style={[styles.filterTypeText, { fontSize: 10 },
+                                  currentStatus === s && styles.filterTypeTextActive]}>
+                                  {s === 'active' ? 'Active' : 'Archived'}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      </View>
+                      <View style={{ marginTop: Spacing.sm }}>
+                        <Text style={styles.columnLabel}>Description</Text>
+                        <TextInput
+                          style={[styles.editInput, { minHeight: 50 }]}
+                          value={override?.description || podcast.description}
+                          onChangeText={(v) => updatePodcastField(podcast.id, 'description', v)}
+                          multiline
+                          placeholderTextColor={Colors.textMuted}
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          })()}
 
           {activeTab === 'flags' && (() => {
             const allRequests = state.settings.removalRequests || [];
@@ -1846,6 +2008,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: '#fff' },
   content: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
   searchInput: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.md, marginBottom: Spacing.md },
+  editInput: { backgroundColor: Colors.background, borderRadius: BorderRadius.sm, padding: Spacing.sm, color: Colors.textPrimary, fontSize: FontSize.sm, borderWidth: 1, borderColor: Colors.divider, marginTop: 4 },
   countText: { color: Colors.textMuted, fontSize: FontSize.sm, marginBottom: Spacing.md },
   videoItem: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.sm },
   videoItemHidden: { opacity: 0.5, borderLeftWidth: 3, borderLeftColor: '#f44' },

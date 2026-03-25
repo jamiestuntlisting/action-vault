@@ -88,6 +88,10 @@ export interface AppSettings {
   booksRead: string[];
   blockedReviewers: string[];
   playlists: Array<{ id: string; name: string; videoIds: string[]; createdAt: string }>;
+  hiddenBooks: string[];
+  hiddenPodcasts: string[];
+  adminBookOverrides: Array<{ bookId: string; title?: string; author?: string; description?: string; category?: string }>;
+  adminPodcastOverrides: Array<{ podcastId: string; title?: string; hosts?: string; description?: string; status?: string }>;
 }
 
 const defaultSettings: AppSettings = {
@@ -183,6 +187,10 @@ const defaultSettings: AppSettings = {
   booksRead: [],
   blockedReviewers: [],
   playlists: [],
+  hiddenBooks: [],
+  hiddenPodcasts: [],
+  adminBookOverrides: [],
+  adminPodcastOverrides: [],
 };
 
 interface State {

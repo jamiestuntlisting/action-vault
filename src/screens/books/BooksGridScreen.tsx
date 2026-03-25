@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { books, bookCategoryLabels, StuntBook } from '../../data/books';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { useAppState } from '../../services/AppState';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const NUM_COLUMNS = Math.max(3, Math.floor((SCREEN_WIDTH - 32) / 140));
@@ -44,8 +45,11 @@ function BookGridCard({ book, onPress }: { book: StuntBook; onPress: () => void 
 
 export function BooksGridScreen({ navigation }: any) {
   usePageTitle('Stunt Books');
+  const { state } = useAppState();
+  const hiddenBookIds = new Set(state.settings.hiddenBooks || []);
+  const visibleBooks = books.filter(b => !hiddenBookIds.has(b.id));
   const [filter, setFilter] = useState<string | null>(null);
-  const filtered = filter ? books.filter(b => b.category === filter) : books;
+  const filtered = filter ? visibleBooks.filter(b => b.category === filter) : visibleBooks;
   const categories = ['memoir', 'history', 'training', 'reference'];
 
   return (

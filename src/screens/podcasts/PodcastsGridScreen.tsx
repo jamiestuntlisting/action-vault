@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { podcasts, StuntPodcast } from '../../data/podcasts';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { useAppState } from '../../services/AppState';
 
 function PodcastGridCard({ podcast, onPress }: { podcast: StuntPodcast; onPress: () => void }) {
   return (
@@ -32,9 +33,12 @@ function PodcastGridCard({ podcast, onPress }: { podcast: StuntPodcast; onPress:
 
 export function PodcastsGridScreen({ navigation }: any) {
   usePageTitle('Stunt Podcasts');
+  const { state } = useAppState();
+  const hiddenPodcastIds = new Set(state.settings.hiddenPodcasts || []);
+  const visiblePodcasts = podcasts.filter(p => !hiddenPodcastIds.has(p.id));
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const filtered = filter === 'all' ? podcasts :
-    podcasts.filter(p => p.status === filter);
+  const filtered = filter === 'all' ? visiblePodcasts :
+    visiblePodcasts.filter(p => p.status === filter);
 
   return (
     <View style={styles.container}>
