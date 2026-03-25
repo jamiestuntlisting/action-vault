@@ -351,18 +351,7 @@ export const books: StuntBook[] = [
     ebaySearchUrl: ebaySearch('Automated Performer Flying Shumway'),
     asin: '0815352131',
   },
-  {
-    id: 'book-30',
-    title: 'Stuntman!: My Car-Crashing, Plane-Jumping, Bone-Breaking, Death-Defying Hollywood Life',
-    author: 'Hal Needham',
-    description: 'The memoir of Hollywood\'s most legendary stuntman, who broke 56 bones across 4,500 TV episodes and 310 features. An insider account of stunt work spanning decades.',
-    category: 'memoir',
-    coverUrl: coverImage('0316078999'),
-    amazonUrl: affiliateLink('0316078999'),
-    ebaySearchUrl: ebaySearch('Stuntman Hal Needham'),
-    asin: '0316078999',
-  },
-  {
+{
     id: 'book-31',
     title: 'Directing the Camera: How Professional Directors Use a Moving Camera to Energize Their Films',
     author: 'Gil Bettman',
@@ -430,29 +419,7 @@ export const books: StuntBook[] = [
   },
 
   // ── Memoirs (batch 3) ──
-  {
-    id: 'book-37',
-    title: 'Stunt Man: The Autobiography of Yakima Canutt',
-    author: 'Yakima Canutt & Oliver Drake',
-    description: 'The autobiography of Hollywood\'s pioneering stuntman who doubled for John Wayne and directed action sequences for Ben-Hur and Spartacus. The only stuntman to receive an honorary Academy Award.',
-    category: 'memoir',
-    coverUrl: coverImage('0806129271'),
-    amazonUrl: affiliateLink('0806129271'),
-    ebaySearchUrl: ebaySearch('Stunt Man Yakima Canutt'),
-    asin: '0806129271',
-  },
-  {
-    id: 'book-38',
-    title: 'The Boy Who Lived: When Magic and Reality Collide',
-    author: 'David Holmes',
-    description: 'Memoir from Daniel Radcliffe\'s stunt double on Harry Potter, covering his career in stunts and the on-set accident during Deathly Hallows that left him paralyzed.',
-    category: 'memoir',
-    coverUrl: coverImage('139973881X'),
-    amazonUrl: affiliateLink('139973881X'),
-    ebaySearchUrl: ebaySearch('Boy Who Lived David Holmes stunt'),
-    asin: '139973881X',
-  },
-  {
+{
     id: 'book-39',
     title: 'Cowboy Stuntman: From Olympic Gold to the Silver Screen',
     author: 'Dean Smith & Mike Cox',
@@ -463,19 +430,8 @@ export const books: StuntBook[] = [
     ebaySearchUrl: ebaySearch('Cowboy Stuntman Dean Smith'),
     asin: '0896727890',
   },
-  {
-    id: 'book-40',
-    title: 'Stunts: The How To Handbook',
-    author: 'Angela Meryl & Michael Andre Adams',
-    description: 'A career guide from a veteran stuntwoman who doubled for Beyonce, Halle Berry, and Rihanna. Covers how to break into and advance in the Hollywood stunt industry.',
-    category: 'memoir',
-    coverUrl: coverImage('0615579094'),
-    amazonUrl: affiliateLink('0615579094'),
-    ebaySearchUrl: ebaySearch('Stunts How To Handbook Angela Meryl'),
-    asin: '0615579094',
-  },
 
-  // ── History (batch 3) ──
+// ── History (batch 3) ──
   {
     id: 'book-41',
     title: 'Films of Fury: The Kung Fu Movie Book',
@@ -610,19 +566,8 @@ export const books: StuntBook[] = [
     ebaySearchUrl: ebaySearch('Fight Directing Theatre Suddeth'),
     asin: '043508674X',
   },
-  {
-    id: 'book-53',
-    title: 'Entertainment Rigging for the 21st Century',
-    author: 'Bill Sapsis',
-    description: 'Covers physical forces, mathematical formulas, performer flying, and stage automation — insider knowledge on rigging systems used in concerts, stage shows, and entertainment events.',
-    category: 'training',
-    coverUrl: coverImage('0415702747'),
-    amazonUrl: affiliateLink('0415702747'),
-    ebaySearchUrl: ebaySearch('Entertainment Rigging 21st Century Sapsis'),
-    asin: '0415702747',
-  },
 
-  // ── Reference (batch 3) ──
+// ── Reference (batch 3) ──
   {
     id: 'book-54',
     title: 'Special Effects: An Oral History — Interviews with 37 Masters Spanning 100 Years',
