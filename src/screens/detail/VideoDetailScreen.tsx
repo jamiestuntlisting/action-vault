@@ -75,33 +75,6 @@ export function VideoDetailScreen({ route, navigation }: any) {
     }
   }
 
-  function handleAddToPlaylist() {
-    const playlists = state.settings.playlists || [];
-    if (playlists.length === 0) {
-      Alert.alert('No Playlists', 'Create a playlist from your Profile page first.');
-      return;
-    }
-    const buttons = playlists.map((pl: any) => ({
-      text: pl.name + (pl.videoIds.includes(videoId) ? ' ✓' : ''),
-      onPress: () => {
-        if (pl.videoIds.includes(videoId)) {
-          // Remove from playlist
-          const updatedPlaylists = playlists.map((p: any) =>
-            p.id === pl.id ? { ...p, videoIds: p.videoIds.filter((id: string) => id !== videoId) } : p
-          );
-          dispatch({ type: 'UPDATE_SETTINGS', payload: { playlists: updatedPlaylists } });
-        } else {
-          // Add to playlist
-          const updatedPlaylists = playlists.map((p: any) =>
-            p.id === pl.id ? { ...p, videoIds: [...p.videoIds, videoId] } : p
-          );
-          dispatch({ type: 'UPDATE_SETTINGS', payload: { playlists: updatedPlaylists } });
-        }
-      },
-    }));
-    buttons.push({ text: 'Cancel', onPress: () => {} });
-    Alert.alert('Add to Playlist', 'Select a playlist:', buttons);
-  }
 
   function handleRemoveVideo() {
     setShowRemoveModal(true);
@@ -181,8 +154,7 @@ export function VideoDetailScreen({ route, navigation }: any) {
           <ActionButton icon={isInMyList(videoId) ? 'checkmark' : 'add'} label="My List" onPress={toggleMyList} active={isInMyList(videoId)} />
           <ActionButton icon="thumbs-up-outline" label="Rate" onPress={() => handleThumb('up')} active={rating?.thumbs === 'up'} />
           <ActionButton icon="thumbs-down-outline" label="Not for me" onPress={() => handleThumb('down')} active={rating?.thumbs === 'down'} />
-          <ActionButton icon="musical-notes-outline" label="Playlist" onPress={handleAddToPlaylist} />
-          <ActionButton icon="share-outline" label="Share" onPress={handleShare} />
+<ActionButton icon="share-outline" label="Share" onPress={handleShare} />
           <ActionButton icon="flag-outline" label="Flag" onPress={handleRemoveVideo} />
         </View>
 

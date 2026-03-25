@@ -29,7 +29,6 @@ export function SettingsScreen({ navigation }: any) {
   const [loadingChannel, setLoadingChannel] = useState(false);
   const [tmdbKey, setTmdbKey] = useState(TmdbService.getApiKey());
   const [tmdbStatus, setTmdbStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
-  const [newPlaylistName, setNewPlaylistName] = useState('');
 
   function updateSetting(key: string, value: any) {
     dispatch({ type: 'UPDATE_SETTINGS', payload: { [key]: value } });
@@ -177,66 +176,6 @@ export function SettingsScreen({ navigation }: any) {
       {/* Quick links */}
       <View style={styles.section}>
         <SettingsRow icon="list-outline" label="My List" onPress={() => navigation.navigate('MyList')} />
-      </View>
-
-      {/* Playlists */}
-      <Text style={styles.sectionTitle}>Playlists</Text>
-      <View style={styles.section}>
-        {(state.settings.playlists || []).map((pl: any) => (
-          <View key={pl.id} style={styles.playlistRow}>
-            <TouchableOpacity
-              style={{ flex: 1 }}
-              onPress={() => navigation.navigate('MyList', { playlistId: pl.id })}
-            >
-              <Text style={styles.playlistName}>{pl.name}</Text>
-              <Text style={styles.playlistCount}>{pl.videoIds.length} video{pl.videoIds.length !== 1 ? 's' : ''}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                Alert.alert('Delete Playlist', `Delete "${pl.name}"?`, [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Delete', style: 'destructive',
-                    onPress: () => {
-                      const updated = (state.settings.playlists || []).filter((p: any) => p.id !== pl.id);
-                      dispatch({ type: 'UPDATE_SETTINGS', payload: { playlists: updated } });
-                    },
-                  },
-                ]);
-              }}
-            >
-              <Ionicons name="trash-outline" size={18} color={Colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-        ))}
-        <View style={styles.urlInputRow}>
-          <TextInput
-            style={styles.urlInput}
-            placeholder="New playlist name..."
-            placeholderTextColor={Colors.inputPlaceholder}
-            value={newPlaylistName}
-            onChangeText={setNewPlaylistName}
-          />
-          <TouchableOpacity
-            style={[styles.addButton, !newPlaylistName.trim() && styles.addButtonDisabled]}
-            onPress={() => {
-              if (!newPlaylistName.trim()) return;
-              const playlists = state.settings.playlists || [];
-              const newPl = {
-                id: `pl-${Date.now()}`,
-                name: newPlaylistName.trim(),
-                videoIds: [],
-                createdAt: new Date().toISOString(),
-              };
-              dispatch({ type: 'UPDATE_SETTINGS', payload: { playlists: [...playlists, newPl] } });
-              setNewPlaylistName('');
-            }}
-            disabled={!newPlaylistName.trim()}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.addButtonText}>Create</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* Submit Videos */}
@@ -432,24 +371,6 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: FontSize.xs,
     marginBottom: Spacing.md,
-  },
-  playlistRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-    gap: Spacing.md,
-  },
-  playlistName: {
-    color: Colors.textPrimary,
-    fontSize: FontSize.md,
-    fontWeight: FontWeight.semibold,
-  },
-  playlistCount: {
-    color: Colors.textMuted,
-    fontSize: FontSize.xs,
-    marginTop: 2,
   },
   plusNote: {
     flexDirection: 'row',
