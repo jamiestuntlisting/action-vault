@@ -223,10 +223,18 @@ export function AdminScreen({ navigation }: any) {
     });
     // Also include any custom names from overrides
     overrides.forEach(o => {
-      o.tagOverrides?.forEach(t => names.add(t));
+      o.peopleOverrides?.forEach(n => names.add(n));
     });
+    // Include book authors and podcast hosts
+    allBooks.forEach(b => b.author.split(/,|&/).map(a => a.trim()).filter(Boolean).forEach(a => names.add(a)));
+    allPodcasts.forEach(p => p.hosts.split(/,|&/).map(h => h.trim()).filter(Boolean).forEach(h => names.add(h)));
+    // Include overridden authors/hosts
+    const bookOvr = state.settings.adminBookOverrides || [];
+    bookOvr.forEach(o => o.authors?.forEach(a => names.add(a)));
+    const podOvr = state.settings.adminPodcastOverrides || [];
+    podOvr.forEach(o => o.hosts?.forEach(h => names.add(h)));
     return Array.from(names).sort();
-  }, [overrides]);
+  }, [overrides, state.settings.adminBookOverrides, state.settings.adminPodcastOverrides]);
 
   // Group videos by production/movie
   const productionGroups = useMemo(() => {
@@ -1672,7 +1680,7 @@ export function AdminScreen({ navigation }: any) {
 
           {activeTab === 'books' && (() => {
             const hiddenBooks: string[] = state.settings.hiddenBooks || [];
-            const bookOverrides: Array<{ bookId: string; title?: string; author?: string; description?: string; category?: string }> = state.settings.adminBookOverrides || [];
+            const bookOverrides: Array<{ bookId: string; title?: string; authors?: string[]; description?: string; category?: string }> = state.settings.adminBookOverrides || [];
             const getBookOverride = (id: string) => bookOverrides.find(o => o.bookId === id);
             const toggleHideBook = (id: string) => {
               const updated = hiddenBooks.includes(id)
@@ -1680,7 +1688,7 @@ export function AdminScreen({ navigation }: any) {
                 : [...hiddenBooks, id];
               dispatch({ type: 'UPDATE_SETTINGS', payload: { hiddenBooks: updated } });
             };
-            const updateBookField = (bookId: string, field: string, value: string) => {
+            const updateBookField = (bookId: string, field: string, value: any) => {
               const existing = getBookOverride(bookId);
               if (existing) {
                 const updated = bookOverrides.map(o => o.bookId === bookId ? { ...o, [field]: value } : o);
@@ -1718,7 +1726,9 @@ export function AdminScreen({ navigation }: any) {
                           <Text style={[styles.videoTitle, isHidden && styles.textHidden]} numberOfLines={1}>
                             {override?.title || book.title}
                           </Text>
-                          <Text style={styles.videoMeta}>{override?.author || book.author}</Text>
+                          <Text style={styles.videoMeta}>
+                            {(override?.authors && override.authors.length > 0) ? override.authors.join(', ') : book.author}
+                          </Text>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 }}>
                             <View style={styles.customBadge}>
                               <Text style={styles.customBadgeText}>{bookCategoryLabels[override?.category || book.category] || book.category}</Text>
@@ -1743,11 +1753,19 @@ export function AdminScreen({ navigation }: any) {
                         </View>
                         <View style={styles.tagColumn}>
                           <Text style={styles.columnLabel}>Author</Text>
-                          <TextInput
-                            style={styles.editInput}
-                            value={override?.author || book.author}
-                            onChangeText={(v) => updateBookField(book.id, 'author', v)}
-                            placeholderTextColor={Colors.textMuted}
+                          <TagInput
+                            currentTags={override?.authors || book.author.split(/,\s*|&\s*/).map(a => a.trim()).filter(Boolean)}
+                            allSuggestions={allPerformerNames}
+                            onAddTag={(name) => {
+                              const current = override?.authors || book.author.split(/,\s*|&\s*/).map(a => a.trim()).filter(Boolean);
+                              updateBookField(book.id, 'authors', [...current, name]);
+                            }}
+                            onRemoveTag={(name) => {
+                              const current = override?.authors || book.author.split(/,\s*|&\s*/).map(a => a.trim()).filter(Boolean);
+                              updateBookField(book.id, 'authors', current.filter(a => a !== name));
+                            }}
+                            placeholder="Add author..."
+                            tagColor="#4fc3f7"
                           />
                         </View>
                         <View style={styles.tagColumn}>
@@ -1788,7 +1806,7 @@ export function AdminScreen({ navigation }: any) {
 
           {activeTab === 'podcasts' && (() => {
             const hiddenPodcasts: string[] = state.settings.hiddenPodcasts || [];
-            const podcastOverrides: Array<{ podcastId: string; title?: string; hosts?: string; description?: string; status?: string }> = state.settings.adminPodcastOverrides || [];
+            const podcastOverrides: Array<{ podcastId: string; title?: string; hosts?: string[]; description?: string; status?: string }> = state.settings.adminPodcastOverrides || [];
             const getPodcastOverride = (id: string) => podcastOverrides.find(o => o.podcastId === id);
             const toggleHidePodcast = (id: string) => {
               const updated = hiddenPodcasts.includes(id)
@@ -1796,7 +1814,7 @@ export function AdminScreen({ navigation }: any) {
                 : [...hiddenPodcasts, id];
               dispatch({ type: 'UPDATE_SETTINGS', payload: { hiddenPodcasts: updated } });
             };
-            const updatePodcastField = (podcastId: string, field: string, value: string) => {
+            const updatePodcastField = (podcastId: string, field: string, value: any) => {
               const existing = getPodcastOverride(podcastId);
               if (existing) {
                 const updated = podcastOverrides.map(o => o.podcastId === podcastId ? { ...o, [field]: value } : o);
@@ -1832,7 +1850,9 @@ export function AdminScreen({ navigation }: any) {
                           <Text style={[styles.videoTitle, isHidden && styles.textHidden]} numberOfLines={1}>
                             {override?.title || podcast.title}
                           </Text>
-                          <Text style={styles.videoMeta}>Hosted by {override?.hosts || podcast.hosts}</Text>
+                          <Text style={styles.videoMeta}>
+                            Hosted by {(override?.hosts && override.hosts.length > 0) ? override.hosts.join(', ') : podcast.hosts}
+                          </Text>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 }}>
                             <View style={[styles.customBadge, { backgroundColor: currentStatus === 'active' ? '#1DB95433' : Colors.surface }]}>
                               <Text style={[styles.customBadgeText, { color: currentStatus === 'active' ? '#1DB954' : Colors.textMuted }]}>
@@ -1861,11 +1881,19 @@ export function AdminScreen({ navigation }: any) {
                         </View>
                         <View style={styles.tagColumn}>
                           <Text style={styles.columnLabel}>Hosts</Text>
-                          <TextInput
-                            style={styles.editInput}
-                            value={override?.hosts || podcast.hosts}
-                            onChangeText={(v) => updatePodcastField(podcast.id, 'hosts', v)}
-                            placeholderTextColor={Colors.textMuted}
+                          <TagInput
+                            currentTags={override?.hosts || podcast.hosts.split(/,\s*|&\s*/).map(h => h.trim()).filter(Boolean)}
+                            allSuggestions={allPerformerNames}
+                            onAddTag={(name) => {
+                              const current = override?.hosts || podcast.hosts.split(/,\s*|&\s*/).map(h => h.trim()).filter(Boolean);
+                              updatePodcastField(podcast.id, 'hosts', [...current, name]);
+                            }}
+                            onRemoveTag={(name) => {
+                              const current = override?.hosts || podcast.hosts.split(/,\s*|&\s*/).map(h => h.trim()).filter(Boolean);
+                              updatePodcastField(podcast.id, 'hosts', current.filter(h => h !== name));
+                            }}
+                            placeholder="Add host..."
+                            tagColor="#4fc3f7"
                           />
                         </View>
                         <View style={styles.tagColumn}>
