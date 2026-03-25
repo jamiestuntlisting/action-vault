@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +19,7 @@ interface AtlasActionCardProps {
 
 export function AtlasActionCard({ video, onPress, width = CARD_WIDTH }: AtlasActionCardProps) {
   const { isAtlasVideoUnlocked } = useAppState();
+  const [imgError, setImgError] = useState(false);
   const unlocked = isAtlasVideoUnlocked(video.id);
   const height = width * 0.56;
 
@@ -29,12 +30,20 @@ export function AtlasActionCard({ video, onPress, width = CARD_WIDTH }: AtlasAct
       activeOpacity={0.8}
     >
       <View style={[styles.imageContainer, { height }]}>
-        <Image
-          source={{ uri: video.thumbnailUrl }}
-          style={styles.image}
-          contentFit="cover"
-          transition={200}
-        />
+        {video.thumbnailUrl && !imgError ? (
+          <Image
+            source={{ uri: video.thumbnailUrl }}
+            style={styles.image}
+            contentFit="cover"
+            transition={200}
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <View style={styles.fallbackThumb}>
+            <Ionicons name="school" size={Math.max(width * 0.12, 16)} color="rgba(255,255,255,0.3)" />
+            <Text style={styles.fallbackTitle} numberOfLines={2}>{video.title}</Text>
+          </View>
+        )}
         {/* Lock overlay for paid locked videos */}
         {!video.isFree && !unlocked && (
           <View style={styles.lockOverlay}>
@@ -76,6 +85,22 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  fallbackThumb: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceHighlight,
+    paddingHorizontal: 8,
+    gap: 4,
+  },
+  fallbackTitle: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 10,
+    fontWeight: FontWeight.semibold,
+    textAlign: 'center',
+    lineHeight: 13,
   },
   lockOverlay: {
     position: 'absolute',

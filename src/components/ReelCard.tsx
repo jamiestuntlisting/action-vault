@@ -24,9 +24,19 @@ export function ReelCard({ reel, onPress, width = CARD_WIDTH }: ReelCardProps) {
       <View style={[styles.thumbContainer, { width, height: width * 0.5625 }]}>
         {thumbUrl ? (
           <Image source={{ uri: thumbUrl }} style={styles.thumbnail} contentFit="cover" />
+        ) : reel.photo ? (
+          <View style={styles.placeholderThumb}>
+            <Image source={{ uri: reel.photo }} style={styles.thumbnail} contentFit="cover" />
+            <View style={styles.placeholderOverlay}>
+              <Text style={styles.placeholderName} numberOfLines={1}>{reel.name}</Text>
+              <Text style={styles.placeholderSkill} numberOfLines={1}>{title}</Text>
+            </View>
+          </View>
         ) : (
           <View style={styles.placeholderThumb}>
-            <Text style={styles.placeholderText}>🎬</Text>
+            <Text style={styles.placeholderInitialLg}>{reel.name.charAt(0)}</Text>
+            <Text style={styles.placeholderName} numberOfLines={1}>{reel.name}</Text>
+            <Text style={styles.placeholderSkill} numberOfLines={1}>{title}</Text>
           </View>
         )}
         {/* StuntListing badge */}
@@ -77,6 +87,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.surfaceHighlight,
+  },
+  placeholderOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  placeholderInitialLg: {
+    fontSize: 28,
+    fontWeight: FontWeight.bold,
+    color: 'rgba(255,255,255,0.4)',
+    marginBottom: 2,
+  },
+  placeholderName: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
+    textAlign: 'center',
+  },
+  placeholderSkill: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 9,
+    textAlign: 'center',
+    marginTop: 1,
   },
   placeholderText: {
     fontSize: 24,

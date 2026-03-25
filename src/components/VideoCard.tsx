@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +23,7 @@ interface VideoCardProps {
 
 export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, showProgress, showRank }: VideoCardProps) {
   const { getWatchProgress } = useAppState();
+  const [imgError, setImgError] = useState(false);
   const progress = getWatchProgress(video.id);
   const progressPercent = progress ? (progress.progressSeconds / video.durationSeconds) * 100 : 0;
   const isWatched = progress?.completed === true;
@@ -37,12 +38,20 @@ export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, sho
       activeOpacity={0.8}
     >
       <View style={[styles.imageContainer, { height }]}>
-        <Image
-          source={{ uri: video.thumbnailUrl }}
-          style={[styles.image, (isWatched || isPartiallyWatched) && styles.imageWatched]}
-          contentFit="cover"
-          transition={200}
-        />
+        {video.thumbnailUrl && !imgError ? (
+          <Image
+            source={{ uri: video.thumbnailUrl }}
+            style={[styles.image, (isWatched || isPartiallyWatched) && styles.imageWatched]}
+            contentFit="cover"
+            transition={200}
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <View style={styles.fallbackThumb}>
+            <Ionicons name="videocam" size={Math.max(width * 0.15, 18)} color="rgba(255,255,255,0.3)" />
+            <Text style={styles.fallbackTitle} numberOfLines={2}>{video.title}</Text>
+          </View>
+        )}
         {/* Grey overlay + status label for watched videos */}
         {(isWatched || isPartiallyWatched) && (
           <View style={styles.watchedOverlay}>
@@ -99,6 +108,22 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  fallbackThumb: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceHighlight,
+    paddingHorizontal: 8,
+    gap: 4,
+  },
+  fallbackTitle: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 10,
+    fontWeight: FontWeight.semibold,
+    textAlign: 'center',
+    lineHeight: 13,
   },
   imageWatched: {
     opacity: 0.4,
