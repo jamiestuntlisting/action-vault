@@ -7,8 +7,10 @@ import { usePageTitle } from '../../hooks/usePageTitle';
 import { useAppState } from '../../services/AppState';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const NUM_COLUMNS = Math.max(3, Math.floor((SCREEN_WIDTH - 32) / 140));
-const CARD_WIDTH = Math.floor((SCREEN_WIDTH - 32 - (NUM_COLUMNS - 1) * 12) / NUM_COLUMNS);
+const MIN_CARD_WIDTH = 120;
+const MAX_CARD_WIDTH = 160;
+const NUM_COLUMNS = Math.max(2, Math.min(6, Math.floor((SCREEN_WIDTH - 32) / (MIN_CARD_WIDTH + 12))));
+const CARD_WIDTH = Math.max(MIN_CARD_WIDTH, Math.min(MAX_CARD_WIDTH, Math.floor((SCREEN_WIDTH - 32 - (NUM_COLUMNS - 1) * 12) / NUM_COLUMNS)));
 const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.5);
 
 function BookGridCard({ book, onPress }: { book: StuntBook; onPress: () => void }) {
@@ -132,7 +134,7 @@ const styles = StyleSheet.create({
   filterChipTextActive: { color: '#fff' },
   grid: { paddingHorizontal: Spacing.screen, paddingBottom: 80 },
   row: { gap: 12, marginBottom: 16 },
-  card: { flex: 1 },
+  card: { flex: 1, minWidth: MIN_CARD_WIDTH, maxWidth: MAX_CARD_WIDTH },
   coverContainer: {
     width: '100%', height: CARD_HEIGHT, borderRadius: BorderRadius.md,
     overflow: 'hidden', backgroundColor: Colors.surface, marginBottom: 6,

@@ -94,9 +94,25 @@ export function HeroCarousel({ videos, onPlay, onInfo, onAddToList, isInList }: 
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const autoPlayTimer = useRef<any>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   const isWeb = Platform.OS === 'web';
   const activeVideo = videos.length > 0 ? videos[activeIndex] : null;
+
+  function goToIndex(index: number) {
+    const newIndex = ((index % videos.length) + videos.length) % videos.length;
+    setActiveIndex(newIndex);
+    flatListRef.current?.scrollToIndex({ index: newIndex, animated: true });
+    // Reset auto-play timer
+    clearInterval(autoPlayTimer.current);
+    autoPlayTimer.current = setInterval(() => {
+      setActiveIndex(prev => {
+        const next = (prev + 1) % videos.length;
+        flatListRef.current?.scrollToIndex({ index: next, animated: true });
+        return next;
+      });
+    }, 6000);
+  }
 
   // Auto-rotate every 6 seconds
   useEffect(() => {
@@ -142,8 +158,15 @@ export function HeroCarousel({ videos, onPlay, onInfo, onAddToList, isInList }: 
     );
   }
 
+  const hoverProps = isWeb ? {
+    onMouseEnter: () => setIsHovered(true),
+    onMouseLeave: () => setIsHovered(false),
+  } : {};
+
+  const showArrows = isWeb && isHovered && videos.length > 1;
+
   return (
-    <View style={styles.container}>
+    <View style={styles.container} {...(hoverProps as any)}>
       <FlatList
         ref={flatListRef}
         data={videos}
@@ -173,6 +196,25 @@ export function HeroCarousel({ videos, onPlay, onInfo, onAddToList, isInList }: 
         style={styles.gradientOverlay}
         pointerEvents="none"
       />
+      {/* Left/Right navigation arrows */}
+      {showArrows && (
+        <TouchableOpacity
+          style={[styles.navArrow, styles.navArrowLeft]}
+          onPress={() => goToIndex(activeIndex - 1)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="chevron-back" size={32} color="#fff" />
+        </TouchableOpacity>
+      )}
+      {showArrows && (
+        <TouchableOpacity
+          style={[styles.navArrow, styles.navArrowRight]}
+          onPress={() => goToIndex(activeIndex + 1)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="chevron-forward" size={32} color="#fff" />
+        </TouchableOpacity>
+      )}
       {/* Content overlay */}
       {activeVideo && (
         <View style={styles.contentOverlay}>
@@ -287,6 +329,26 @@ const styles = StyleSheet.create({
   secondaryText: {
     color: Colors.textSecondary,
     fontSize: FontSize.xs,
+  },
+  navArrow: {
+    position: 'absolute',
+    top: 0,
+    bottom: 80,
+    width: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    zIndex: 5,
+  },
+  navArrowLeft: {
+    left: 0,
+    borderTopRightRadius: BorderRadius.sm,
+    borderBottomRightRadius: BorderRadius.sm,
+  },
+  navArrowRight: {
+    right: 0,
+    borderTopLeftRadius: BorderRadius.sm,
+    borderBottomLeftRadius: BorderRadius.sm,
   },
   dots: {
     position: 'absolute',

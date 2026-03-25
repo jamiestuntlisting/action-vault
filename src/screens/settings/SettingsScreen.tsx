@@ -182,12 +182,12 @@ export function SettingsScreen({ navigation }: any) {
         <SettingsRow icon="list-outline" label="My List" onPress={() => navigation.navigate('MyList')} />
       </View>
 
-      {/* Submit Videos */}
-      <Text style={styles.sectionTitle}>Submit Videos</Text>
+      {/* Submit Content */}
+      <Text style={styles.sectionTitle}>Submit Content</Text>
       <View style={styles.section}>
         <View style={styles.channelInfo}>
-          <Ionicons name="videocam-outline" size={22} color={Colors.primary} />
-          <Text style={styles.channelLabel}>Submit a video to the Action Vault. Our team will review and add it.</Text>
+          <Ionicons name="add-circle-outline" size={22} color={Colors.primary} />
+          <Text style={styles.channelLabel}>Submit a video, book, or podcast to the Action Vault. Our team will review and add it.</Text>
         </View>
 
         <View style={styles.urlInputRow}>

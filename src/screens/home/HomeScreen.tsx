@@ -450,10 +450,10 @@ export function HomeScreen({ navigation }: any) {
         {todaysSkillReels.map(([skillName, reels]) => (
           <ReelRow
             key={skillName}
-            title={skillName}
+            title={`${skillName} Reels`}
             reels={reels}
             onReelPress={(reel) => navigation.navigate('ReelDetail', { reelId: reel.id })}
-            onSeeAll={() => navigation.navigate('ReelGrid', { title: skillName, reelIds: reels.map(r => r.id) })}
+            onSeeAll={() => navigation.navigate('ReelGrid', { title: `${skillName} Reels`, reelIds: reels.map(r => r.id) })}
           />
         ))}
 

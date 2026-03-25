@@ -1939,27 +1939,71 @@ export function AdminScreen({ navigation }: any) {
             const approved = submissions.filter(s => s.status === 'approved');
             const rejected = submissions.filter(s => s.status === 'rejected');
 
+            // Track which submission is being edited (by index)
+            const [editingSubIndex, setEditingSubIndex] = React.useState<number | null>(null);
+            const [editSubTitle, setEditSubTitle] = React.useState('');
+            const [editSubDescription, setEditSubDescription] = React.useState('');
+            const [editSubCategory, setEditSubCategory] = React.useState('');
+            const [editSubTags, setEditSubTags] = React.useState<string[]>([]);
+            const [editSubPeople, setEditSubPeople] = React.useState<string[]>([]);
+            const [editSubMovies, setEditSubMovies] = React.useState<string[]>([]);
+
+            const startEditingSubmission = (index: number) => {
+              const sub = submissions[index];
+              setEditingSubIndex(index);
+              setEditSubTitle(sub.title);
+              setEditSubDescription(sub.author || '');
+              setEditSubCategory(sub.category || 'Behind the Scenes');
+              setEditSubTags(sub.category ? [sub.category] : []);
+              setEditSubPeople([]);
+              setEditSubMovies([]);
+            };
+
+            const saveSubmissionEdits = (index: number) => {
+              const updatedSubs = submissions.map((s, i) => i === index ? {
+                ...s,
+                title: editSubTitle,
+                category: editSubCategory,
+              } : s);
+              dispatch({ type: 'UPDATE_SETTINGS', payload: { vaultSubmissions: updatedSubs } });
+              setEditingSubIndex(null);
+            };
+
             const approveSubmission = (index: number) => {
               const sub = submissions[index];
+              const isEditing = editingSubIndex === index;
+              const finalTitle = isEditing ? editSubTitle : sub.title;
+              const finalCategory = isEditing ? editSubCategory : (sub.category || 'Behind the Scenes');
+              const finalTags = isEditing && editSubTags.length > 0 ? editSubTags : [finalCategory];
+              const finalPeople = isEditing ? editSubPeople : [];
+              const finalMovies = isEditing ? editSubMovies : [];
+              const finalDescription = isEditing ? editSubDescription : `Submitted by ${sub.submittedByEmail || 'a user'}`;
+
               // Create a user video entry (hidden by default)
               const userVideos = state.settings.userVideos || [];
               const newVideoId = `user-${sub.videoId}`;
               const newVideo = {
                 id: newVideoId,
-                title: sub.title,
-                description: `Submitted by ${sub.submittedByEmail || 'a user'}`,
+                title: finalTitle,
+                description: finalDescription,
                 youtubeId: sub.videoId,
                 thumbnailUrl: sub.thumbnailUrl,
-                category: sub.category || 'Behind the Scenes',
+                category: finalCategory,
                 submittedBy: sub.submittedByEmail || 'unknown',
                 submittedAt: sub.submittedAt,
                 durationSeconds: 0,
               };
-              // Add to hidden video overrides
+              // Add to hidden video overrides with tags, people, movies
               const currentOverrides = state.settings.adminVideoOverrides || [];
-              const newOverride = { videoId: newVideoId, hidden: true, tagOverrides: [sub.category || 'Behind the Scenes'] };
+              const newOverride: AdminVideoOverride = {
+                videoId: newVideoId,
+                hidden: true,
+                tagOverrides: finalTags,
+                peopleOverrides: finalPeople.length > 0 ? finalPeople : undefined,
+                movieTags: finalMovies.length > 0 ? finalMovies : undefined,
+              };
               // Mark submission as approved
-              const updatedSubs = submissions.map((s, i) => i === index ? { ...s, status: 'approved' as const } : s);
+              const updatedSubs = submissions.map((s, i) => i === index ? { ...s, status: 'approved' as const, title: finalTitle, category: finalCategory } : s);
               dispatch({
                 type: 'UPDATE_SETTINGS',
                 payload: {
@@ -1968,17 +2012,21 @@ export function AdminScreen({ navigation }: any) {
                   vaultSubmissions: updatedSubs,
                 }
               });
+              setEditingSubIndex(null);
             };
 
             const rejectSubmission = (index: number) => {
               const updatedSubs = submissions.map((s, i) => i === index ? { ...s, status: 'rejected' as const } : s);
               dispatch({ type: 'UPDATE_SETTINGS', payload: { vaultSubmissions: updatedSubs } });
+              setEditingSubIndex(null);
             };
 
             const removeSubmission = (index: number) => {
               const updatedSubs = submissions.filter((_, i) => i !== index);
               dispatch({ type: 'UPDATE_SETTINGS', payload: { vaultSubmissions: updatedSubs } });
             };
+
+            const categoryOptions = ['Behind the Scenes', 'Fight Choreography', 'Car Stunts', 'High Falls', 'Fire Stunts', 'Wire Work', 'Stunt Training', 'Full BTS Featurette', 'Other'];
 
             return (
               <View>
@@ -1989,24 +2037,109 @@ export function AdminScreen({ navigation }: any) {
 
                 {pending.length > 0 && (
                   <View style={{ marginBottom: Spacing.lg }}>
-                    <Text style={[styles.columnLabel, { fontSize: FontSize.md, marginBottom: Spacing.sm }]}>Pending Review</Text>
+                    <Text style={[styles.columnLabel, { fontSize: FontSize.md, marginBottom: Spacing.sm }]}>Pending Review — Edit info before approving</Text>
                     {submissions.map((sub, index) => {
                       if (sub.status && sub.status !== 'pending') return null;
+                      const isEditing = editingSubIndex === index;
                       return (
                         <View key={index} style={styles.videoItem}>
                           <View style={styles.videoHeader}>
                             <View style={{ flex: 1 }}>
-                              <Text style={styles.videoTitle}>{sub.title}</Text>
-                              <Text style={styles.videoMeta}>{sub.author} · {sub.category || 'Uncategorized'}</Text>
-                              <Text style={styles.videoMeta}>
-                                Submitted by {sub.submittedByEmail || 'unknown'} · {new Date(sub.submittedAt).toLocaleDateString()}
-                              </Text>
+                              {!isEditing ? (
+                                <>
+                                  <Text style={styles.videoTitle}>{sub.title}</Text>
+                                  <Text style={styles.videoMeta}>{sub.author} · {sub.category || 'Uncategorized'}</Text>
+                                  <Text style={styles.videoMeta}>
+                                    Submitted by {sub.submittedByEmail || 'unknown'} · {new Date(sub.submittedAt).toLocaleDateString()}
+                                  </Text>
+                                </>
+                              ) : (
+                                <View style={{ gap: Spacing.sm }}>
+                                  <Text style={styles.columnLabel}>Title</Text>
+                                  <TextInput
+                                    style={styles.editInput}
+                                    value={editSubTitle}
+                                    onChangeText={setEditSubTitle}
+                                    placeholder="Video title"
+                                    placeholderTextColor={Colors.textMuted}
+                                  />
+                                  <Text style={styles.columnLabel}>Description</Text>
+                                  <TextInput
+                                    style={[styles.editInput, { height: 60 }]}
+                                    value={editSubDescription}
+                                    onChangeText={setEditSubDescription}
+                                    placeholder="Video description"
+                                    placeholderTextColor={Colors.textMuted}
+                                    multiline
+                                  />
+                                  <Text style={styles.columnLabel}>Category</Text>
+                                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+                                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                                      {categoryOptions.map(cat => (
+                                        <TouchableOpacity
+                                          key={cat}
+                                          onPress={() => setEditSubCategory(cat)}
+                                          style={{
+                                            paddingHorizontal: 10, paddingVertical: 5,
+                                            borderRadius: 12, borderWidth: 1,
+                                            borderColor: editSubCategory === cat ? Colors.primary : Colors.divider,
+                                            backgroundColor: editSubCategory === cat ? Colors.primary + '33' : 'transparent',
+                                          }}
+                                        >
+                                          <Text style={{ color: editSubCategory === cat ? Colors.primary : Colors.textSecondary, fontSize: 12 }}>{cat}</Text>
+                                        </TouchableOpacity>
+                                      ))}
+                                    </View>
+                                  </ScrollView>
+                                  <Text style={styles.columnLabel}>Tags</Text>
+                                  <TagInput
+                                    currentTags={editSubTags}
+                                    allSuggestions={allSkillTagNames}
+                                    onAddTag={(tag) => setEditSubTags(prev => [...prev, tag])}
+                                    onRemoveTag={(tag) => setEditSubTags(prev => prev.filter(t => t !== tag))}
+                                    placeholder="Add skill tags..."
+                                  />
+                                  <Text style={styles.columnLabel}>People</Text>
+                                  <TagInput
+                                    currentTags={editSubPeople}
+                                    allSuggestions={allPerformerNames}
+                                    onAddTag={(name) => setEditSubPeople(prev => [...prev, name])}
+                                    onRemoveTag={(name) => setEditSubPeople(prev => prev.filter(n => n !== name))}
+                                    placeholder="Add stunt performers..."
+                                    tagColor="#22c55e"
+                                  />
+                                  <Text style={styles.columnLabel}>Movie / Production</Text>
+                                  <TagInput
+                                    currentTags={editSubMovies}
+                                    allSuggestions={allMovieNames}
+                                    onAddTag={(name) => setEditSubMovies(prev => [...prev, name])}
+                                    onRemoveTag={(name) => setEditSubMovies(prev => prev.filter(n => n !== name))}
+                                    placeholder="Add movie or production title..."
+                                    tagColor="#f59e0b"
+                                  />
+                                </View>
+                              )}
                             </View>
                           </View>
-                          <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm }}>
+                          <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, flexWrap: 'wrap' }}>
+                            {!isEditing ? (
+                              <TouchableOpacity
+                                onPress={() => startEditingSubmission(index)}
+                                style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.primary + '33' }}
+                              >
+                                <Text style={{ color: Colors.primary, fontWeight: FontWeight.bold, fontSize: FontSize.sm }}>✎ Edit Info</Text>
+                              </TouchableOpacity>
+                            ) : (
+                              <TouchableOpacity
+                                onPress={() => saveSubmissionEdits(index)}
+                                style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.primary + '33' }}
+                              >
+                                <Text style={{ color: Colors.primary, fontWeight: FontWeight.bold, fontSize: FontSize.sm }}>✓ Save Edits</Text>
+                              </TouchableOpacity>
+                            )}
                             <TouchableOpacity
                               onPress={() => approveSubmission(index)}
-                              style={[styles.filterTypeBtnActive, { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: '#22c55e33' }]}
+                              style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: '#22c55e33' }}
                             >
                               <Text style={{ color: '#22c55e', fontWeight: FontWeight.bold, fontSize: FontSize.sm }}>✓ Approve (Hidden)</Text>
                             </TouchableOpacity>
@@ -2026,6 +2159,14 @@ export function AdminScreen({ navigation }: any) {
                             >
                               <Text style={{ color: Colors.textSecondary, fontSize: FontSize.sm }}>▶ Preview</Text>
                             </TouchableOpacity>
+                            {isEditing && (
+                              <TouchableOpacity
+                                onPress={() => setEditingSubIndex(null)}
+                                style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.surface }}
+                              >
+                                <Text style={{ color: Colors.textMuted, fontSize: FontSize.sm }}>Cancel</Text>
+                              </TouchableOpacity>
+                            )}
                           </View>
                         </View>
                       );
