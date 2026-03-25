@@ -1976,6 +1976,7 @@ export function AdminScreen({ navigation }: any) {
 
             const approveSubmission = (index: number) => {
               const sub = submissions[index];
+              const contentType = (sub as any).contentType || 'video';
               const isEditing = editingSubIndex === index;
               const finalTitle = isEditing ? editSubTitle : sub.title;
               const finalCategory = isEditing ? editSubCategory : (sub.category || 'Behind the Scenes');
@@ -1984,39 +1985,85 @@ export function AdminScreen({ navigation }: any) {
               const finalMovies = isEditing ? editSubMovies : [];
               const finalDescription = isEditing ? editSubDescription : `Submitted by ${sub.submittedByEmail || 'a user'}`;
 
-              // Create a user video entry (hidden by default)
-              const userVideos = state.settings.userVideos || [];
-              const newVideoId = `user-${sub.videoId}`;
-              const newVideo = {
-                id: newVideoId,
-                title: finalTitle,
-                description: finalDescription,
-                youtubeId: sub.videoId,
-                thumbnailUrl: sub.thumbnailUrl,
-                category: finalCategory,
-                submittedBy: sub.submittedByEmail || 'unknown',
-                submittedAt: sub.submittedAt,
-                durationSeconds: 0,
-              };
-              // Add to hidden video overrides with tags, people, movies
-              const currentOverrides = state.settings.adminVideoOverrides || [];
-              const newOverride: AdminVideoOverride = {
-                videoId: newVideoId,
-                hidden: true,
-                tagOverrides: finalTags,
-                peopleOverrides: finalPeople.length > 0 ? finalPeople : undefined,
-                movieTags: finalMovies.length > 0 ? finalMovies : undefined,
-              };
               // Mark submission as approved
               const updatedSubs = submissions.map((s, i) => i === index ? { ...s, status: 'approved' as const, title: finalTitle, category: finalCategory } : s);
-              dispatch({
-                type: 'UPDATE_SETTINGS',
-                payload: {
-                  userVideos: [...userVideos, newVideo],
-                  adminVideoOverrides: [...currentOverrides, newOverride],
-                  vaultSubmissions: updatedSubs,
-                }
-              });
+
+              if (contentType === 'book') {
+                // Extract ASIN from Amazon URL
+                const asinMatch = sub.videoId.match(/\/dp\/(\w{10})/);
+                const asin = asinMatch ? asinMatch[1] : '';
+                const userBooks = state.settings.userBooks || [];
+                const newBook = {
+                  id: `user-book-${Date.now()}`,
+                  title: finalTitle,
+                  author: finalPeople.length > 0 ? finalPeople.join(', ') : finalDescription,
+                  description: finalDescription,
+                  category: (['memoir', 'history', 'training', 'reference'].includes(finalCategory) ? finalCategory : 'reference') as 'memoir' | 'history' | 'training' | 'reference',
+                  coverUrl: asin ? `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX200_.jpg` : '',
+                  amazonUrl: sub.videoId,
+                  asin,
+                  submittedBy: sub.submittedByEmail || 'unknown',
+                  submittedAt: sub.submittedAt,
+                };
+                dispatch({
+                  type: 'UPDATE_SETTINGS',
+                  payload: {
+                    userBooks: [...userBooks, newBook],
+                    vaultSubmissions: updatedSubs,
+                  }
+                });
+              } else if (contentType === 'podcast') {
+                const userPodcasts = state.settings.userPodcasts || [];
+                const newPodcast = {
+                  id: `user-podcast-${Date.now()}`,
+                  title: finalTitle,
+                  hosts: finalPeople.length > 0 ? finalPeople.join(', ') : 'Unknown',
+                  description: finalDescription,
+                  status: 'active' as const,
+                  coverUrl: '',
+                  links: { website: sub.videoId },
+                  submittedBy: sub.submittedByEmail || 'unknown',
+                  submittedAt: sub.submittedAt,
+                };
+                dispatch({
+                  type: 'UPDATE_SETTINGS',
+                  payload: {
+                    userPodcasts: [...userPodcasts, newPodcast],
+                    vaultSubmissions: updatedSubs,
+                  }
+                });
+              } else {
+                // Video — existing flow
+                const userVideos = state.settings.userVideos || [];
+                const newVideoId = `user-${sub.videoId}`;
+                const newVideo = {
+                  id: newVideoId,
+                  title: finalTitle,
+                  description: finalDescription,
+                  youtubeId: sub.videoId,
+                  thumbnailUrl: sub.thumbnailUrl,
+                  category: finalCategory,
+                  submittedBy: sub.submittedByEmail || 'unknown',
+                  submittedAt: sub.submittedAt,
+                  durationSeconds: 0,
+                };
+                const currentOverrides = state.settings.adminVideoOverrides || [];
+                const newOverride: AdminVideoOverride = {
+                  videoId: newVideoId,
+                  hidden: true,
+                  tagOverrides: finalTags,
+                  peopleOverrides: finalPeople.length > 0 ? finalPeople : undefined,
+                  movieTags: finalMovies.length > 0 ? finalMovies : undefined,
+                };
+                dispatch({
+                  type: 'UPDATE_SETTINGS',
+                  payload: {
+                    userVideos: [...userVideos, newVideo],
+                    adminVideoOverrides: [...currentOverrides, newOverride],
+                    vaultSubmissions: updatedSubs,
+                  }
+                });
+              }
               setEditingSubIndex(null);
             };
 

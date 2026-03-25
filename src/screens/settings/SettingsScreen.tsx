@@ -30,23 +30,33 @@ export function SettingsScreen({ navigation }: any) {
   const [tmdbKey, setTmdbKey] = useState(TmdbService.getApiKey());
   const [tmdbStatus, setTmdbStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
   const [submitCategory, setSubmitCategory] = useState('Behind the Scenes');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   function updateSetting(key: string, value: any) {
     dispatch({ type: 'UPDATE_SETTINGS', payload: { [key]: value } });
   }
 
   function handleSignOut() {
-    showAlert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out', style: 'destructive',
-        onPress: async () => {
-          await StorageService.clearAll();
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm('Are you sure you want to sign out?')) {
+        StorageService.clearAll().then(() => {
           dispatch({ type: 'LOGOUT' });
           navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
+        });
+      }
+    } else {
+      Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out', style: 'destructive',
+          onPress: async () => {
+            await StorageService.clearAll();
+            dispatch({ type: 'LOGOUT' });
+            navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
+          },
         },
-      },
-    ]);
+      ]);
+    }
   }
 
   function extractChannelId(url: string): string | null {
@@ -89,28 +99,42 @@ export function SettingsScreen({ navigation }: any) {
     }
   }
 
-  function detectSubmissionType(url: string): 'video' | 'book' | 'podcast' | 'unknown' {
+  function detectSubmissionType(url: string): 'video' | 'book' | 'podcast' | 'content' {
     const u = url.toLowerCase().trim();
     if (u.match(/(?:youtube\.com|youtu\.be)/)) return 'video';
     if (u.match(/(?:amazon\.|amzn\.|goodreads\.com|bookshop\.org)/)) return 'book';
     if (u.match(/(?:podcasts\.apple|spotify\.com\/show|open\.spotify|anchor\.fm|rss|feed|podcast)/)) return 'podcast';
-    return 'unknown';
+    return 'content';
   }
 
-  function showAlert(title: string, message: string, buttons?: Array<{ text: string; onPress?: () => void; style?: string }>) {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (buttons && buttons.length > 1) {
-        const confirmed = window.confirm(`${title}\n\n${message}`);
-        if (confirmed) {
-          const action = buttons.find(b => b.style !== 'cancel' && b.onPress);
-          action?.onPress?.();
-        }
-      } else {
-        window.alert(`${title}\n\n${message}`);
+  function extractTitleFromUrl(url: string, type: string): string {
+    // Amazon: pull title from URL slug like /Stunt-Story-great-movie-stunt/dp/
+    if (type === 'book') {
+      const slugMatch = url.match(/amazon\.com\/([^/]+)\/dp\//);
+      if (slugMatch) {
+        return slugMatch[1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       }
-    } else {
-      Alert.alert(title, message, buttons as any);
+      const shortMatch = url.match(/amzn\.\w+\/([^/?]+)/);
+      if (shortMatch) return shortMatch[1].replace(/-/g, ' ');
     }
+    // Podcast: try to pull name from Apple/Spotify URL
+    if (type === 'podcast') {
+      const appleMatch = url.match(/podcasts\.apple\.com\/.*\/podcast\/([^/]+)/);
+      if (appleMatch) return decodeURIComponent(appleMatch[1]).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      const spotifyMatch = url.match(/spotify\.com\/show\/\w+/);
+      if (spotifyMatch) return 'Podcast Submission';
+    }
+    return url;
+  }
+
+  function extractAsinFromUrl(url: string): string {
+    const match = url.match(/\/dp\/(\w{10})/);
+    return match ? match[1] : '';
+  }
+
+  function showToast(message: string) {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 4000);
   }
 
   async function handleSubmitContent() {
@@ -118,87 +142,65 @@ export function SettingsScreen({ navigation }: any) {
     if (!url) return;
 
     const type = detectSubmissionType(url);
+    setLoadingChannel(true);
 
-    // YouTube video
+    // YouTube video — fetch title via oembed
     const videoIdMatch = url.match(/(?:v=|\/embed\/|youtu\.be\/)([\w-]{11})/);
     if (videoIdMatch) {
       const videoId = videoIdMatch[1];
-      setLoadingChannel(true);
       try {
         const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
         if (!response.ok) throw new Error('Video not found');
         const data = await response.json();
-        showAlert(
-          'Submit Video?',
-          `"${data.title}" by ${data.author_name}\n\nSubmit this video to the Action Vault for review?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Submit',
-              onPress: () => {
-                const submissions = state.settings.vaultSubmissions || [];
-                dispatch({
-                  type: 'UPDATE_SETTINGS',
-                  payload: {
-                    vaultSubmissions: [...submissions, {
-                      videoId,
-                      title: data.title,
-                      author: data.author_name,
-                      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-                      submittedAt: new Date().toISOString(),
-                      category: submitCategory,
-                      status: 'pending' as const,
-                      submittedByEmail: state.currentUser?.email || 'unknown',
-                      contentType: 'video' as const,
-                    }]
-                  }
-                });
-                showAlert('Submitted!', 'Your video has been submitted for review.');
-                setChannelUrl('');
-              }
-            }
-          ]
-        );
+        const submissions = state.settings.vaultSubmissions || [];
+        dispatch({
+          type: 'UPDATE_SETTINGS',
+          payload: {
+            vaultSubmissions: [...submissions, {
+              videoId,
+              title: data.title,
+              author: data.author_name,
+              thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+              submittedAt: new Date().toISOString(),
+              category: submitCategory,
+              status: 'pending' as const,
+              submittedByEmail: state.currentUser?.email || 'unknown',
+              contentType: 'video' as const,
+            }]
+          }
+        });
+        showToast(`Video submitted: "${data.title}"`);
+        setChannelUrl('');
       } catch (e) {
-        showAlert('Error', 'Could not find that video. Please check the URL.');
+        showToast('Could not find that video. Please check the URL.');
       }
       setLoadingChannel(false);
       return;
     }
 
-    // Book or podcast or generic — submit with the URL and let admin review
-    const contentLabel = type === 'book' ? 'book' : type === 'podcast' ? 'podcast' : 'content';
-    showAlert(
-      `Submit ${contentLabel.charAt(0).toUpperCase() + contentLabel.slice(1)}?`,
-      `Submit this ${contentLabel} link to the Action Vault for review?\n\n${url}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit',
-          onPress: () => {
-            const submissions = state.settings.vaultSubmissions || [];
-            dispatch({
-              type: 'UPDATE_SETTINGS',
-              payload: {
-                vaultSubmissions: [...submissions, {
-                  videoId: url,
-                  title: url,
-                  author: '',
-                  thumbnailUrl: '',
-                  submittedAt: new Date().toISOString(),
-                  category: submitCategory,
-                  status: 'pending' as const,
-                  submittedByEmail: state.currentUser?.email || 'unknown',
-                  contentType: contentLabel as any,
-                }]
-              }
-            });
-            showAlert('Submitted!', `Your ${contentLabel} has been submitted for review. Our team will add it to the vault.`);
-            setChannelUrl('');
-          }
-        }
-      ]
-    );
+    // Book, podcast, or other content
+    const title = extractTitleFromUrl(url, type);
+    const contentLabel = type === 'book' ? 'Book' : type === 'podcast' ? 'Podcast' : 'Content';
+    const submissions = state.settings.vaultSubmissions || [];
+    dispatch({
+      type: 'UPDATE_SETTINGS',
+      payload: {
+        vaultSubmissions: [...submissions, {
+          videoId: url,
+          title,
+          author: '',
+          thumbnailUrl: '',
+          submittedAt: new Date().toISOString(),
+          category: submitCategory,
+          status: 'pending' as const,
+          submittedByEmail: state.currentUser?.email || 'unknown',
+          contentType: type as any,
+        }]
+      }
+    });
+    showToast(`${contentLabel} submitted: "${title}"\nOur team will review and add it.`);
+    setChannelUrl('');
+    setLoadingChannel(false);
   }
 
   async function handleTestTmdbKey() {
@@ -228,6 +230,7 @@ export function SettingsScreen({ navigation }: any) {
   const submissions = state.settings.vaultSubmissions || [];
 
   return (
+    <View style={{ flex: 1, backgroundColor: Colors.background }}>
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Profile section */}
       <View style={styles.profileCard}>
@@ -333,6 +336,20 @@ export function SettingsScreen({ navigation }: any) {
 
       <View style={{ height: 100 }} />
     </ScrollView>
+
+    {/* Toast notification */}
+    {toastMessage && (
+      <View style={styles.toastContainer}>
+        <View style={styles.toast}>
+          <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
+          <Text style={styles.toastText}>{toastMessage}</Text>
+          <TouchableOpacity onPress={() => setToastMessage(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="close" size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    )}
+    </View>
   );
 }
 
@@ -484,4 +501,36 @@ const styles = StyleSheet.create({
     padding: Spacing.lg, alignItems: 'center',
   },
   signOutText: { color: Colors.primary, fontSize: FontSize.lg, fontWeight: FontWeight.semibold },
+  toastContainer: {
+    position: 'absolute',
+    bottom: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 100,
+    pointerEvents: 'box-none',
+  },
+  toast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    maxWidth: 500,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  toastText: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
 });

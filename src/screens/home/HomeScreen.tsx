@@ -458,10 +458,10 @@ export function HomeScreen({ navigation }: any) {
         ))}
 
         {/* Podcasts — show every other day based on date */}
-        {new Date().getDate() % 2 === 0 && <PodcastSection podcasts={podcasts.filter(p => !hiddenPodcastIds.has(p.id))} navigation={navigation} />}
+        {new Date().getDate() % 2 === 0 && <PodcastSection podcasts={[...podcasts.filter(p => !hiddenPodcastIds.has(p.id)), ...(state.settings.userPodcasts || []).map((up: any) => ({ ...up, ebaySearchUrl: '' }))]} navigation={navigation} />}
 
         {/* Books Section — at the bottom */}
-        <BooksSection books={books.filter(b => !hiddenBookIds.has(b.id))} navigation={navigation} />
+        <BooksSection books={[...books.filter(b => !hiddenBookIds.has(b.id)), ...(state.settings.userBooks || []).map((ub: any) => ({ ...ub, ebaySearchUrl: '' }))]} navigation={navigation} />
       </View>
     </ScrollView>
   );

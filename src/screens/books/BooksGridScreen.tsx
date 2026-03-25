@@ -49,7 +49,8 @@ export function BooksGridScreen({ navigation }: any) {
   usePageTitle('Stunt Books');
   const { state } = useAppState();
   const hiddenBookIds = new Set(state.settings.hiddenBooks || []);
-  const visibleBooks = books.filter(b => !hiddenBookIds.has(b.id));
+  const userBooks = (state.settings.userBooks || []).map((ub: any) => ({ ...ub, ebaySearchUrl: '' }));
+  const visibleBooks = [...books.filter(b => !hiddenBookIds.has(b.id)), ...userBooks];
   const [filter, setFilter] = useState<string | null>(null);
   const filtered = filter ? visibleBooks.filter(b => b.category === filter) : visibleBooks;
   const categories = ['memoir', 'history', 'training', 'reference'];

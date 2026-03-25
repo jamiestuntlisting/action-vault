@@ -103,6 +103,29 @@ export interface AppSettings {
     submittedAt: string;
     durationSeconds: number;
   }>;
+  userBooks: Array<{
+    id: string;
+    title: string;
+    author: string;
+    description: string;
+    category: 'memoir' | 'history' | 'training' | 'reference';
+    coverUrl: string;
+    amazonUrl: string;
+    asin: string;
+    submittedBy: string;
+    submittedAt: string;
+  }>;
+  userPodcasts: Array<{
+    id: string;
+    title: string;
+    hosts: string;
+    description: string;
+    status: 'active' | 'inactive';
+    coverUrl: string;
+    links: { apple?: string; spotify?: string; youtube?: string; website?: string };
+    submittedBy: string;
+    submittedAt: string;
+  }>;
 }
 
 const defaultSettings: AppSettings = {
@@ -203,6 +226,8 @@ const defaultSettings: AppSettings = {
   adminBookOverrides: [],
   adminPodcastOverrides: [],
   userVideos: [],
+  userBooks: [],
+  userPodcasts: [],
 };
 
 interface State {

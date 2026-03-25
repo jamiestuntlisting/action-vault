@@ -35,7 +35,8 @@ export function PodcastsGridScreen({ navigation }: any) {
   usePageTitle('Stunt Podcasts');
   const { state } = useAppState();
   const hiddenPodcastIds = new Set(state.settings.hiddenPodcasts || []);
-  const visiblePodcasts = podcasts.filter(p => !hiddenPodcastIds.has(p.id));
+  const userPodcasts = (state.settings.userPodcasts || []).map((up: any) => ({ ...up }));
+  const visiblePodcasts = [...podcasts.filter(p => !hiddenPodcastIds.has(p.id)), ...userPodcasts];
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const filtered = filter === 'all' ? visiblePodcasts :
     visiblePodcasts.filter(p => p.status === filter);
