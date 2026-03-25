@@ -15,7 +15,7 @@ import { podcasts as allPodcasts } from '../../data/podcasts';
 
 const MAX_WIDTH = 960;
 
-type AdminTab = 'videos' | 'categories' | 'bytag' | 'byproduction' | 'lists' | 'atlas' | 'books' | 'podcasts' | 'reviews' | 'stats' | 'flags';
+type AdminTab = 'videos' | 'categories' | 'bytag' | 'byproduction' | 'lists' | 'atlas' | 'books' | 'podcasts' | 'submissions' | 'reviews' | 'stats' | 'flags';
 
 // Autocomplete tag input component
 function TagInput({
@@ -630,6 +630,7 @@ export function AdminScreen({ navigation }: any) {
             { key: 'atlas' as AdminTab, label: 'Atlas Action', icon: 'globe-outline' as const },
             { key: 'books' as AdminTab, label: 'Books', icon: 'book-outline' as const },
             { key: 'podcasts' as AdminTab, label: 'Podcasts', icon: 'mic-outline' as const },
+            { key: 'submissions' as AdminTab, label: 'Submissions', icon: 'cloud-upload-outline' as const },
             { key: 'reviews' as AdminTab, label: 'Reviews', icon: 'chatbubbles-outline' as const },
             { key: 'stats' as AdminTab, label: 'Stats', icon: 'stats-chart-outline' as const },
             { key: 'flags' as AdminTab, label: 'Flags', icon: 'flag-outline' as const },
@@ -1928,6 +1929,157 @@ export function AdminScreen({ navigation }: any) {
                     </View>
                   );
                 })}
+              </View>
+            );
+          })()}
+
+          {activeTab === 'submissions' && (() => {
+            const submissions = state.settings.vaultSubmissions || [];
+            const pending = submissions.filter(s => !s.status || s.status === 'pending');
+            const approved = submissions.filter(s => s.status === 'approved');
+            const rejected = submissions.filter(s => s.status === 'rejected');
+
+            const approveSubmission = (index: number) => {
+              const sub = submissions[index];
+              // Create a user video entry (hidden by default)
+              const userVideos = state.settings.userVideos || [];
+              const newVideoId = `user-${sub.videoId}`;
+              const newVideo = {
+                id: newVideoId,
+                title: sub.title,
+                description: `Submitted by ${sub.submittedByEmail || 'a user'}`,
+                youtubeId: sub.videoId,
+                thumbnailUrl: sub.thumbnailUrl,
+                category: sub.category || 'Behind the Scenes',
+                submittedBy: sub.submittedByEmail || 'unknown',
+                submittedAt: sub.submittedAt,
+                durationSeconds: 0,
+              };
+              // Add to hidden video overrides
+              const currentOverrides = state.settings.adminVideoOverrides || [];
+              const newOverride = { videoId: newVideoId, hidden: true, tagOverrides: [sub.category || 'Behind the Scenes'] };
+              // Mark submission as approved
+              const updatedSubs = submissions.map((s, i) => i === index ? { ...s, status: 'approved' as const } : s);
+              dispatch({
+                type: 'UPDATE_SETTINGS',
+                payload: {
+                  userVideos: [...userVideos, newVideo],
+                  adminVideoOverrides: [...currentOverrides, newOverride],
+                  vaultSubmissions: updatedSubs,
+                }
+              });
+            };
+
+            const rejectSubmission = (index: number) => {
+              const updatedSubs = submissions.map((s, i) => i === index ? { ...s, status: 'rejected' as const } : s);
+              dispatch({ type: 'UPDATE_SETTINGS', payload: { vaultSubmissions: updatedSubs } });
+            };
+
+            const removeSubmission = (index: number) => {
+              const updatedSubs = submissions.filter((_, i) => i !== index);
+              dispatch({ type: 'UPDATE_SETTINGS', payload: { vaultSubmissions: updatedSubs } });
+            };
+
+            return (
+              <View>
+                <Text style={styles.sectionTitle}>Video Submissions</Text>
+                <Text style={styles.countText}>
+                  {pending.length} pending · {approved.length} approved · {rejected.length} rejected
+                </Text>
+
+                {pending.length > 0 && (
+                  <View style={{ marginBottom: Spacing.lg }}>
+                    <Text style={[styles.columnLabel, { fontSize: FontSize.md, marginBottom: Spacing.sm }]}>Pending Review</Text>
+                    {submissions.map((sub, index) => {
+                      if (sub.status && sub.status !== 'pending') return null;
+                      return (
+                        <View key={index} style={styles.videoItem}>
+                          <View style={styles.videoHeader}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.videoTitle}>{sub.title}</Text>
+                              <Text style={styles.videoMeta}>{sub.author} · {sub.category || 'Uncategorized'}</Text>
+                              <Text style={styles.videoMeta}>
+                                Submitted by {sub.submittedByEmail || 'unknown'} · {new Date(sub.submittedAt).toLocaleDateString()}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm }}>
+                            <TouchableOpacity
+                              onPress={() => approveSubmission(index)}
+                              style={[styles.filterTypeBtnActive, { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: '#22c55e33' }]}
+                            >
+                              <Text style={{ color: '#22c55e', fontWeight: FontWeight.bold, fontSize: FontSize.sm }}>✓ Approve (Hidden)</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => rejectSubmission(index)}
+                              style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: '#f4433633' }}
+                            >
+                              <Text style={{ color: '#f44', fontWeight: FontWeight.bold, fontSize: FontSize.sm }}>✗ Reject</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => {
+                                if (typeof window !== 'undefined') {
+                                  window.open(`https://www.youtube.com/watch?v=${sub.videoId}`, '_blank');
+                                }
+                              }}
+                              style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.surface }}
+                            >
+                              <Text style={{ color: Colors.textSecondary, fontSize: FontSize.sm }}>▶ Preview</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {approved.length > 0 && (
+                  <View style={{ marginBottom: Spacing.lg }}>
+                    <Text style={[styles.columnLabel, { fontSize: FontSize.md, marginBottom: Spacing.sm }]}>Approved (go to Videos tab to unhide)</Text>
+                    {submissions.map((sub, index) => {
+                      if (sub.status !== 'approved') return null;
+                      return (
+                        <View key={index} style={[styles.videoItem, { borderLeftWidth: 3, borderLeftColor: '#22c55e' }]}>
+                          <View style={styles.videoHeader}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.videoTitle}>{sub.title}</Text>
+                              <Text style={styles.videoMeta}>{sub.author} · {sub.category || 'Uncategorized'}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => removeSubmission(index)} style={styles.iconBtn}>
+                              <Ionicons name="trash-outline" size={18} color={Colors.textMuted} />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {rejected.length > 0 && (
+                  <View>
+                    <Text style={[styles.columnLabel, { fontSize: FontSize.md, marginBottom: Spacing.sm }]}>Rejected</Text>
+                    {submissions.map((sub, index) => {
+                      if (sub.status !== 'rejected') return null;
+                      return (
+                        <View key={index} style={[styles.videoItem, { opacity: 0.5, borderLeftWidth: 3, borderLeftColor: '#f44' }]}>
+                          <View style={styles.videoHeader}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.videoTitle}>{sub.title}</Text>
+                              <Text style={styles.videoMeta}>{sub.author}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => removeSubmission(index)} style={styles.iconBtn}>
+                              <Ionicons name="trash-outline" size={18} color={Colors.textMuted} />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {submissions.length === 0 && (
+                  <Text style={styles.countText}>No video submissions yet.</Text>
+                )}
               </View>
             );
           })()}

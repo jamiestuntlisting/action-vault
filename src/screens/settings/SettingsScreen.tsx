@@ -29,6 +29,7 @@ export function SettingsScreen({ navigation }: any) {
   const [loadingChannel, setLoadingChannel] = useState(false);
   const [tmdbKey, setTmdbKey] = useState(TmdbService.getApiKey());
   const [tmdbStatus, setTmdbStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
+  const [submitCategory, setSubmitCategory] = useState('Behind the Scenes');
 
   function updateSetting(key: string, value: any) {
     dispatch({ type: 'UPDATE_SETTINGS', payload: { [key]: value } });
@@ -119,6 +120,9 @@ export function SettingsScreen({ navigation }: any) {
                     author: data.author_name,
                     thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
                     submittedAt: new Date().toISOString(),
+                    category: submitCategory,
+                    status: 'pending' as const,
+                    submittedByEmail: state.currentUser?.email || 'unknown',
                   }]
                 }
               });
@@ -205,6 +209,26 @@ export function SettingsScreen({ navigation }: any) {
             <Text style={styles.addButtonText}>{loadingChannel ? '...' : 'Submit'}</Text>
           </TouchableOpacity>
         </View>
+
+        <Text style={{ color: Colors.textMuted, fontSize: 12, marginBottom: 6, marginTop: 8 }}>Category</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }}>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {['Behind the Scenes', 'Fight Choreography', 'Car Stunts', 'High Falls', 'Fire Stunts', 'Wire Work', 'Stunt Training', 'Full BTS Featurette', 'Other'].map(cat => (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setSubmitCategory(cat)}
+                style={{
+                  paddingHorizontal: 10, paddingVertical: 5,
+                  borderRadius: 12, borderWidth: 1,
+                  borderColor: submitCategory === cat ? Colors.primary : Colors.divider,
+                  backgroundColor: submitCategory === cat ? Colors.primary + '33' : 'transparent',
+                }}
+              >
+                <Text style={{ color: submitCategory === cat ? Colors.primary : Colors.textSecondary, fontSize: 12 }}>{cat}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
 
         {/* StuntListing Plus Note */}
         <View style={styles.plusNote}>

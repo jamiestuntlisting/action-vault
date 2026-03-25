@@ -40,7 +40,34 @@ export function HomeScreen({ navigation }: any) {
 
   const overrides = state.settings.adminVideoOverrides || [];
   const hiddenIds = new Set(overrides.filter(o => o.hidden).map(o => o.videoId));
-  const visibleVideos = useMemo(() => videos.filter(v => !hiddenIds.has(v.id)), [hiddenIds.size]);
+  // Merge user-submitted videos into the video list
+  const allVideos: Video[] = useMemo(() => {
+    const userVids: Video[] = (state.settings.userVideos || []).map((uv: any) => ({
+      id: uv.id,
+      title: uv.title,
+      description: uv.description,
+      sourcePlatform: 'youtube' as const,
+      sourceUrl: `https://www.youtube.com/watch?v=${uv.youtubeId}`,
+      embedUrl: `https://www.youtube.com/embed/${uv.youtubeId}`,
+      thumbnailUrl: uv.thumbnailUrl,
+      durationSeconds: uv.durationSeconds || 0,
+      language: 'en',
+      publishedAt: uv.submittedAt,
+      createdAt: uv.submittedAt,
+      isFeatured: false,
+      intensityLevel: 3 as const,
+      skillTags: [{ id: uv.category, name: uv.category, displayName: uv.category, category: 'other' }],
+      coordinators: [],
+      performers: [],
+      productions: [],
+      rigTags: [],
+      averageDifficulty: 0,
+      totalRatings: 0,
+      viewCount: 0,
+    }));
+    return [...videos, ...userVids];
+  }, [state.settings.userVideos]);
+  const visibleVideos = useMemo(() => allVideos.filter(v => !hiddenIds.has(v.id)), [hiddenIds.size, allVideos]);
   const hiddenBookIds = new Set(state.settings.hiddenBooks || []);
   const hiddenPodcastIds = new Set(state.settings.hiddenPodcasts || []);
 

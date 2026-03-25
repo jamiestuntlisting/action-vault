@@ -77,7 +77,7 @@ export interface AppSettings {
   notifyWeeklyDigest: boolean;
   intensityFilter: number; // 1-5, show up to this level
   youtubeChannel: string;
-  vaultSubmissions: Array<{ videoId: string; title: string; author: string; thumbnailUrl: string; submittedAt: string }>;
+  vaultSubmissions: Array<{ videoId: string; title: string; author: string; thumbnailUrl: string; submittedAt: string; category?: string; status?: 'pending' | 'approved' | 'rejected'; submittedByEmail?: string }>;
   adminCategories: AdminCategory[];
   adminVideoOverrides: AdminVideoOverride[];
   removalRequests: Array<{ videoId: string; requestedAt: string; claimsOwnership: boolean; reason?: string }>;
@@ -92,6 +92,17 @@ export interface AppSettings {
   hiddenPodcasts: string[];
   adminBookOverrides: Array<{ bookId: string; title?: string; authors?: string[]; description?: string; category?: string }>;
   adminPodcastOverrides: Array<{ podcastId: string; title?: string; hosts?: string[]; description?: string; status?: string }>;
+  userVideos: Array<{
+    id: string;
+    title: string;
+    description: string;
+    youtubeId: string;
+    thumbnailUrl: string;
+    category: string;
+    submittedBy: string;
+    submittedAt: string;
+    durationSeconds: number;
+  }>;
 }
 
 const defaultSettings: AppSettings = {
@@ -191,6 +202,7 @@ const defaultSettings: AppSettings = {
   hiddenPodcasts: [],
   adminBookOverrides: [],
   adminPodcastOverrides: [],
+  userVideos: [],
 };
 
 interface State {
