@@ -69,10 +69,10 @@ export function AtlasActionRow({ title, videos, onVideoPress, onSeeAll, cardWidt
   return (
     <View style={styles.container} {...(hoverProps as any)}>
       <View style={styles.header}>
-        <View style={styles.titleRow}>
+        <TouchableOpacity style={styles.titleRow} onPress={onSeeAll} activeOpacity={onSeeAll ? 0.7 : 1}>
           <Ionicons name="fitness" size={20} color={Colors.primary} />
           <Text style={styles.title}>{title}</Text>
-        </View>
+        </TouchableOpacity>
         {onSeeAll && (
           <TouchableOpacity onPress={onSeeAll}>
             <Text style={styles.seeAll}>See All</Text>
