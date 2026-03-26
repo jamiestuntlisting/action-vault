@@ -95,7 +95,9 @@ export function AtlasActionDetailScreen({ navigation, route }: any) {
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
               <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle} numberOfLines={1}>Atlas Action</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('AtlasAction')}>
+              <Text style={styles.headerTitle} numberOfLines={1}>Atlas Action</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Thumbnail / Player area */}
@@ -213,7 +215,9 @@ export function AtlasActionDetailScreen({ navigation, route }: any) {
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
               <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle} numberOfLines={1}>Atlas Action Course</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('AtlasAction')}>
+              <Text style={styles.headerTitle} numberOfLines={1}>Atlas Action</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.thumbnailContainer}>

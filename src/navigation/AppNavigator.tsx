@@ -27,6 +27,7 @@ import { AdminScreen } from '../screens/admin/AdminScreen';
 import { CategoryVideosScreen } from '../screens/category/CategoryVideosScreen';
 import { ReelGridScreen } from '../screens/category/ReelGridScreen';
 import { ReelDetailScreen } from '../screens/detail/ReelDetailScreen';
+import { AtlasActionScreen } from '../screens/atlas/AtlasActionScreen';
 import { AtlasActionDetailScreen } from '../screens/atlas/AtlasActionDetailScreen';
 import { BookDetailScreen } from '../screens/books/BookDetailScreen';
 import { BooksGridScreen } from '../screens/books/BooksGridScreen';
@@ -113,6 +114,7 @@ export function AppNavigator() {
         <Stack.Screen name="CategoryVideos" component={CategoryVideosScreen} />
         <Stack.Screen name="ReelGrid" component={ReelGridScreen} />
         <Stack.Screen name="ReelDetail" component={ReelDetailScreen} />
+        <Stack.Screen name="AtlasAction" component={AtlasActionScreen} />
         <Stack.Screen name="AtlasActionDetail" component={AtlasActionDetailScreen} />
         <Stack.Screen name="BookDetail" component={BookDetailScreen} />
         <Stack.Screen name="BooksGrid" component={BooksGridScreen} />
