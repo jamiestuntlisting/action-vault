@@ -68,13 +68,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         StorageService.get<string>(StorageService.KEYS.AUTH_TOKEN),
       ]);
 
-      // Always use code-defined Atlas Action videos/courses (pricing & content
-      // are controlled in code, not user-editable settings that should persist)
+      // Merge code-defined Atlas data with persisted admin edits (isFree, price, enabled)
       const mergedSettings = settings
         ? {
             ...settings,
-            atlasActionVideos: initialState.settings.atlasActionVideos,
-            atlasActionCourses: initialState.settings.atlasActionCourses,
+            atlasActionVideos: initialState.settings.atlasActionVideos.map(codeVideo => {
+              const saved = (settings.atlasActionVideos || []).find((v: any) => v.id === codeVideo.id);
+              if (!saved) return codeVideo;
+              return { ...codeVideo, isFree: saved.isFree, price: saved.price, enabled: saved.enabled };
+            }),
+            atlasActionCourses: initialState.settings.atlasActionCourses.map(codeCourse => {
+              const saved = (settings.atlasActionCourses || []).find((c: any) => c.id === codeCourse.id);
+              if (!saved) return codeCourse;
+              return { ...codeCourse, price: saved.price, enabled: saved.enabled };
+            }),
           }
         : initialState.settings;
 
