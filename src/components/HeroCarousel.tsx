@@ -192,7 +192,7 @@ export function HeroCarousel({ videos, onPlay, onInfo, onAddToList, isInList }: 
       )}
       {/* Gradient overlay */}
       <LinearGradient
-        colors={['transparent', 'rgba(10,10,10,0.4)', 'rgba(10,10,10,0.95)']}
+        colors={['transparent', 'rgba(1,1,1,0.4)', 'rgba(1,1,1,0.95)']}
         style={styles.gradientOverlay}
         pointerEvents="none"
       />

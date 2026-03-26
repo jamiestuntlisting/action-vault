@@ -62,7 +62,7 @@ export function VideoDetailScreen({ route, navigation }: any) {
 
   function handleShare() {
     Share.share({
-      message: `Check out "${video!.title}" on Action Vault! ${video!.sourceUrl}`,
+      message: `Check out "${video!.title}" on StuntListing TV! ${video!.sourceUrl}`,
       url: video!.sourceUrl,
     });
   }

@@ -29,7 +29,7 @@ export function HeroBanner({ video, onPlay, onInfo, onAddToList, isInList }: Her
         transition={300}
       />
       <LinearGradient
-        colors={['transparent', 'rgba(10,10,10,0.4)', 'rgba(10,10,10,0.95)']}
+        colors={['transparent', 'rgba(1,1,1,0.4)', 'rgba(1,1,1,0.95)']}
         style={styles.gradient}
       />
       <View style={styles.content}>

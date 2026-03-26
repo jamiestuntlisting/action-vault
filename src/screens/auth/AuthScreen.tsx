@@ -102,7 +102,7 @@ export function AuthScreen({ navigation }: any) {
             <Ionicons name="flash" size={36} color={Colors.accent} />
             <Text style={styles.logoText}>STUNTLISTING</Text>
           </View>
-          <Text style={styles.appName}>ACTION VAULT</Text>
+          <Text style={styles.appName}>STUNTLISTING TV</Text>
           <Text style={styles.tagline}>Sign in with your StuntListing account</Text>
         </View>
 
@@ -231,13 +231,13 @@ const styles = StyleSheet.create({
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(229, 9, 20, 0.15)',
+    backgroundColor: 'rgba(238, 45, 36, 0.15)',
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: 'rgba(229, 9, 20, 0.3)',
+    borderColor: 'rgba(238, 45, 36, 0.3)',
   },
   errorText: {
     color: Colors.error,
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.lg,
   },
   submitButton: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.md,
     height: 52,
     justifyContent: 'center',

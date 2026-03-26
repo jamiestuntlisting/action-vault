@@ -59,7 +59,7 @@ export function ReelDetailScreen({ route, navigation }: any) {
 
   function handleShare() {
     Share.share({
-      message: `Check out "${title}" by ${reel!.name} on Action Vault! ${reel!.url}`,
+      message: `Check out "${title}" by ${reel!.name} on StuntListing TV! ${reel!.url}`,
       url: reel!.url,
     });
   }
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
   },
   stlgBadge: {
-    backgroundColor: '#E50914',
+    backgroundColor: '#EE2D24',
     borderRadius: BorderRadius.xs,
     paddingHorizontal: 6,
     paddingVertical: 2,

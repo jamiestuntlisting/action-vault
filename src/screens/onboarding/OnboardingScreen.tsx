@@ -64,7 +64,7 @@ export function OnboardingScreen({ navigation }: any) {
         return (
           <View style={styles.stepContent}>
             <Ionicons name="film" size={80} color={Colors.primary} />
-            <Text style={styles.welcomeTitle}>Welcome to Action Vault</Text>
+            <Text style={styles.welcomeTitle}>Welcome to StuntListing TV</Text>
             <Text style={styles.welcomeSubtitle}>The best behind-the-scenes stunt content, all in one place.</Text>
             <Text style={styles.welcomeDescription}>
               Browse, study, and learn the craft of stunts with curated videos, courses, and stunt-specific tools.

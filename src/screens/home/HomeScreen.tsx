@@ -341,8 +341,8 @@ export function HomeScreen({ navigation }: any) {
       <View style={styles.maxWidthWrapper}>
         {/* Branded header */}
         <View style={styles.headerBar}>
-          <Text style={styles.headerTitle}>Action Vault</Text>
-          <Text style={styles.headerSubtitle}> by StuntListing</Text>
+          <Text style={styles.headerTitle}>StuntListing</Text>
+          <Text style={styles.headerSubtitle}> TV</Text>
         </View>
 
         <HeroCarousel

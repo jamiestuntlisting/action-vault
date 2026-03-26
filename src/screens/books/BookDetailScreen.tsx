@@ -160,7 +160,7 @@ export function BookDetailScreen({ route, navigation }: any) {
         <View style={styles.disclosureContainer}>
           <Ionicons name="information-circle-outline" size={14} color={Colors.textMuted} />
           <Text style={styles.disclosureText}>
-            As an Amazon Associate, StuntListing earns from qualifying purchases. Links on this page are affiliate links — your price stays the same, but a small commission helps support Action Vault.
+            As an Amazon Associate, StuntListing earns from qualifying purchases. Links on this page are affiliate links — your price stays the same, but a small commission helps support StuntListing TV.
           </Text>
         </View>
       </ScrollView>

@@ -1,18 +1,18 @@
 export const Colors = {
-  // Primary palette - dark cinematic theme
-  background: '#0A0A0A',
+  // Primary palette - StuntListing brand
+  background: '#010101',
   surface: '#141414',
   surfaceLight: '#1C1C1C',
-  surfaceHighlight: '#252525',
+  surfaceHighlight: '#2F2F2F',
   card: '#1A1A1A',
-  cardHover: '#222222',
+  cardHover: '#2F2F2F',
 
-  // Brand
-  primary: '#E50914', // Action Vault red
-  primaryDark: '#B20710',
-  primaryLight: '#FF1A25',
-  accent: '#FF6B00', // Stunt-themed orange/fire
-  accentLight: '#FF8C33',
+  // Brand — StuntListing
+  primary: '#EE2D24', // StuntListing red
+  primaryDark: '#B22019',
+  primaryLight: '#FF3E35',
+  accent: '#935655', // Faded Red
+  accentLight: '#A8706F',
 
   // Text
   textPrimary: '#FFFFFF',
@@ -23,7 +23,7 @@ export const Colors = {
   // Functional
   success: '#46D369',
   warning: '#F5C518',
-  error: '#E50914',
+  error: '#EE2D24',
   info: '#2196F3',
 
   // UI elements
@@ -36,7 +36,7 @@ export const Colors = {
   // Tags / chips
   tagBackground: '#2A2A2A',
   tagText: '#CCCCCC',
-  tagActiveBackground: '#E50914',
+  tagActiveBackground: '#EE2D24',
   tagActiveText: '#FFFFFF',
 
   // Difficulty colors
@@ -44,7 +44,7 @@ export const Colors = {
   difficulty2: '#8BC34A',
   difficulty3: '#F5C518',
   difficulty4: '#FF6B00',
-  difficulty5: '#E50914',
+  difficulty5: '#EE2D24',
 
   // Tab bar
   tabActive: '#FFFFFF',
@@ -65,8 +65,8 @@ export const Colors = {
 };
 
 export const Gradients = {
-  heroOverlay: ['transparent', 'rgba(10,10,10,0.6)', 'rgba(10,10,10,0.95)'],
+  heroOverlay: ['transparent', 'rgba(1,1,1,0.6)', 'rgba(1,1,1,0.95)'],
   cardOverlay: ['transparent', 'rgba(0,0,0,0.8)'],
-  topFade: ['rgba(10,10,10,0.8)', 'transparent'],
-  bottomFade: ['transparent', 'rgba(10,10,10,0.95)'],
+  topFade: ['rgba(1,1,1,0.8)', 'transparent'],
+  bottomFade: ['transparent', 'rgba(1,1,1,0.95)'],
 };

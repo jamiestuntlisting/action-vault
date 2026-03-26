@@ -253,7 +253,7 @@ export function SettingsScreen({ navigation }: any) {
       <View style={styles.section}>
         <View style={styles.channelInfo}>
           <Ionicons name="add-circle-outline" size={22} color={Colors.primary} />
-          <Text style={styles.channelLabel}>Submit a video, book, or podcast to the Action Vault. Our team will review and add it.</Text>
+          <Text style={styles.channelLabel}>Submit a video, book, or podcast to StuntListing TV. Our team will review and add it.</Text>
         </View>
 
         <View style={styles.urlInputRow}>
