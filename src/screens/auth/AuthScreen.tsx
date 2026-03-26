@@ -96,6 +96,7 @@ export function AuthScreen({ navigation }: any) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.content}>
         {/* StuntListing Branding */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
@@ -184,6 +185,7 @@ export function AuthScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -198,6 +200,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     padding: Spacing.xxl,
+    alignItems: 'center',
+  },
+  content: {
+    width: '100%',
+    maxWidth: 400,
   },
   header: {
     alignItems: 'center',
