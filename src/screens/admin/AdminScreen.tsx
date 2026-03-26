@@ -144,7 +144,7 @@ export function AdminScreen({ navigation }: any) {
 
   // Admin email check
   const currentUserEmail = state.currentUser?.email;
-  if (!currentUserEmail || !ADMIN_EMAILS.includes(currentUserEmail)) {
+  if (!currentUserEmail || !ADMIN_EMAILS.includes(currentUserEmail.toLowerCase())) {
     return (
       <View style={{ flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center', padding: Spacing.xl }}>
         <Ionicons name="lock-closed" size={64} color={Colors.textMuted} />
