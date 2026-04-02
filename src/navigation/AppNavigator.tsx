@@ -33,6 +33,7 @@ import { BookDetailScreen } from '../screens/books/BookDetailScreen';
 import { BooksGridScreen } from '../screens/books/BooksGridScreen';
 import { PodcastDetailScreen } from '../screens/podcasts/PodcastDetailScreen';
 import { PodcastsGridScreen } from '../screens/podcasts/PodcastsGridScreen';
+import { AnalyticsScreen } from '../screens/analytics/AnalyticsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -120,6 +121,7 @@ export function AppNavigator() {
         <Stack.Screen name="BooksGrid" component={BooksGridScreen} />
         <Stack.Screen name="PodcastDetail" component={PodcastDetailScreen} />
         <Stack.Screen name="PodcastsGrid" component={PodcastsGridScreen} />
+        <Stack.Screen name="Analytics" component={AnalyticsScreen} />
         <Stack.Screen
           name="ReviewModal"
           component={ReviewModalScreen}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions,
 } from 'react-native';
@@ -8,6 +8,7 @@ import { Video } from '../../types';
 import { VideoCard } from '../../components/VideoCard';
 import { videos as allVideos } from '../../data';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { AnalyticsService } from '../../services/AnalyticsService';
 
 const MAX_WIDTH = 960;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -15,6 +16,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export function CategoryVideosScreen({ navigation, route }: any) {
   const { title, videoIds } = route.params as { title: string; videoIds: string[] };
   usePageTitle(route?.params?.title);
+
+  useEffect(() => { AnalyticsService.categoryBrowse(title, title); }, [title]);
 
   const categoryVideos: Video[] = videoIds
     .map((id: string) => allVideos.find((v: Video) => v.id === id))

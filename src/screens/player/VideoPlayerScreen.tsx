@@ -7,6 +7,7 @@ import { videoMap, videos } from '../../data';
 import { performers } from '../../data/performers';
 import { coordinators } from '../../data/coordinators';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { AnalyticsService } from '../../services/AnalyticsService';
 
 const isWeb = Platform.OS === 'web';
 
@@ -25,6 +26,13 @@ export function VideoPlayerScreen({ route, navigation }: any) {
   const video = videoId ? videoMap.get(videoId) : null;
   usePageTitle(route?.params?.title || 'Now Playing');
   const { state, dispatch, getRating } = useAppState();
+
+  // Track video play
+  useEffect(() => {
+    const title = video?.title || reelTitle || '';
+    const id = videoId || directEmbedUrl || '';
+    AnalyticsService.videoPlay(id, title, video ? 'library' : 'atlas');
+  }, [videoId]);
   const webviewRef = useRef<any>(null);
   const webPlayerRef = useRef<any>(null);
   const [showControls, setShowControls] = useState(true);

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight } from '../../theme';
 import { useAppState } from '../../services/AppState';
@@ -17,6 +17,13 @@ export function SplashScreen({ navigation }: any) {
 
     const timer = setTimeout(() => {
       if (state.isLoading) return;
+
+      // Deep link: /analytics goes directly to analytics screen
+      if (Platform.OS === 'web' && window.location.pathname === '/analytics') {
+        navigation.replace('Analytics');
+        return;
+      }
+
       if (!state.isAuthenticated) {
         navigation.replace('Auth');
       } else if (!state.onboardingComplete) {

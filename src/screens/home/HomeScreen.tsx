@@ -17,6 +17,7 @@ import { BooksSection } from '../../components/BookRow';
 import { podcasts } from '../../data/podcasts';
 import { PodcastSection } from '../../components/PodcastRow';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { AnalyticsService } from '../../services/AnalyticsService';
 
 const MAX_WIDTH = 960;
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -36,6 +37,8 @@ export function HomeScreen({ navigation }: any) {
   usePageTitle('Home');
   const { state, dispatch, isInMyList, getContinueWatching } = useAppState();
   const [refreshing, setRefreshing] = React.useState(false);
+
+  React.useEffect(() => { AnalyticsService.pageView('Home'); }, []);
   const [shuffleKey, setShuffleKey] = React.useState(Date.now());
 
   const overrides = state.settings.adminVideoOverrides || [];

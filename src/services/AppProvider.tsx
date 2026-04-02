@@ -1,8 +1,9 @@
-import React, { useReducer, useEffect, useMemo, ReactNode } from 'react';
+import React, { useReducer, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import { AppContext, reducer, initialState, State } from './AppState';
 import { StorageService } from './StorageService';
 import { StripeService } from './StripeService';
+import { AnalyticsService } from './AnalyticsService';
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -108,6 +109,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           authToken: authToken || null,
         },
       });
+
+      // Initialize analytics tracking
+      if (authToken) {
+        AnalyticsService.init(authToken);
+      }
     } catch (e) {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
@@ -138,11 +144,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Analytics-aware dispatch: intercepts actions to track events
+  const analyticsDispatch = useCallback((action: any) => {
+    dispatch(action);
+    try {
+      switch (action.type) {
+        case 'LOGIN':
+          AnalyticsService.init(action.payload?.authToken || null);
+          AnalyticsService.track('login', { email: action.payload?.currentUser?.email });
+          break;
+        case 'ADD_TO_WATCH_HISTORY':
+          AnalyticsService.videoProgress(
+            action.payload?.videoId, action.payload?.progressSeconds || 0,
+            action.payload?.durationSeconds || 0, action.payload?.completed || false
+          );
+          break;
+        case 'ADD_TO_MY_LIST':
+          AnalyticsService.favorite(action.payload?.videoId || action.payload, true);
+          break;
+        case 'REMOVE_FROM_MY_LIST':
+          AnalyticsService.favorite(action.payload?.videoId || action.payload, false);
+          break;
+        case 'SET_RATING':
+          AnalyticsService.rating(action.payload?.videoId, action.payload?.thumbs, action.payload?.difficultyRating, action.payload?.bestOfBest || false);
+          break;
+        case 'TOGGLE_FOLLOW':
+          AnalyticsService.follow(action.payload?.followableType, action.payload?.followableId, 'toggle');
+          break;
+        case 'ADD_BOOKMARK':
+          AnalyticsService.bookmark(action.payload?.videoId, action.payload?.timestampSeconds || 0);
+          break;
+        case 'PURCHASE_ATLAS_VIDEO':
+          AnalyticsService.purchase('video', action.payload, '', 1.99);
+          break;
+        case 'PURCHASE_ATLAS_COURSE':
+          AnalyticsService.purchase('course', action.payload, '', 0);
+          break;
+      }
+    } catch {}
+  }, []);
+
   const contextValue = useMemo(() => {
     const profileId = state.activeProfile?.id || '';
     return {
       state,
-      dispatch,
+      dispatch: analyticsDispatch,
       isInMyList: (videoId: string) =>
         state.myList.some(m => m.videoId === videoId && m.profileId === profileId),
       getRating: (videoId: string) =>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -9,6 +9,7 @@ import { VideoCard } from '../../components/VideoCard';
 import { ReelCard } from '../../components/ReelCard';
 import { stuntReels, skillReels, StuntReel, SkillReel } from '../../services/StuntListingService';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { AnalyticsService } from '../../services/AnalyticsService';
 
 // Build browseable categories from every skill tag + curated genre categories
 function buildCategories(): { label: string; query: string; thumbnail: string; icon: string }[] {
@@ -90,6 +91,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export function SearchScreen({ navigation, route }: any) {
   usePageTitle('Search');
   const [query, setQuery] = useState(route?.params?.query || '');
+  const searchTimerRef = React.useRef<any>(null);
   const [recentSearches] = useState(['high falls', 'John Wick', 'fire burns', 'car stunts']);
 
   const allReels = useMemo(() => [...stuntReels, ...skillReels], []);
@@ -106,6 +108,16 @@ export function SearchScreen({ navigation, route }: any) {
       v.productions.some(p => p.title.toLowerCase().includes(q))
     );
   }, [query]);
+
+  // Debounced search analytics
+  useEffect(() => {
+    if (query.trim().length < 2) return;
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      AnalyticsService.search(query.trim(), videoResults.length);
+    }, 1500);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [query, videoResults.length]);
 
   const reelResults = useMemo(() => {
     if (!query.trim()) return [];
