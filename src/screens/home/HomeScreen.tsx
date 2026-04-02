@@ -419,6 +419,7 @@ export function HomeScreen({ navigation }: any) {
           <AtlasActionRow
             title="Atlas Action - Stunt Training"
             videos={atlasActionVideos}
+            courses={state.settings.atlasActionCourses}
             onVideoPress={(video: AtlasActionVideo) => navigation.navigate('AtlasActionDetail', { atlasVideoId: video.id })}
             onSeeAll={() => navigation.navigate('AtlasAction')}
           />

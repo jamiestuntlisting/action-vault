@@ -2,7 +2,7 @@ import React, { useRef, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../theme';
-import { AtlasActionVideo } from '../services/AppState';
+import { AtlasActionVideo, AtlasActionCourse } from '../services/AppState';
 import { AtlasActionCard } from './AtlasActionCard';
 
 const isWeb = Platform.OS === 'web';
@@ -14,9 +14,10 @@ interface AtlasActionRowProps {
   onVideoPress: (video: AtlasActionVideo) => void;
   onSeeAll?: () => void;
   cardWidth?: number;
+  courses?: AtlasActionCourse[];
 }
 
-export function AtlasActionRow({ title, videos, onVideoPress, onSeeAll, cardWidth }: AtlasActionRowProps) {
+export function AtlasActionRow({ title, videos, onVideoPress, onSeeAll, cardWidth, courses }: AtlasActionRowProps) {
   const flatListRef = useRef<FlatList>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
@@ -92,13 +93,17 @@ export function AtlasActionRow({ title, videos, onVideoPress, onSeeAll, cardWidt
           scrollEventThrottle={16}
           decelerationRate="fast"
           snapToAlignment="start"
-          renderItem={({ item }) => (
-            <AtlasActionCard
-              video={item}
-              onPress={() => onVideoPress(item)}
-              width={effectiveCardWidth}
-            />
-          )}
+          renderItem={({ item }) => {
+            const cName = courses?.find(c => c.videoIds.includes(item.id))?.title;
+            return (
+              <AtlasActionCard
+                video={item}
+                onPress={() => onVideoPress(item)}
+                width={effectiveCardWidth}
+                courseName={cName}
+              />
+            );
+          }}
         />
 
         {showArrows && canScrollLeft && (

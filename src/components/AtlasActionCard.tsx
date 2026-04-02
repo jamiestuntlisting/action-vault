@@ -15,9 +15,10 @@ interface AtlasActionCardProps {
   video: AtlasActionVideo;
   onPress: () => void;
   width?: number;
+  courseName?: string;
 }
 
-export function AtlasActionCard({ video, onPress, width = CARD_WIDTH }: AtlasActionCardProps) {
+export function AtlasActionCard({ video, onPress, width = CARD_WIDTH, courseName }: AtlasActionCardProps) {
   const { isAtlasVideoUnlocked } = useAppState();
   const [imgError, setImgError] = useState(false);
   const unlocked = isAtlasVideoUnlocked(video.id);
@@ -61,6 +62,9 @@ export function AtlasActionCard({ video, onPress, width = CARD_WIDTH }: AtlasAct
           <Text style={styles.durationText}>{formatDuration(video.durationSeconds)}</Text>
         </View>
       </View>
+      {courseName ? (
+        <Text style={styles.courseName} numberOfLines={1}>{courseName}</Text>
+      ) : null}
       <Text style={styles.title} numberOfLines={2}>{video.title}</Text>
       <Text style={styles.instructor} numberOfLines={1}>{video.instructorName}</Text>
     </TouchableOpacity>
@@ -149,10 +153,17 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     fontWeight: FontWeight.medium,
   },
+  courseName: {
+    color: Colors.primary,
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+    marginTop: Spacing.xs,
+    letterSpacing: 0.3,
+  },
   title: {
     color: Colors.textSecondary,
     fontSize: FontSize.sm,
-    marginTop: Spacing.xs,
+    marginTop: 2,
     lineHeight: 16,
   },
   instructor: {
