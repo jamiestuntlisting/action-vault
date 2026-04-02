@@ -80,7 +80,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             atlasActionCourses: initialState.settings.atlasActionCourses.map(codeCourse => {
               const saved = (settings.atlasActionCourses || []).find((c: any) => c.id === codeCourse.id);
               if (!saved) return codeCourse;
-              return { ...codeCourse, price: saved.price, enabled: saved.enabled };
+              // Always use code-defined price (formula: videos × $1.99 × 60%); only persist enabled state
+              return { ...codeCourse, enabled: saved.enabled };
             }),
           }
         : initialState.settings;
