@@ -420,17 +420,6 @@ const defaultSettings: AppSettings = {
       createdAt: '2025-01-15T00:00:00.000Z',
     },
     {
-      id: 'atlas-course-essentials',
-      title: 'Essentials for Stunts',
-      description: 'Master the roadmap for your stunt craft. Learn the 8 ways a coordinator evaluates performers, common mistakes, and key principles for consistent stunt work. Over 90 lessons with interactive assignments.',
-      instructorName: 'Brad Martin',
-      thumbnailUrl: 'https://i.ytimg.com/vi/jsTsOucm-m4/hqdefault.jpg',
-      price: 0,
-      videoIds: [],
-      enabled: true,
-      createdAt: '2025-01-15T00:00:00.000Z',
-    },
-    {
       id: 'atlas-course-fighting',
       title: 'Fighting for Film',
       description: 'Learn to execute fight choreography on camera. Covers the four components of a perfect strike, hiding punches from camera, daily training drills, and the Atlas Stunt Kata.',
