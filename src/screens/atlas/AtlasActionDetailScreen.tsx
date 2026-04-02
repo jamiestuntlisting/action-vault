@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Dimensions, Alert,
 } from 'react-native';
@@ -11,6 +11,19 @@ import { usePageTitle } from '../../hooks/usePageTitle';
 
 const MAX_WIDTH = 960;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+function ThumbWithFallback({ uri, style, title }: { uri: string; style: any; title?: string }) {
+  const [err, setErr] = useState(false);
+  if (err || !uri) {
+    return (
+      <View style={[style, { backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center' }]}>
+        <Ionicons name="school" size={style?.height ? Math.min(style.height * 0.4, 28) : 28} color={Colors.textMuted} />
+        {title ? <Text style={{ color: Colors.textMuted, fontSize: 10, marginTop: 2, textAlign: 'center' }} numberOfLines={1}>{title}</Text> : null}
+      </View>
+    );
+  }
+  return <Image source={{ uri }} style={style} contentFit="cover" onError={() => setErr(true)} />;
+}
 
 export function AtlasActionDetailScreen({ navigation, route }: any) {
   const { atlasVideoId, atlasCourseId } = route.params as { atlasVideoId?: string; atlasCourseId?: string };
@@ -102,12 +115,7 @@ export function AtlasActionDetailScreen({ navigation, route }: any) {
 
           {/* Thumbnail / Player area */}
           <View style={styles.thumbnailContainer}>
-            <Image
-              source={{ uri: video.thumbnailUrl }}
-              style={styles.thumbnail}
-              contentFit="cover"
-              transition={200}
-            />
+            <ThumbWithFallback uri={video.thumbnailUrl} style={styles.thumbnail} title={video.title} />
             {unlocked || video.isFree ? (
               <TouchableOpacity style={styles.playOverlay} onPress={handlePlayVideo}>
                 <View style={styles.playButton}>
@@ -161,7 +169,9 @@ export function AtlasActionDetailScreen({ navigation, route }: any) {
               >
                 <Ionicons name="albums" size={18} color={Colors.primary} />
                 <Text style={styles.courseBundleText}>
-                  Get the full "{parentCourse.title}" course for ${parentCourse.price.toFixed(2)}
+                  {parentCourse.price === 0
+                    ? `Get the full "${parentCourse.title}" course for free`
+                    : `Get the full "${parentCourse.title}" course for $${parentCourse.price.toFixed(2)}`}
                 </Text>
               </TouchableOpacity>
             )}
@@ -183,7 +193,7 @@ export function AtlasActionDetailScreen({ navigation, route }: any) {
                       style={styles.courseVideoRow}
                       onPress={() => navigation.push('AtlasActionDetail', { atlasVideoId: vid.id })}
                     >
-                      <Image source={{ uri: vid.thumbnailUrl }} style={styles.courseVideoThumb} contentFit="cover" />
+                      <ThumbWithFallback uri={vid.thumbnailUrl} style={styles.courseVideoThumb} title={vid.title} />
                       <View style={styles.courseVideoInfo}>
                         <Text style={styles.courseVideoTitle} numberOfLines={2}>{vid.title}</Text>
                         <Text style={styles.courseVideoDuration}>{Math.floor(vid.durationSeconds / 60)} min</Text>
@@ -221,7 +231,7 @@ export function AtlasActionDetailScreen({ navigation, route }: any) {
           </View>
 
           <View style={styles.thumbnailContainer}>
-            <Image source={{ uri: course.thumbnailUrl }} style={styles.thumbnail} contentFit="cover" />
+            <ThumbWithFallback uri={course.thumbnailUrl} style={styles.thumbnail} title={course.title} />
           </View>
 
           <View style={styles.infoSection}>
@@ -234,8 +244,8 @@ export function AtlasActionDetailScreen({ navigation, route }: any) {
 
             {!courseOwned && (
               <TouchableOpacity style={styles.purchaseButton} onPress={() => handlePurchaseCourse(course)}>
-                <Ionicons name="card" size={20} color={Colors.white} />
-                <Text style={styles.purchaseText}>Purchase Course for ${course.price.toFixed(2)}</Text>
+                <Ionicons name={course.price === 0 ? 'gift' : 'card'} size={20} color={Colors.white} />
+                <Text style={styles.purchaseText}>{course.price === 0 ? 'Get Course for Free' : `Purchase Course for $${course.price.toFixed(2)}`}</Text>
               </TouchableOpacity>
             )}
           </View>
