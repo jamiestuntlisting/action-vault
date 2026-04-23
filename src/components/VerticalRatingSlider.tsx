@@ -64,9 +64,10 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
   for (let i = 0; i <= STEPS; i += 2) {
     const tickPct = i / STEPS;
     const tickY = trackHeight - tickPct * trackHeight;
+    const isNoScore = i === 0;
     ticks.push(
-      <View key={i} style={[styles.tickRow, { top: tickY - 8 }]} pointerEvents="none">
-        <Text style={styles.tickLabel}>{i}</Text>
+      <View key={i} style={[styles.tickRow, { top: tickY - 8, width: isNoScore ? 100 : 60 }]} pointerEvents="none">
+        <Text style={[styles.tickLabel, isNoScore && styles.tickLabelNoScore]}>{isNoScore ? 'No score' : i}</Text>
         <View style={styles.tickMark} />
       </View>,
     );
@@ -74,7 +75,9 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
 
   return (
     <View style={styles.container}>
-      <Text style={styles.readout}>{value}</Text>
+      <Text style={[styles.readout, value === 0 && styles.readoutNoScore]}>
+        {value === 0 ? 'No score' : value}
+      </Text>
       <View style={[styles.sliderArea, { height: trackHeight + THUMB_SIZE }]}>
         {ticks}
         <View
@@ -112,6 +115,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     minWidth: 70,
     textAlign: 'center',
+  },
+  readoutNoScore: {
+    fontSize: 22,
+    color: Colors.textTertiary,
+    fontWeight: FontWeight.semibold,
+    marginBottom: 12 + (56 - 22),
+  },
+  tickLabelNoScore: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
+    fontStyle: 'italic',
+    width: 76,
+    textAlign: 'right',
   },
   sliderArea: {
     position: 'relative',

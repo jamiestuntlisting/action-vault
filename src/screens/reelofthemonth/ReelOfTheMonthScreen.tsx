@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions, Alert } from 'react-native';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
@@ -38,7 +38,7 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
 
   const reels = useMemo<SkillReel[]>(() => {
     if (!liveEntry) return [];
-    return getSkillReelsBySkill(liveEntry.skill);
+    return getSkillReelsBySkill(liveEntry.skill).filter(r => r.thumb || r.youtubeId);
   }, [liveEntry]);
   const parentCategory = reels[0]?.cat;
 
@@ -51,12 +51,48 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
     [votes, liveEntry, currentEmail],
   );
 
-  const [rating, setRating] = useState<number>(existingVote?.rating ?? 5);
-  const [submitted, setSubmitted] = useState(false);
+  const [rating, setRating] = useState<number>(existingVote?.rating ?? 0);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const hasInteractedRef = useRef(false);
 
   useEffect(() => {
     if (existingVote) setRating(existingVote.rating);
   }, [existingVote?.rating]);
+
+  // Auto-save on change (debounced). Rating 0 = "no score" = no vote saved
+  // (existing vote is removed if the user drags back down to 0).
+  useEffect(() => {
+    if (!hasInteractedRef.current) return;
+    if (!liveEntry || !currentEmail) return;
+    const t = setTimeout(() => {
+      const nowIso = new Date().toISOString();
+      const withoutMine = (state.settings.reelOfMonthVotes || []).filter(
+        v => !(v.entryId === liveEntry.id && v.userEmail.toLowerCase() === currentEmail.toLowerCase()),
+      );
+      const next = rating >= 1
+        ? [...withoutMine, {
+            entryId: liveEntry.id,
+            userEmail: currentEmail,
+            userName: state.activeProfile?.name || currentEmail.split('@')[0],
+            experienceLevel: state.activeProfile?.experienceLevel || null,
+            rating,
+            createdAt: existingVote?.createdAt || nowIso,
+            updatedAt: nowIso,
+          }]
+        : withoutMine;
+      dispatch({ type: 'UPDATE_SETTINGS', payload: { reelOfMonthVotes: next } });
+      setSavedAt(Date.now());
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rating]);
+
+  // Hide "Saved" indicator after ~2s
+  useEffect(() => {
+    if (!savedAt) return;
+    const t = setTimeout(() => setSavedAt(null), 2000);
+    return () => clearTimeout(t);
+  }, [savedAt]);
 
   const [winW, setWinW] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : Dimensions.get('window').width));
   useEffect(() => {
@@ -115,25 +151,6 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
   const monthLabel = `${MONTH_NAMES[m - 1]} ${y}`;
   const nextRevealLabel = `${nextMonthLabel(liveEntry.month)} 1`;
 
-  const handleSubmit = () => {
-    const nowIso = new Date().toISOString();
-    const next = votes.filter(v => !(v.entryId === liveEntry.id && v.userEmail.toLowerCase() === currentEmail.toLowerCase()));
-    next.push({
-      entryId: liveEntry.id,
-      userEmail: currentEmail,
-      userName: state.activeProfile?.name || currentEmail.split('@')[0],
-      experienceLevel: state.activeProfile?.experienceLevel || null,
-      rating,
-      createdAt: existingVote?.createdAt || nowIso,
-      updatedAt: nowIso,
-    });
-    dispatch({ type: 'UPDATE_SETTINGS', payload: { reelOfMonthVotes: next } });
-    setSubmitted(true);
-    if (Platform.OS !== 'web') {
-      Alert.alert('Rating saved', `You can update your rating any time until ${nextRevealLabel}.`);
-    }
-  };
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
       <View style={styles.maxWidth}>
@@ -177,15 +194,25 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
           </View>
 
           <View style={[styles.sliderPanel, narrow && styles.sliderPanelNarrow]}>
-            <VerticalRatingSlider value={rating} onChange={(v) => { setRating(v); setSubmitted(false); }} height={300} />
-            <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} activeOpacity={0.8}>
-              <Text style={styles.submitBtnText}>{existingVote ? 'Update vote' : 'Submit vote'}</Text>
-            </TouchableOpacity>
-            {submitted && (
-              <Text style={styles.confirm}>
-                Thanks — your rating is saved. You can update it any time until {nextRevealLabel}.
-              </Text>
-            )}
+            <VerticalRatingSlider
+              value={rating}
+              onChange={(v) => { hasInteractedRef.current = true; setRating(v); }}
+              height={300}
+            />
+            <View style={styles.saveIndicator}>
+              {savedAt ? (
+                <>
+                  <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                  <Text style={styles.saveText}>
+                    {rating >= 1 ? 'Saved' : 'Score cleared'}
+                  </Text>
+                </>
+              ) : (
+                <Text style={styles.saveHint}>
+                  {rating >= 1 ? 'Auto-saves as you slide' : 'Slide up to score · stays at No score otherwise'}
+                </Text>
+              )}
+            </View>
           </View>
         </View>
 
@@ -202,30 +229,11 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
 
         {/* Reel chooser */}
         <Text style={styles.chooserLabel}>All {reels.length} reels tagged {liveEntry.skill}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chooserRow}>
-          {reels.map((r, i) => {
-            const thumb = r.thumb || (r.youtubeId ? `https://i.ytimg.com/vi/${r.youtubeId}/hqdefault.jpg` : null);
-            const active = i === activeReelIdx;
-            return (
-              <TouchableOpacity
-                key={r.id}
-                style={[styles.chooserCard, active && styles.chooserCardActive]}
-                onPress={() => setActiveReelIdx(i)}
-                activeOpacity={0.8}
-              >
-                {thumb ? (
-                  <Image source={{ uri: thumb }} style={styles.chooserThumb} contentFit="cover" />
-                ) : (
-                  <View style={[styles.chooserThumb, { backgroundColor: Colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' }]}>
-                    <Ionicons name="film-outline" size={20} color={Colors.textMuted} />
-                  </View>
-                )}
-                <Text style={styles.chooserName} numberOfLines={1}>{r.name}</Text>
-                {active && <View style={styles.chooserActiveDot} />}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <ReelChooser
+          reels={reels}
+          activeIdx={activeReelIdx}
+          onSelect={setActiveReelIdx}
+        />
 
         <Text style={styles.caption}>
           One rating per member for the whole skill · scores hidden until {nextRevealLabel} · you can change your vote until then
@@ -239,6 +247,84 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
     </ScrollView>
+  );
+}
+
+function ReelChooser({
+  reels, activeIdx, onSelect,
+}: {
+  reels: SkillReel[];
+  activeIdx: number;
+  onSelect: (i: number) => void;
+}) {
+  const scrollRef = useRef<ScrollView | null>(null);
+  const scrollXRef = useRef(0);
+  const [scrollW, setScrollW] = useState(0);
+  const [contentW, setContentW] = useState(0);
+  const [atStart, setAtStart] = useState(true);
+  const [atEnd, setAtEnd] = useState(false);
+
+  useEffect(() => {
+    setAtEnd(contentW <= scrollW + 1);
+  }, [contentW, scrollW]);
+
+  const pageBy = (dir: 1 | -1) => {
+    const next = Math.max(0, Math.min(contentW - scrollW, scrollXRef.current + dir * Math.max(200, scrollW * 0.8)));
+    scrollRef.current?.scrollTo({ x: next, animated: true });
+  };
+
+  return (
+    <View style={styles.chooserWrap}>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chooserRow}
+        onScroll={(e) => {
+          const x = e.nativeEvent.contentOffset.x;
+          scrollXRef.current = x;
+          setAtStart(x <= 0);
+          setAtEnd(x + e.nativeEvent.layoutMeasurement.width >= e.nativeEvent.contentSize.width - 1);
+        }}
+        onLayout={(e) => setScrollW(e.nativeEvent.layout.width)}
+        onContentSizeChange={(w) => setContentW(w)}
+        scrollEventThrottle={32}
+      >
+        {reels.map((r, i) => {
+          const thumb = r.thumb || (r.youtubeId ? `https://i.ytimg.com/vi/${r.youtubeId}/hqdefault.jpg` : null);
+          const active = i === activeIdx;
+          return (
+            <TouchableOpacity
+              key={r.id}
+              style={[styles.chooserCard, active && styles.chooserCardActive]}
+              onPress={() => onSelect(i)}
+              activeOpacity={0.8}
+            >
+              {thumb ? (
+                <Image source={{ uri: thumb }} style={styles.chooserThumb} contentFit="cover" />
+              ) : (
+                <View style={[styles.chooserThumb, { backgroundColor: Colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' }]}>
+                  <Ionicons name="film-outline" size={20} color={Colors.textMuted} />
+                </View>
+              )}
+              <Text style={styles.chooserName} numberOfLines={1}>{r.name}</Text>
+              {active && <View style={styles.chooserActiveDot} />}
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {!atStart && (
+        <TouchableOpacity style={[styles.chooserNav, styles.chooserNavLeft]} onPress={() => pageBy(-1)} activeOpacity={0.8}>
+          <Ionicons name="chevron-back" size={22} color="#fff" />
+        </TouchableOpacity>
+      )}
+      {!atEnd && (
+        <TouchableOpacity style={[styles.chooserNav, styles.chooserNavRight]} onPress={() => pageBy(1)} activeOpacity={0.8}>
+          <Ionicons name="chevron-forward" size={22} color="#fff" />
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -279,28 +365,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
   },
   sliderPanelNarrow: { width: '100%' },
-  submitBtn: {
+  saveIndicator: {
     marginTop: Spacing.lg,
-    backgroundColor: Colors.accent,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
-    minWidth: 160,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 32,
+    maxWidth: 180,
   },
-  submitBtnText: { color: '#fff', fontSize: FontSize.md, fontWeight: FontWeight.bold },
-  confirm: { color: Colors.success, fontSize: FontSize.xs, marginTop: Spacing.md, textAlign: 'center', maxWidth: 180 },
+  saveText: { color: Colors.success, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
+  saveHint: { color: Colors.textMuted, fontSize: FontSize.xs, fontStyle: 'italic', textAlign: 'center' },
   activeMetaBlock: { marginTop: Spacing.lg, paddingBottom: Spacing.md },
   performerName: { color: Colors.textPrimary, fontSize: FontSize.lg, fontWeight: FontWeight.bold },
   performerRole: { color: Colors.textTertiary, fontSize: FontSize.sm, marginTop: 2 },
   contextLine: { color: Colors.textSecondary, fontSize: FontSize.sm, marginTop: Spacing.xs },
   chooserLabel: { color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.semibold, marginTop: Spacing.lg, marginBottom: Spacing.sm },
+  chooserWrap: { position: 'relative' },
   chooserRow: { gap: Spacing.sm, paddingVertical: 4 },
   chooserCard: { width: 140, backgroundColor: Colors.surface, borderRadius: BorderRadius.sm, overflow: 'hidden', position: 'relative' },
   chooserCardActive: { borderWidth: 2, borderColor: Colors.accent },
   chooserThumb: { width: '100%', aspectRatio: 16 / 9 },
   chooserName: { color: Colors.textSecondary, fontSize: FontSize.xs, padding: 6, fontWeight: FontWeight.medium },
   chooserActiveDot: { position: 'absolute', top: 6, right: 6, width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.accent },
+  chooserNav: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  chooserNavLeft: { left: 4 },
+  chooserNavRight: { right: 4 },
   caption: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: Spacing.lg, fontStyle: 'italic' },
   archiveLink: { marginTop: Spacing.lg },
   archiveLinkText: { color: Colors.accent, fontSize: FontSize.md, fontWeight: FontWeight.semibold },

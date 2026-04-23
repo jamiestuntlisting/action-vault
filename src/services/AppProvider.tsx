@@ -59,10 +59,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let changed = false;
     const updated = entries.map((e) => {
       if (e.status === 'live' && e.month < currentMonth) {
-        const entryVotes = votes.filter(v => v.entryId === e.id);
-        const finalVoteCount = entryVotes.length;
+        // Rating 0 = "No score" (abstain) — exclude from averages and vote count
+        const scoredVotes = votes.filter(v => v.entryId === e.id && v.rating >= 1);
+        const finalVoteCount = scoredVotes.length;
         const finalAverage = finalVoteCount > 0
-          ? Math.round((entryVotes.reduce((s, v) => s + v.rating, 0) / finalVoteCount) * 100) / 100
+          ? Math.round((scoredVotes.reduce((s, v) => s + v.rating, 0) / finalVoteCount) * 100) / 100
           : 0;
         changed = true;
         return { ...e, status: 'closed' as const, finalAverage, finalVoteCount, updatedAt: new Date().toISOString() };
