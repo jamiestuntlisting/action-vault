@@ -17,8 +17,16 @@ export default async function handler(req: any, res: any) {
     const dbName = process.env.STUNTLISTING_DB_NAME;
 
     if (!dbHost) {
-      // Fallback: demo mode - accept any stuntlisting.com email
-      // In production, configure STUNTLISTING_DB_* env vars
+      // Demo mode (no DB configured): require a shared demo password AND
+      // an @stuntlisting.com email. If STUNTLISTING_DEMO_PASSWORD is not
+      // set, demo mode is disabled and auth fails closed.
+      const demoPassword = process.env.STUNTLISTING_DEMO_PASSWORD;
+      const allowedDomain = '@stuntlisting.com';
+      const emailOk = email.toLowerCase().endsWith(allowedDomain);
+      const passwordOk = !!demoPassword && password === demoPassword;
+      if (!demoPassword || !emailOk || !passwordOk) {
+        return res.status(401).json({ success: false, error: 'Invalid email or password' });
+      }
       return res.status(200).json({
         success: true,
         user: {
