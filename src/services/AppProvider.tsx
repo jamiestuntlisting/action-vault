@@ -48,6 +48,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [state.myList, state.watchHistory, state.ratings, state.bookmarks, state.collections, state.follows, state.notifications, state.settings, state.downloads, state.profiles, state.activeProfile, state.currentUser, state.onboardingComplete, state.purchasedAtlasVideos, state.purchasedAtlasCourses, state.authToken]);
 
+  // Reel of the Month: on load, promote scheduled → live and close live → closed as months elapse
+  useEffect(() => {
+    if (state.isLoading) return;
+    const entries = state.settings.reelOfMonthEntries || [];
+    if (entries.length === 0) return;
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const votes = state.settings.reelOfMonthVotes || [];
+    let changed = false;
+    const updated = entries.map((e) => {
+      if (e.status === 'live' && e.month < currentMonth) {
+        const entryVotes = votes.filter(v => v.entryId === e.id);
+        const finalVoteCount = entryVotes.length;
+        const finalAverage = finalVoteCount > 0
+          ? Math.round((entryVotes.reduce((s, v) => s + v.rating, 0) / finalVoteCount) * 100) / 100
+          : 0;
+        changed = true;
+        return { ...e, status: 'closed' as const, finalAverage, finalVoteCount, updatedAt: new Date().toISOString() };
+      }
+      if (e.status === 'scheduled' && e.month <= currentMonth) {
+        changed = true;
+        return { ...e, status: 'live' as const, updatedAt: new Date().toISOString() };
+      }
+      return e;
+    });
+    if (changed) {
+      dispatch({ type: 'UPDATE_SETTINGS', payload: { reelOfMonthEntries: updated } });
+    }
+  }, [state.isLoading]);
+
   async function loadPersistedState() {
     try {
       const [user, profiles, activeProfile, watchHistory, myList, ratings, bookmarks, collections, follows, notifications, settings, onboarding, downloads, purchasedAtlasVideos, purchasedAtlasCourses, authToken] = await Promise.all([

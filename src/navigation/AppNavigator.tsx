@@ -34,6 +34,9 @@ import { BooksGridScreen } from '../screens/books/BooksGridScreen';
 import { PodcastDetailScreen } from '../screens/podcasts/PodcastDetailScreen';
 import { PodcastsGridScreen } from '../screens/podcasts/PodcastsGridScreen';
 import { AnalyticsScreen } from '../screens/analytics/AnalyticsScreen';
+import { ReelOfTheMonthScreen } from '../screens/reelofthemonth/ReelOfTheMonthScreen';
+import { ReelOfTheMonthArchiveScreen } from '../screens/reelofthemonth/ReelOfTheMonthArchiveScreen';
+import { AdminReelOfTheMonthScreen } from '../screens/reelofthemonth/AdminReelOfTheMonthScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -122,6 +125,9 @@ export function AppNavigator() {
         <Stack.Screen name="PodcastDetail" component={PodcastDetailScreen} />
         <Stack.Screen name="PodcastsGrid" component={PodcastsGridScreen} />
         <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+        <Stack.Screen name="ReelOfTheMonth" component={ReelOfTheMonthScreen} />
+        <Stack.Screen name="ReelOfTheMonthArchive" component={ReelOfTheMonthArchiveScreen} />
+        <Stack.Screen name="AdminReelOfTheMonth" component={AdminReelOfTheMonthScreen} />
         <Stack.Screen
           name="ReviewModal"
           component={ReviewModalScreen}

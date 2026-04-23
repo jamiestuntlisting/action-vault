@@ -14,6 +14,32 @@ import {
   ExperienceLevel,
   SkillTag,
 } from '../types';
+
+export type ReelOfMonthCategory = 'skill' | 'stunt';
+export type ReelOfMonthStatus = 'draft' | 'scheduled' | 'live' | 'closed';
+
+export interface ReelOfMonthEntry {
+  id: string;
+  category: ReelOfMonthCategory;
+  month: string;
+  stuntListingReelId: string;
+  theme: string;
+  status: ReelOfMonthStatus;
+  finalAverage: number | null;
+  finalVoteCount: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReelOfMonthVote {
+  entryId: string;
+  userEmail: string;
+  userName: string;
+  experienceLevel: ExperienceLevel | null;
+  rating: number;
+  createdAt: string;
+  updatedAt: string;
+}
 import { videos } from '../data';
 
 export interface AdminCategory {
@@ -126,6 +152,8 @@ export interface AppSettings {
     submittedBy: string;
     submittedAt: string;
   }>;
+  reelOfMonthEntries: ReelOfMonthEntry[];
+  reelOfMonthVotes: ReelOfMonthVote[];
 }
 
 const defaultSettings: AppSettings = {
@@ -464,6 +492,8 @@ const defaultSettings: AppSettings = {
   userVideos: [],
   userBooks: [],
   userPodcasts: [],
+  reelOfMonthEntries: [],
+  reelOfMonthVotes: [],
 };
 
 interface State {

@@ -12,6 +12,7 @@ import { Video } from '../../types';
 import { AtlasActionVideo } from '../../services/AppState';
 import { skillTags } from '../../data/skillTags';
 import { stuntReels, skillReels, getSkillReelsByCategory, SkillReel } from '../../services/StuntListingService';
+import { Image } from 'expo-image';
 import { books } from '../../data/books';
 import { BooksSection } from '../../components/BookRow';
 import { podcasts } from '../../data/podcasts';
@@ -409,6 +410,8 @@ export function HomeScreen({ navigation }: any) {
           onSeeAll={() => navigateToCategory(top10Label, top10)}
         />
 
+        <ReelOfTheMonthEntry navigation={navigation} />
+
         {hasRecentVideos && (
           <ContentRow
             title="Recently Added"
@@ -470,6 +473,90 @@ export function HomeScreen({ navigation }: any) {
     </ScrollView>
   );
 }
+
+const MONTH_NAMES_HOME = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function ReelOfTheMonthEntry({ navigation }: { navigation: any }) {
+  const { state } = useAppState();
+  const entries = state.settings.reelOfMonthEntries || [];
+  const liveSkill = entries.find(e => e.category === 'skill' && e.status === 'live');
+  const liveStunt = entries.find(e => e.category === 'stunt' && e.status === 'live');
+  const now = new Date();
+  const nextMonthName = MONTH_NAMES_HOME[(now.getMonth() + 1) % 12];
+
+  const renderCard = (category: 'skill' | 'stunt', entry: typeof liveSkill) => {
+    const label = category === 'skill' ? 'Skill Reel of the Month' : 'Stunt Reel of the Month';
+    const reel = entry ? (category === 'skill' ? skillReels : stuntReels).find(r => r.id === entry.stuntListingReelId) : null;
+    const thumb = reel ? reel.thumb || (reel.youtubeId ? `https://i.ytimg.com/vi/${reel.youtubeId}/hqdefault.jpg` : null) : null;
+    const title = entry && reel ? (category === 'skill' ? (entry.theme || (reel as any).skill) : ((reel as any).title || entry.theme)) : null;
+
+    if (!entry || !reel) {
+      return (
+        <TouchableOpacity
+          key={category}
+          style={homeReelCardStyles.card}
+          onPress={() => navigation.navigate('ReelOfTheMonthArchive', { category })}
+          activeOpacity={0.8}
+        >
+          <View style={[homeReelCardStyles.thumb, { backgroundColor: Colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' }]}>
+            <Ionicons name="trophy-outline" size={36} color={Colors.textMuted} />
+          </View>
+          <View style={homeReelCardStyles.body}>
+            <Text style={homeReelCardStyles.label}>{label}</Text>
+            <Text style={homeReelCardStyles.fallback}>Returns {nextMonthName} 1</Text>
+            <Text style={homeReelCardStyles.cta}>See past winners →</Text>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+    return (
+      <TouchableOpacity
+        key={category}
+        style={homeReelCardStyles.card}
+        onPress={() => navigation.navigate('ReelOfTheMonth', { category })}
+        activeOpacity={0.8}
+      >
+        {thumb ? (
+          <Image source={{ uri: thumb }} style={homeReelCardStyles.thumb} contentFit="cover" />
+        ) : (
+          <View style={[homeReelCardStyles.thumb, { backgroundColor: Colors.surfaceHighlight }]} />
+        )}
+        <View style={homeReelCardStyles.body}>
+          <Text style={homeReelCardStyles.label}>{label}</Text>
+          <Text style={homeReelCardStyles.title} numberOfLines={2}>{title}</Text>
+          <Text style={homeReelCardStyles.cta}>Vote now →</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <View style={homeReelCardStyles.container}>
+      <Text style={homeReelCardStyles.sectionTitle}>Reel of the Month</Text>
+      <View style={homeReelCardStyles.row}>
+        {renderCard('skill', liveSkill)}
+        {renderCard('stunt', liveStunt)}
+      </View>
+      <TouchableOpacity onPress={() => navigation.navigate('ReelOfTheMonthArchive')}>
+        <Text style={homeReelCardStyles.archiveLink}>See past reels of the month →</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const homeReelCardStyles = StyleSheet.create({
+  container: { paddingHorizontal: Spacing.screen, marginBottom: Spacing.xxl },
+  sectionTitle: { color: Colors.textPrimary, fontSize: FontSize.xl, fontWeight: FontWeight.bold, marginBottom: Spacing.sm },
+  row: { flexDirection: 'row', gap: Spacing.md },
+  card: { flex: 1, backgroundColor: Colors.card, borderRadius: BorderRadius.md, overflow: 'hidden' },
+  thumb: { width: '100%', aspectRatio: 16 / 9 },
+  body: { padding: Spacing.md },
+  label: { color: Colors.textTertiary, fontSize: FontSize.xs, fontWeight: FontWeight.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  title: { color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.semibold, marginTop: 4 },
+  fallback: { color: Colors.textSecondary, fontSize: FontSize.sm, marginTop: 4 },
+  cta: { color: Colors.accent, fontSize: FontSize.sm, fontWeight: FontWeight.semibold, marginTop: Spacing.sm },
+  archiveLink: { color: Colors.accent, fontSize: FontSize.sm, fontWeight: FontWeight.semibold, marginTop: Spacing.md, textAlign: 'center' },
+});
 
 const styles = StyleSheet.create({
   container: {

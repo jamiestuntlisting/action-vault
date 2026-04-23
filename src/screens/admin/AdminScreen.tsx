@@ -665,6 +665,22 @@ export function AdminScreen({ navigation }: any) {
         </ScrollView>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+              padding: Spacing.md, marginBottom: Spacing.md,
+              backgroundColor: Colors.accent + '1A', borderRadius: BorderRadius.md,
+              borderWidth: 1, borderColor: Colors.accent + '55',
+            }}
+            onPress={() => navigation.navigate('AdminReelOfTheMonth')}
+          >
+            <Ionicons name="trophy-outline" size={22} color={Colors.accent} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.bold }}>Reel of the Month</Text>
+              <Text style={{ color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 }}>Schedule monthly featured reels · view voter participation · browse archive</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
+          </TouchableOpacity>
           {activeTab === 'videos' && (
             <View>
               {/* Removal Requests */}
