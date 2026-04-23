@@ -4,9 +4,9 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
-import { skillReels, stuntReels, SkillReel, StuntReel } from '../../services/StuntListingService';
+import { skillReels, skillReelCategories, getSkillReelsByCategory } from '../../services/StuntListingService';
 import { usePageTitle } from '../../hooks/usePageTitle';
-import type { ReelOfMonthCategory, ReelOfMonthEntry, ReelOfMonthStatus } from '../../services/AppState';
+import type { ReelOfMonthEntry, ReelOfMonthStatus } from '../../services/AppState';
 import { ExperienceLevel } from '../../types';
 
 const MAX_WIDTH = 960;
@@ -47,12 +47,11 @@ function addMonths(key: string, n: number): string {
 type PickerState = {
   open: boolean;
   month: string;
-  category: ReelOfMonthCategory;
   editingId?: string;
 };
 
 export function AdminReelOfTheMonthScreen({ navigation }: any) {
-  usePageTitle('Admin · Reel of the Month');
+  usePageTitle('Admin · Skill Reel of the Month');
   const { state, dispatch } = useAppState();
 
   const currentUserEmail = state.currentUser?.email;
@@ -69,30 +68,27 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
     );
   }
 
-  const entries = state.settings.reelOfMonthEntries || [];
+  const entries = (state.settings.reelOfMonthEntries || []).filter(e => e.category === 'skill');
   const votes = state.settings.reelOfMonthVotes || [];
 
   const today = new Date();
   const thisMonth = monthKey(today);
-  const upcomingMonths = Array.from({ length: 6 }, (_, i) => addMonths(thisMonth, i + 1));
+  // Show 7 months: current + next 6
+  const scheduleMonths = Array.from({ length: 7 }, (_, i) => addMonths(thisMonth, i));
 
-  const liveEntries = useMemo(() => entries.filter(e => e.status === 'live'), [entries]);
+  const liveEntry = useMemo(() => entries.find(e => e.status === 'live'), [entries]);
 
-  const [picker, setPicker] = useState<PickerState>({ open: false, month: upcomingMonths[0], category: 'skill' });
+  const [picker, setPicker] = useState<PickerState>({ open: false, month: thisMonth });
 
   function upsertEntry(entry: ReelOfMonthEntry) {
-    const next = entries.filter(e => !(e.category === entry.category && e.month === entry.month));
+    const next = (state.settings.reelOfMonthEntries || []).filter(e => !(e.category === 'skill' && e.month === entry.month));
     next.push(entry);
     dispatch({ type: 'UPDATE_SETTINGS', payload: { reelOfMonthEntries: next } });
   }
 
   function deleteEntry(id: string) {
-    const next = entries.filter(e => e.id !== id);
+    const next = (state.settings.reelOfMonthEntries || []).filter(e => e.id !== id);
     dispatch({ type: 'UPDATE_SETTINGS', payload: { reelOfMonthEntries: next } });
-  }
-
-  function promoteNow(entry: ReelOfMonthEntry) {
-    upsertEntry({ ...entry, status: 'live', updatedAt: new Date().toISOString() });
   }
 
   function closeNow(entry: ReelOfMonthEntry) {
@@ -109,40 +105,42 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Reel of the Month · Admin</Text>
+          <Text style={styles.headerTitle}>Skill Reel of the Month · Admin</Text>
           <View style={{ width: 40 }} />
         </View>
+
+        <Text style={styles.noteText}>
+          Admin picks a skill <Text style={{ fontWeight: FontWeight.bold }}>category</Text> each month. Every skill reel tagged to that category is featured in the competition. Stunt reels are surfaced automatically on the homepage from recent activity and don&apos;t need to be scheduled.
+        </Text>
 
         {/* Section 1: Live now */}
         <Text style={styles.sectionTitle}>Live now</Text>
         <View style={styles.liveGrid}>
-          {(['skill', 'stunt'] as ReelOfMonthCategory[]).map(cat => {
-            const entry = liveEntries.find(e => e.category === cat);
-            const reel = entry ? (cat === 'skill' ? skillReels : stuntReels).find(r => r.id === entry.stuntListingReelId) : null;
-            if (!entry || !reel) {
+          {(() => {
+            if (!liveEntry) {
               return (
-                <View key={cat} style={styles.liveCard}>
+                <View style={styles.liveCard}>
                   <View style={styles.liveCardHeader}>
-                    <Text style={styles.liveCardTitle}>{cat === 'skill' ? 'Skill' : 'Stunt'}</Text>
+                    <Text style={styles.liveCardTitle}>Skill</Text>
                     <View style={[styles.pill, { backgroundColor: Colors.surfaceHighlight }]}>
                       <Text style={[styles.pillText, { color: Colors.textTertiary }]}>None live</Text>
                     </View>
                   </View>
                   <Text style={styles.liveCardBody}>
-                    No {cat} reel is live this month. Schedule one below to go live automatically on the 1st, or
-                    {' '}
+                    No skill category is live this month.{' '}
                     <Text
                       style={styles.inlineLink}
-                      onPress={() => setPicker({ open: true, month: thisMonth, category: cat })}
+                      onPress={() => setPicker({ open: true, month: thisMonth })}
                     >
-                      start one immediately
+                      Schedule one for {monthLabel(thisMonth)}
                     </Text>
-                    .
+                    {' '}or for any future month below.
                   </Text>
                 </View>
               );
             }
-            const entryVotes = votes.filter(v => v.entryId === entry.id);
+
+            const entryVotes = votes.filter(v => v.entryId === liveEntry.id);
             const tierGroups: Record<string, typeof entryVotes> = { professional: [], training: [], fan: [], unrated: [] };
             entryVotes.forEach(v => {
               const key = v.experienceLevel || 'unrated';
@@ -150,32 +148,31 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
             });
             Object.keys(tierGroups).forEach(k => tierGroups[k].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
             const totals = TIER_ORDER.map(t => `${tierGroups[t]?.length || 0} ${TIER_LABEL[t].toLowerCase()}`).join(' · ');
-            const skillReel = cat === 'skill' ? (reel as SkillReel) : null;
-            const stuntReel = cat === 'stunt' ? (reel as StuntReel) : null;
-            const title = cat === 'skill' ? (entry.theme || skillReel?.skill) : (stuntReel?.title || entry.theme);
+            const reelsInCat = getSkillReelsByCategory(liveEntry.skillCategory);
+
             return (
-              <View key={cat} style={styles.liveCard}>
+              <View style={styles.liveCard}>
                 <View style={styles.liveCardHeader}>
-                  <Text style={styles.liveCardTitle}>{cat === 'skill' ? 'Skill' : 'Stunt'}</Text>
+                  <Text style={styles.liveCardTitle}>Skill · {monthLabel(liveEntry.month)}</Text>
                   <View style={[styles.pill, { backgroundColor: Colors.success + '33' }]}>
-                    <Text style={[styles.pillText, { color: Colors.success }]}>Live · {monthLabel(entry.month)}</Text>
+                    <Text style={[styles.pillText, { color: Colors.success }]}>Live</Text>
                   </View>
                 </View>
-                <Text style={styles.liveCardSubtitle}>{title}</Text>
-                <Text style={styles.liveCardMeta}>{reel.name} · {reel.role === 'coordinator' ? 'Coordinator' : 'Performer'}</Text>
+                <Text style={styles.liveCardSubtitle}>{liveEntry.skillCategory}</Text>
+                <Text style={styles.liveCardMeta}>{reelsInCat.length} reels in this category</Text>
                 <View style={styles.liveCardActions}>
-                  <TouchableOpacity style={styles.smallBtn} onPress={() => setPicker({ open: true, month: entry.month, category: cat, editingId: entry.id })}>
+                  <TouchableOpacity style={styles.smallBtn} onPress={() => setPicker({ open: true, month: liveEntry.month, editingId: liveEntry.id })}>
                     <Ionicons name="create-outline" size={14} color={Colors.textPrimary} />
                     <Text style={styles.smallBtnText}>Edit</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.smallBtn, { backgroundColor: Colors.primary + '22' }]}
                     onPress={() => {
-                      const go = () => closeNow(entry);
+                      const go = () => closeNow(liveEntry);
                       if (Platform.OS === 'web') {
-                        if (typeof window !== 'undefined' && window.confirm(`Close ${cat} reel for ${monthLabel(entry.month)} now? Average and vote count will be frozen.`)) go();
+                        if (typeof window !== 'undefined' && window.confirm(`Close skill category for ${monthLabel(liveEntry.month)} now? Final average and vote count will be frozen.`)) go();
                       } else {
-                        Alert.alert('Close reel now?', 'Final average and vote count will be frozen.', [
+                        Alert.alert('Close category now?', 'Final average and vote count will be frozen.', [
                           { text: 'Cancel', style: 'cancel' },
                           { text: 'Close now', onPress: go, style: 'destructive' },
                         ]);
@@ -215,57 +212,55 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
                 </View>
               </View>
             );
-          })}
+          })()}
         </View>
 
         {/* Section 2: Scheduled */}
         <Text style={[styles.sectionTitle, { marginTop: Spacing.xxl }]}>Scheduled</Text>
         <View style={styles.scheduledTable}>
-          {upcomingMonths.map(mkey => (
-            <View key={mkey} style={styles.scheduledMonthBlock}>
-              <Text style={styles.scheduledMonthLabel}>{monthLabel(mkey)}</Text>
-              {(['skill', 'stunt'] as ReelOfMonthCategory[]).map(cat => {
-                const entry = entries.find(e => e.category === cat && e.month === mkey);
-                const reel = entry ? (cat === 'skill' ? skillReels : stuntReels).find(r => r.id === entry.stuntListingReelId) : null;
-                const label = reel ? `${reel.name} · ${cat === 'skill' ? (entry?.theme || (reel as SkillReel).skill) : ((reel as StuntReel).title || 'Reel')}` : 'Not set';
-                return (
-                  <View key={cat} style={styles.scheduledRow}>
-                    <Text style={styles.scheduledCat}>{cat === 'skill' ? 'Skill' : 'Stunt'}</Text>
-                    <Text style={styles.scheduledValue} numberOfLines={1}>{label}</Text>
-                    {entry && (
-                      <View style={[styles.pill, statusPillStyle(entry.status)]}>
-                        <Text style={[styles.pillText, statusPillTextStyle(entry.status)]}>{entry.status}</Text>
-                      </View>
-                    )}
+          {scheduleMonths.map(mkey => {
+            const entry = entries.find(e => e.month === mkey);
+            return (
+              <View key={mkey} style={styles.scheduledMonthBlock}>
+                <Text style={styles.scheduledMonthLabel}>{monthLabel(mkey)}</Text>
+                <View style={styles.scheduledRow}>
+                  <Text style={styles.scheduledCat}>Skill</Text>
+                  <Text style={styles.scheduledValue} numberOfLines={1}>
+                    {entry ? entry.skillCategory : 'Not set'}
+                  </Text>
+                  {entry && (
+                    <View style={[styles.pill, statusPillStyle(entry.status)]}>
+                      <Text style={[styles.pillText, statusPillTextStyle(entry.status)]}>{entry.status}</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.smallBtn}
+                    onPress={() => setPicker({ open: true, month: mkey, editingId: entry?.id })}
+                  >
+                    <Text style={styles.smallBtnText}>{entry ? 'Edit' : 'Set'}</Text>
+                  </TouchableOpacity>
+                  {entry && (
                     <TouchableOpacity
-                      style={styles.smallBtn}
-                      onPress={() => setPicker({ open: true, month: mkey, category: cat, editingId: entry?.id })}
+                      style={[styles.smallBtn, { backgroundColor: Colors.primary + '22' }]}
+                      onPress={() => {
+                        const go = () => deleteEntry(entry.id);
+                        if (Platform.OS === 'web') {
+                          if (typeof window !== 'undefined' && window.confirm('Delete this scheduled entry?')) go();
+                        } else {
+                          Alert.alert('Delete entry?', '', [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Delete', onPress: go, style: 'destructive' },
+                          ]);
+                        }
+                      }}
                     >
-                      <Text style={styles.smallBtnText}>{entry ? 'Edit' : 'Set'}</Text>
+                      <Ionicons name="trash-outline" size={14} color={Colors.primary} />
                     </TouchableOpacity>
-                    {entry && (
-                      <TouchableOpacity
-                        style={[styles.smallBtn, { backgroundColor: Colors.primary + '22' }]}
-                        onPress={() => {
-                          const go = () => deleteEntry(entry.id);
-                          if (Platform.OS === 'web') {
-                            if (typeof window !== 'undefined' && window.confirm('Delete this scheduled entry?')) go();
-                          } else {
-                            Alert.alert('Delete entry?', '', [
-                              { text: 'Cancel', style: 'cancel' },
-                              { text: 'Delete', onPress: go, style: 'destructive' },
-                            ]);
-                          }
-                        }}
-                      >
-                        <Ionicons name="trash-outline" size={14} color={Colors.primary} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          ))}
+                  )}
+                </View>
+              </View>
+            );
+          })}
         </View>
 
         {/* Section 3: Archive link */}
@@ -279,16 +274,14 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      <PickerModal
+      <CategoryPickerModal
         picker={picker}
         onClose={() => setPicker(p => ({ ...p, open: false }))}
-        onSave={(entry, scheduleNow) => {
+        onSave={(entry) => {
           upsertEntry(entry);
-          if (scheduleNow && entry.month <= thisMonth && entry.status === 'scheduled') {
-            promoteNow(entry);
-          }
           setPicker(p => ({ ...p, open: false }));
         }}
+        thisMonth={thisMonth}
         existing={picker.editingId ? entries.find(e => e.id === picker.editingId) : undefined}
       />
     </ScrollView>
@@ -333,59 +326,59 @@ function formatRelative(iso: string) {
   return `${days}d ago`;
 }
 
-function PickerModal({
-  picker, onClose, onSave, existing,
+function CategoryPickerModal({
+  picker, onClose, onSave, existing, thisMonth,
 }: {
   picker: PickerState;
   onClose: () => void;
-  onSave: (entry: ReelOfMonthEntry, scheduleNow: boolean) => void;
+  onSave: (entry: ReelOfMonthEntry) => void;
   existing?: ReelOfMonthEntry;
+  thisMonth: string;
 }) {
   const [query, setQuery] = useState('');
-  const [selectedReelId, setSelectedReelId] = useState<string>(existing?.stuntListingReelId || '');
-  const [theme, setTheme] = useState<string>(existing?.theme || '');
+  const [selectedCategory, setSelectedCategory] = useState<string>(existing?.skillCategory || '');
 
   React.useEffect(() => {
     if (picker.open) {
       setQuery('');
-      setSelectedReelId(existing?.stuntListingReelId || '');
-      setTheme(existing?.theme || '');
+      setSelectedCategory(existing?.skillCategory || '');
     }
   }, [picker.open, picker.editingId]);
 
-  const catalog = picker.category === 'skill' ? skillReels : stuntReels;
-  const results = useMemo(() => {
+  const categoryRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return catalog.slice(0, 20);
-    return catalog.filter(r => {
-      const hay = [
-        r.name, r.alias,
-        picker.category === 'skill' ? (r as SkillReel).skill : (r as StuntReel).title,
-        picker.category === 'skill' ? (r as SkillReel).cat : '',
-        picker.category === 'skill' ? (r as SkillReel).desc : '',
-      ].join(' ').toLowerCase();
-      return hay.includes(q);
-    }).slice(0, 30);
-  }, [catalog, query, picker.category]);
-
-  const selectedReel = catalog.find(r => r.id === selectedReelId);
+    const filtered = q
+      ? skillReelCategories.filter(c => c.toLowerCase().includes(q))
+      : skillReelCategories;
+    return filtered.map(c => ({
+      name: c,
+      count: skillReels.filter(r => r.cat === c).length,
+      sampleThumb:
+        skillReels.find(r => r.cat === c && (r.thumb || r.youtubeId))?.thumb
+        || (skillReels.find(r => r.cat === c && r.youtubeId)
+          ? `https://i.ytimg.com/vi/${skillReels.find(r => r.cat === c && r.youtubeId)?.youtubeId}/hqdefault.jpg`
+          : null),
+    })).sort((a, b) => b.count - a.count);
+  }, [query]);
 
   const save = (status: ReelOfMonthStatus) => {
-    if (!selectedReelId) return;
+    if (!selectedCategory) return;
     const nowIso = new Date().toISOString();
+    const isCurrentOrPast = picker.month <= thisMonth;
+    const finalStatus: ReelOfMonthStatus = status === 'scheduled' && isCurrentOrPast ? 'live' : status;
     const entry: ReelOfMonthEntry = {
-      id: existing?.id || `rom-${picker.category}-${picker.month}-${Date.now()}`,
-      category: picker.category,
+      id: existing?.id || `rom-skill-${picker.month}-${Date.now()}`,
+      category: 'skill',
       month: picker.month,
-      stuntListingReelId: selectedReelId,
-      theme: theme.trim(),
-      status,
+      skillCategory: selectedCategory,
+      theme: selectedCategory,
+      status: finalStatus,
       finalAverage: existing?.finalAverage ?? null,
       finalVoteCount: existing?.finalVoteCount ?? null,
       createdAt: existing?.createdAt || nowIso,
       updatedAt: nowIso,
     };
-    onSave(entry, status === 'scheduled');
+    onSave(entry);
   };
 
   return (
@@ -394,7 +387,7 @@ function PickerModal({
         <View style={modalStyles.panel}>
           <View style={modalStyles.header}>
             <Text style={modalStyles.headerTitle}>
-              {existing ? 'Edit' : 'Schedule'} {picker.category} reel · {monthLabel(picker.month)}
+              {existing ? 'Edit' : 'Pick'} skill category · {monthLabel(picker.month)}
             </Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={Colors.textPrimary} />
@@ -403,36 +396,31 @@ function PickerModal({
 
           <TextInput
             style={modalStyles.search}
-            placeholder={`Search ${picker.category} reels by performer, ${picker.category === 'skill' ? 'skill, category' : 'title'}...`}
+            placeholder="Search categories…"
             placeholderTextColor={Colors.textMuted}
             value={query}
             onChangeText={setQuery}
           />
 
           <ScrollView style={modalStyles.results} contentContainerStyle={{ paddingVertical: 4 }}>
-            {results.map(r => {
-              const isSkill = picker.category === 'skill';
-              const label = isSkill ? (r as SkillReel).skill : (r as StuntReel).title || 'Stunt reel';
-              const sub = isSkill ? (r as SkillReel).cat : r.name;
-              const thumb = r.thumb || (r.youtubeId ? `https://i.ytimg.com/vi/${r.youtubeId}/hqdefault.jpg` : null);
-              const selected = r.id === selectedReelId;
+            {categoryRows.map(row => {
+              const selected = row.name === selectedCategory;
               return (
                 <TouchableOpacity
-                  key={r.id}
+                  key={row.name}
                   style={[modalStyles.resultRow, selected && modalStyles.resultRowSelected]}
-                  onPress={() => setSelectedReelId(r.id)}
+                  onPress={() => setSelectedCategory(row.name)}
                 >
-                  {thumb ? (
-                    <Image source={{ uri: thumb }} style={modalStyles.resultThumb} contentFit="cover" />
+                  {row.sampleThumb ? (
+                    <Image source={{ uri: row.sampleThumb }} style={modalStyles.resultThumb} contentFit="cover" />
                   ) : (
                     <View style={[modalStyles.resultThumb, { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceHighlight }]}>
-                      <Ionicons name="film-outline" size={20} color={Colors.textMuted} />
+                      <Ionicons name="pricetag-outline" size={20} color={Colors.textMuted} />
                     </View>
                   )}
                   <View style={{ flex: 1 }}>
-                    <Text style={modalStyles.resultName} numberOfLines={1}>{r.name}</Text>
-                    <Text style={modalStyles.resultLabel} numberOfLines={1}>{label}</Text>
-                    {sub ? <Text style={modalStyles.resultSub} numberOfLines={1}>{sub}</Text> : null}
+                    <Text style={modalStyles.resultName}>{row.name}</Text>
+                    <Text style={modalStyles.resultSub}>{row.count} {row.count === 1 ? 'reel' : 'reels'}</Text>
                   </View>
                   {selected && <Ionicons name="checkmark-circle" size={22} color={Colors.accent} />}
                 </TouchableOpacity>
@@ -440,35 +428,24 @@ function PickerModal({
             })}
           </ScrollView>
 
-          {picker.category === 'skill' && (
-            <View style={modalStyles.themeRow}>
-              <Text style={modalStyles.themeLabel}>Theme</Text>
-              <TextInput
-                style={modalStyles.themeInput}
-                placeholder='e.g. "fight choreography"'
-                placeholderTextColor={Colors.textMuted}
-                value={theme}
-                onChangeText={setTheme}
-              />
-            </View>
-          )}
-
-          {selectedReel && (
+          {selectedCategory && (
             <Text style={modalStyles.preview}>
-              Selected: {selectedReel.name} · {picker.category === 'skill' ? (selectedReel as SkillReel).skill : ((selectedReel as StuntReel).title || 'Reel')}
+              Selected: {selectedCategory} · {skillReels.filter(r => r.cat === selectedCategory).length} reels
             </Text>
           )}
 
           <View style={modalStyles.actions}>
-            <TouchableOpacity style={modalStyles.ghostBtn} onPress={() => save('draft')} disabled={!selectedReelId}>
-              <Text style={[modalStyles.ghostBtnText, !selectedReelId && { opacity: 0.4 }]}>Save as draft</Text>
+            <TouchableOpacity style={modalStyles.ghostBtn} onPress={() => save('draft')} disabled={!selectedCategory}>
+              <Text style={[modalStyles.ghostBtnText, !selectedCategory && { opacity: 0.4 }]}>Save as draft</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[modalStyles.primaryBtn, !selectedReelId && { opacity: 0.4 }]}
+              style={[modalStyles.primaryBtn, !selectedCategory && { opacity: 0.4 }]}
               onPress={() => save('scheduled')}
-              disabled={!selectedReelId}
+              disabled={!selectedCategory}
             >
-              <Text style={modalStyles.primaryBtnText}>Schedule for {monthLabel(picker.month)}</Text>
+              <Text style={modalStyles.primaryBtnText}>
+                {picker.month <= thisMonth ? `Go live for ${monthLabel(picker.month)}` : `Schedule for ${monthLabel(picker.month)}`}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -483,7 +460,8 @@ const styles = StyleSheet.create({
   maxWidth: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: Spacing.screen },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.lg, paddingTop: Platform.OS === 'web' ? Spacing.lg : 50 },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
-  headerTitle: { color: Colors.textPrimary, fontSize: FontSize.xl, fontWeight: FontWeight.bold },
+  headerTitle: { color: Colors.textPrimary, fontSize: FontSize.xl, fontWeight: FontWeight.bold, flex: 1, textAlign: 'center' },
+  noteText: { color: Colors.textSecondary, fontSize: FontSize.sm, lineHeight: 18, marginBottom: Spacing.lg, paddingHorizontal: 2 },
   sectionTitle: { color: Colors.textPrimary, fontSize: FontSize.xl, fontWeight: FontWeight.bold, marginBottom: Spacing.md, marginTop: Spacing.sm },
   liveGrid: { gap: Spacing.md },
   liveCard: { backgroundColor: Colors.card, borderRadius: BorderRadius.md, padding: Spacing.lg },
@@ -491,7 +469,7 @@ const styles = StyleSheet.create({
   liveCardTitle: { color: Colors.textTertiary, fontSize: FontSize.sm, fontWeight: FontWeight.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   liveCardSubtitle: { color: Colors.textPrimary, fontSize: FontSize.xl, fontWeight: FontWeight.bold, marginTop: Spacing.sm },
   liveCardMeta: { color: Colors.textSecondary, fontSize: FontSize.sm, marginTop: 2 },
-  liveCardBody: { color: Colors.textSecondary, fontSize: FontSize.sm, marginTop: Spacing.sm },
+  liveCardBody: { color: Colors.textSecondary, fontSize: FontSize.sm, marginTop: Spacing.sm, lineHeight: 20 },
   liveCardActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md },
   pill: { paddingHorizontal: Spacing.sm, paddingVertical: 3, borderRadius: BorderRadius.round },
   pillText: { fontSize: FontSize.xs, fontWeight: FontWeight.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -544,23 +522,15 @@ const modalStyles = StyleSheet.create({
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
     color: Colors.textPrimary, fontSize: FontSize.sm, marginBottom: Spacing.md,
   },
-  results: { maxHeight: 340, borderRadius: BorderRadius.sm, backgroundColor: Colors.background },
+  results: { maxHeight: 360, borderRadius: BorderRadius.sm, backgroundColor: Colors.background },
   resultRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
     padding: Spacing.sm, borderRadius: BorderRadius.sm,
   },
   resultRowSelected: { backgroundColor: Colors.accent + '22' },
-  resultThumb: { width: 80, height: 45, borderRadius: BorderRadius.xs, backgroundColor: Colors.surfaceHighlight },
+  resultThumb: { width: 64, height: 36, borderRadius: BorderRadius.xs, backgroundColor: Colors.surfaceHighlight },
   resultName: { color: Colors.textPrimary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
-  resultLabel: { color: Colors.textSecondary, fontSize: FontSize.xs },
   resultSub: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 1 },
-  themeRow: { marginTop: Spacing.md },
-  themeLabel: { color: Colors.textTertiary, fontSize: FontSize.xs, fontWeight: FontWeight.bold, textTransform: 'uppercase', marginBottom: 4 },
-  themeInput: {
-    backgroundColor: Colors.background, borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
-    color: Colors.textPrimary, fontSize: FontSize.sm,
-  },
   preview: { color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: Spacing.md, fontStyle: 'italic' },
   actions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.lg, justifyContent: 'flex-end' },
   ghostBtn: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, borderRadius: BorderRadius.sm, backgroundColor: Colors.surfaceHighlight },

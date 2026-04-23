@@ -1,12 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
-import { skillReels, stuntReels, getEmbedUrl, SkillReel, StuntReel } from '../../services/StuntListingService';
+import { getSkillReelsByCategory } from '../../services/StuntListingService';
 import { usePageTitle } from '../../hooks/usePageTitle';
-import type { ReelOfMonthCategory, ReelOfMonthEntry } from '../../services/AppState';
 
 const MAX_WIDTH = 960;
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -16,15 +15,13 @@ function monthLabel(monthKey: string) {
   return `${MONTH_NAMES[m - 1]} ${y}`;
 }
 
-export function ReelOfTheMonthArchiveScreen({ navigation, route }: any) {
-  usePageTitle('Reel of the Month · Archive');
-  const initialCategory: ReelOfMonthCategory = route?.params?.category === 'stunt' ? 'stunt' : 'skill';
-  const [tab, setTab] = useState<ReelOfMonthCategory>(initialCategory);
+export function ReelOfTheMonthArchiveScreen({ navigation }: any) {
+  usePageTitle('Skill Reel of the Month · Archive');
   const { state } = useAppState();
   const entries = state.settings.reelOfMonthEntries || [];
 
   const rows = useMemo(() => {
-    const closed = entries.filter(e => e.category === tab && e.status === 'closed');
+    const closed = entries.filter(e => e.category === 'skill' && e.status === 'closed');
     return closed.sort((a, b) => {
       const avgA = a.finalAverage ?? 0;
       const avgB = b.finalAverage ?? 0;
@@ -34,9 +31,7 @@ export function ReelOfTheMonthArchiveScreen({ navigation, route }: any) {
       if (cB !== cA) return cB - cA;
       return b.month.localeCompare(a.month);
     });
-  }, [entries, tab]);
-
-  const lookup = tab === 'skill' ? skillReels : stuntReels;
+  }, [entries]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
@@ -45,50 +40,27 @@ export function ReelOfTheMonthArchiveScreen({ navigation, route }: any) {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Reel of the Month · Archive</Text>
+          <Text style={styles.headerTitle}>Skill Reel of the Month · Archive</Text>
           <View style={{ width: 40 }} />
-        </View>
-
-        <View style={styles.tabs}>
-          {(['skill', 'stunt'] as ReelOfMonthCategory[]).map(t => (
-            <TouchableOpacity
-              key={t}
-              style={[styles.tab, tab === t && styles.tabActive]}
-              onPress={() => setTab(t)}
-            >
-              <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-                {t === 'skill' ? 'Skill' : 'Stunt'}
-              </Text>
-            </TouchableOpacity>
-          ))}
         </View>
 
         {rows.length === 0 && (
           <View style={styles.emptyCard}>
             <Ionicons name="trophy-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>No archived winners yet</Text>
+            <Text style={styles.emptyTitle}>No archived categories yet</Text>
             <Text style={styles.emptyBody}>
-              When the month ends, the featured {tab} reel will be frozen and added here.
+              When the month ends, the featured skill category&apos;s final average is frozen and added here.
             </Text>
           </View>
         )}
 
         {rows.map((row, idx) => {
-          const reel = lookup.find(r => r.id === row.stuntListingReelId) as (SkillReel | StuntReel | undefined);
-          if (!reel) return null;
-          const thumb = reel.thumb || (reel.youtubeId ? `https://i.ytimg.com/vi/${reel.youtubeId}/hqdefault.jpg` : null);
-          const rowTitle = tab === 'skill' ? (row.theme || (reel as SkillReel).skill) : ((reel as StuntReel).title || row.theme);
+          const reelsInCat = getSkillReelsByCategory(row.skillCategory);
+          const firstWithThumb = reelsInCat.find(r => r.thumb || r.youtubeId);
+          const thumb = firstWithThumb?.thumb || (firstWithThumb?.youtubeId ? `https://i.ytimg.com/vi/${firstWithThumb.youtubeId}/hqdefault.jpg` : null);
           const isTop = idx === 0;
           return (
-            <TouchableOpacity
-              key={row.id}
-              style={[styles.row, isTop && styles.rowTop]}
-              activeOpacity={0.8}
-              onPress={() => {
-                const embed = getEmbedUrl(reel);
-                if (embed) navigation.navigate('VideoPlayer', { embedUrl: embed, title: rowTitle, reelId: reel.id });
-              }}
-            >
+            <View key={row.id} style={[styles.row, isTop && styles.rowTop]}>
               <View style={styles.thumbWrap}>
                 {thumb ? (
                   <Image source={{ uri: thumb }} style={styles.thumb} contentFit="cover" />
@@ -105,14 +77,14 @@ export function ReelOfTheMonthArchiveScreen({ navigation, route }: any) {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.monthLabel}>{monthLabel(row.month)}</Text>
-                <Text style={styles.rowTitle} numberOfLines={2}>{rowTitle}</Text>
-                <Text style={styles.rowMeta}>{reel.name}</Text>
+                <Text style={styles.rowTitle} numberOfLines={2}>{row.skillCategory}</Text>
+                <Text style={styles.rowMeta}>{reelsInCat.length} {reelsInCat.length === 1 ? 'reel' : 'reels'}</Text>
               </View>
               <View style={styles.scoreBlock}>
                 <Text style={styles.scoreValue}>{(row.finalAverage ?? 0).toFixed(2)}</Text>
                 <Text style={styles.scoreLabel}>{row.finalVoteCount ?? 0} {(row.finalVoteCount ?? 0) === 1 ? 'vote' : 'votes'}</Text>
               </View>
-            </TouchableOpacity>
+            </View>
           );
         })}
       </View>
@@ -126,11 +98,6 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.lg, paddingTop: Platform.OS === 'web' ? Spacing.lg : 50 },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
   headerTitle: { color: Colors.textPrimary, fontSize: FontSize.xl, fontWeight: FontWeight.bold },
-  tabs: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.lg },
-  tab: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xl, borderRadius: BorderRadius.round, backgroundColor: Colors.surface },
-  tabActive: { backgroundColor: Colors.accent },
-  tabText: { color: Colors.textSecondary, fontSize: FontSize.md, fontWeight: FontWeight.medium },
-  tabTextActive: { color: '#fff' },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
     padding: Spacing.md, backgroundColor: Colors.surface,
