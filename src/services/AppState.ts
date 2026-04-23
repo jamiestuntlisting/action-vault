@@ -22,7 +22,7 @@ export interface ReelOfMonthEntry {
   id: string;
   category: ReelOfMonthCategory;
   month: string;
-  skillCategory: string;
+  skill: string;
   theme: string;
   status: ReelOfMonthStatus;
   finalAverage: number | null;

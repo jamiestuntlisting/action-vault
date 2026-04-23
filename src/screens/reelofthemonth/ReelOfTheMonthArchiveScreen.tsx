@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
-import { getSkillReelsByCategory } from '../../services/StuntListingService';
+import { getSkillReelsBySkill } from '../../services/StuntListingService';
 import { usePageTitle } from '../../hooks/usePageTitle';
 
 const MAX_WIDTH = 960;
@@ -47,17 +47,18 @@ export function ReelOfTheMonthArchiveScreen({ navigation }: any) {
         {rows.length === 0 && (
           <View style={styles.emptyCard}>
             <Ionicons name="trophy-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>No archived categories yet</Text>
+            <Text style={styles.emptyTitle}>No archived skills yet</Text>
             <Text style={styles.emptyBody}>
-              When the month ends, the featured skill category&apos;s final average is frozen and added here.
+              When the month ends, the featured skill&apos;s final average is frozen and added here.
             </Text>
           </View>
         )}
 
         {rows.map((row, idx) => {
-          const reelsInCat = getSkillReelsByCategory(row.skillCategory);
-          const firstWithThumb = reelsInCat.find(r => r.thumb || r.youtubeId);
+          const reelsForSkill = getSkillReelsBySkill(row.skill);
+          const firstWithThumb = reelsForSkill.find(r => r.thumb || r.youtubeId);
           const thumb = firstWithThumb?.thumb || (firstWithThumb?.youtubeId ? `https://i.ytimg.com/vi/${firstWithThumb.youtubeId}/hqdefault.jpg` : null);
+          const parentCategory = reelsForSkill[0]?.cat;
           const isTop = idx === 0;
           return (
             <View key={row.id} style={[styles.row, isTop && styles.rowTop]}>
@@ -77,8 +78,10 @@ export function ReelOfTheMonthArchiveScreen({ navigation }: any) {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.monthLabel}>{monthLabel(row.month)}</Text>
-                <Text style={styles.rowTitle} numberOfLines={2}>{row.skillCategory}</Text>
-                <Text style={styles.rowMeta}>{reelsInCat.length} {reelsInCat.length === 1 ? 'reel' : 'reels'}</Text>
+                <Text style={styles.rowTitle} numberOfLines={2}>{row.skill}</Text>
+                <Text style={styles.rowMeta}>
+                  {reelsForSkill.length} {reelsForSkill.length === 1 ? 'reel' : 'reels'}{parentCategory ? ` · ${parentCategory}` : ''}
+                </Text>
               </View>
               <View style={styles.scoreBlock}>
                 <Text style={styles.scoreValue}>{(row.finalAverage ?? 0).toFixed(2)}</Text>

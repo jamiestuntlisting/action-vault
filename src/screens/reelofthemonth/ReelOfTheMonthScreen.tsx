@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
 import { VerticalRatingSlider } from '../../components/VerticalRatingSlider';
-import { getSkillReelsByCategory, getProfileUrl, getEmbedUrl, SkillReel } from '../../services/StuntListingService';
+import { getSkillReelsBySkill, getProfileUrl, getEmbedUrl, SkillReel } from '../../services/StuntListingService';
 import { usePageTitle } from '../../hooks/usePageTitle';
 
 const MAX_WIDTH = 960;
@@ -38,8 +38,9 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
 
   const reels = useMemo<SkillReel[]>(() => {
     if (!liveEntry) return [];
-    return getSkillReelsByCategory(liveEntry.skillCategory);
+    return getSkillReelsBySkill(liveEntry.skill);
   }, [liveEntry]);
+  const parentCategory = reels[0]?.cat;
 
   const [activeReelIdx, setActiveReelIdx] = useState(0);
   useEffect(() => { setActiveReelIdx(0); }, [liveEntry?.id]);
@@ -91,15 +92,15 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
           </View>
           <View style={styles.fallbackCard}>
             <Ionicons name="calendar-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.fallbackTitle}>No skill category is live right now</Text>
+            <Text style={styles.fallbackTitle}>No skill is live right now</Text>
             <Text style={styles.fallbackBody}>
-              The next skill Reel of the Month goes up {nextMonth} 1.
+              The next Skill Reel of the Month goes up {nextMonth} 1.
             </Text>
             <TouchableOpacity
               style={styles.primaryBtn}
               onPress={() => navigation.navigate('ReelOfTheMonthArchive')}
             >
-              <Text style={styles.primaryBtnText}>See past skill categories</Text>
+              <Text style={styles.primaryBtnText}>See past skills</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -142,8 +143,10 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.eyebrow}>{monthLabel} · Skill reel of the month</Text>
-            <Text style={styles.title}>{liveEntry.skillCategory}</Text>
-            <Text style={styles.subtitle}>{reels.length} reels · rate the category as a whole</Text>
+            <Text style={styles.title}>{liveEntry.skill}</Text>
+            <Text style={styles.subtitle}>
+              {reels.length} {reels.length === 1 ? 'reel' : 'reels'}{parentCategory ? ` · ${parentCategory}` : ''} · rate this skill as a whole
+            </Text>
           </View>
           <View style={styles.daysPill}>
             <Ionicons name="time-outline" size={12} color={Colors.accent} />
@@ -198,7 +201,7 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
         </View>
 
         {/* Reel chooser */}
-        <Text style={styles.chooserLabel}>All {reels.length} reels in this category</Text>
+        <Text style={styles.chooserLabel}>All {reels.length} reels tagged {liveEntry.skill}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chooserRow}>
           {reels.map((r, i) => {
             const thumb = r.thumb || (r.youtubeId ? `https://i.ytimg.com/vi/${r.youtubeId}/hqdefault.jpg` : null);
@@ -225,14 +228,14 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
         </ScrollView>
 
         <Text style={styles.caption}>
-          One rating per member for the whole category · scores hidden until {nextRevealLabel} · you can change your vote until then
+          One rating per member for the whole skill · scores hidden until {nextRevealLabel} · you can change your vote until then
         </Text>
 
         <TouchableOpacity
           style={styles.archiveLink}
           onPress={() => navigation.navigate('ReelOfTheMonthArchive')}
         >
-          <Text style={styles.archiveLinkText}>See past skill categories →</Text>
+          <Text style={styles.archiveLinkText}>See past skills →</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

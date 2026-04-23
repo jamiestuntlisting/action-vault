@@ -49,12 +49,20 @@ export const stuntReels: StuntReel[] = (() => {
 // All skill reels from paid StuntListing members
 export const skillReels: SkillReel[] = (reelsData as any).skillReels || [];
 
-// Skill reel categories
+// Skill reel categories (broad grouping, e.g. "Stunt Skills", "Vehicles")
 export const skillReelCategories = [...new Set(skillReels.map(r => r.cat).filter(Boolean))];
+
+// Individual skills (e.g. "Stairfall", "Fight Choreography")
+export const skillReelSkills = [...new Set(skillReels.map(r => r.skill).filter(Boolean))];
 
 // Get skill reels by category
 export function getSkillReelsByCategory(category: string): SkillReel[] {
   return skillReels.filter(r => r.cat === category);
+}
+
+// Get skill reels by specific skill
+export function getSkillReelsBySkill(skill: string): SkillReel[] {
+  return skillReels.filter(r => r.skill === skill);
 }
 
 // Get stunt reels for a specific performer by name

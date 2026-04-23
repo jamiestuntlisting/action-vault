@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
-import { skillReels, skillReelCategories, getSkillReelsByCategory } from '../../services/StuntListingService';
+import { skillReels, skillReelSkills, getSkillReelsBySkill } from '../../services/StuntListingService';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import type { ReelOfMonthEntry, ReelOfMonthStatus } from '../../services/AppState';
 import { ExperienceLevel } from '../../types';
@@ -110,7 +110,7 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
         </View>
 
         <Text style={styles.noteText}>
-          Admin picks a skill <Text style={{ fontWeight: FontWeight.bold }}>category</Text> each month. Every skill reel tagged to that category is featured in the competition. Stunt reels are surfaced automatically on the homepage from recent activity and don&apos;t need to be scheduled.
+          Admin picks a <Text style={{ fontWeight: FontWeight.bold }}>skill</Text> each month (e.g. Stairfall, Fight Choreography). Every reel tagged to that skill is featured in the competition. Stunt reels are surfaced automatically on the homepage from recent activity and don&apos;t need to be scheduled.
         </Text>
 
         {/* Section 1: Live now */}
@@ -127,7 +127,7 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
                     </View>
                   </View>
                   <Text style={styles.liveCardBody}>
-                    No skill category is live this month.{' '}
+                    No skill is live this month.{' '}
                     <Text
                       style={styles.inlineLink}
                       onPress={() => setPicker({ open: true, month: thisMonth })}
@@ -148,7 +148,8 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
             });
             Object.keys(tierGroups).forEach(k => tierGroups[k].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
             const totals = TIER_ORDER.map(t => `${tierGroups[t]?.length || 0} ${TIER_LABEL[t].toLowerCase()}`).join(' · ');
-            const reelsInCat = getSkillReelsByCategory(liveEntry.skillCategory);
+            const reelsForSkill = getSkillReelsBySkill(liveEntry.skill);
+            const parentCategory = reelsForSkill[0]?.cat;
 
             return (
               <View style={styles.liveCard}>
@@ -158,8 +159,8 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
                     <Text style={[styles.pillText, { color: Colors.success }]}>Live</Text>
                   </View>
                 </View>
-                <Text style={styles.liveCardSubtitle}>{liveEntry.skillCategory}</Text>
-                <Text style={styles.liveCardMeta}>{reelsInCat.length} reels in this category</Text>
+                <Text style={styles.liveCardSubtitle}>{liveEntry.skill}</Text>
+                <Text style={styles.liveCardMeta}>{reelsForSkill.length} {reelsForSkill.length === 1 ? 'reel' : 'reels'}{parentCategory ? ` · ${parentCategory}` : ''}</Text>
                 <View style={styles.liveCardActions}>
                   <TouchableOpacity style={styles.smallBtn} onPress={() => setPicker({ open: true, month: liveEntry.month, editingId: liveEntry.id })}>
                     <Ionicons name="create-outline" size={14} color={Colors.textPrimary} />
@@ -170,9 +171,9 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
                     onPress={() => {
                       const go = () => closeNow(liveEntry);
                       if (Platform.OS === 'web') {
-                        if (typeof window !== 'undefined' && window.confirm(`Close skill category for ${monthLabel(liveEntry.month)} now? Final average and vote count will be frozen.`)) go();
+                        if (typeof window !== 'undefined' && window.confirm(`Close skill reel for ${monthLabel(liveEntry.month)} now? Final average and vote count will be frozen.`)) go();
                       } else {
-                        Alert.alert('Close category now?', 'Final average and vote count will be frozen.', [
+                        Alert.alert('Close skill now?', 'Final average and vote count will be frozen.', [
                           { text: 'Cancel', style: 'cancel' },
                           { text: 'Close now', onPress: go, style: 'destructive' },
                         ]);
@@ -226,7 +227,7 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
                 <View style={styles.scheduledRow}>
                   <Text style={styles.scheduledCat}>Skill</Text>
                   <Text style={styles.scheduledValue} numberOfLines={1}>
-                    {entry ? entry.skillCategory : 'Not set'}
+                    {entry ? entry.skill : 'Not set'}
                   </Text>
                   {entry && (
                     <View style={[styles.pill, statusPillStyle(entry.status)]}>
@@ -274,7 +275,7 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      <CategoryPickerModal
+      <SkillPickerModal
         picker={picker}
         onClose={() => setPicker(p => ({ ...p, open: false }))}
         onSave={(entry) => {
@@ -326,7 +327,7 @@ function formatRelative(iso: string) {
   return `${days}d ago`;
 }
 
-function CategoryPickerModal({
+function SkillPickerModal({
   picker, onClose, onSave, existing, thisMonth,
 }: {
   picker: PickerState;
@@ -336,33 +337,41 @@ function CategoryPickerModal({
   thisMonth: string;
 }) {
   const [query, setQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>(existing?.skillCategory || '');
+  const [selectedSkill, setSelectedSkill] = useState<string>(existing?.skill || '');
 
   React.useEffect(() => {
     if (picker.open) {
       setQuery('');
-      setSelectedCategory(existing?.skillCategory || '');
+      setSelectedSkill(existing?.skill || '');
     }
   }, [picker.open, picker.editingId]);
 
-  const categoryRows = useMemo(() => {
+  const skillRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = q
-      ? skillReelCategories.filter(c => c.toLowerCase().includes(q))
-      : skillReelCategories;
-    return filtered.map(c => ({
-      name: c,
-      count: skillReels.filter(r => r.cat === c).length,
-      sampleThumb:
-        skillReels.find(r => r.cat === c && (r.thumb || r.youtubeId))?.thumb
-        || (skillReels.find(r => r.cat === c && r.youtubeId)
-          ? `https://i.ytimg.com/vi/${skillReels.find(r => r.cat === c && r.youtubeId)?.youtubeId}/hqdefault.jpg`
-          : null),
-    })).sort((a, b) => b.count - a.count);
+      ? skillReelSkills.filter(s => s.toLowerCase().includes(q) || skillReels.some(r => r.skill === s && r.cat.toLowerCase().includes(q)))
+      : skillReelSkills;
+    return filtered.map(skill => {
+      const reelsForSkill = getSkillReelsBySkill(skill);
+      const first = reelsForSkill.find(r => r.thumb || r.youtubeId);
+      const thumb = first?.thumb || (first?.youtubeId ? `https://i.ytimg.com/vi/${first.youtubeId}/hqdefault.jpg` : null);
+      return {
+        name: skill,
+        count: reelsForSkill.length,
+        parentCategory: reelsForSkill[0]?.cat || '',
+        sampleThumb: thumb,
+      };
+    }).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   }, [query]);
 
+  const selectedMeta = useMemo(() => {
+    if (!selectedSkill) return null;
+    const reels = getSkillReelsBySkill(selectedSkill);
+    return { count: reels.length, parentCategory: reels[0]?.cat || '' };
+  }, [selectedSkill]);
+
   const save = (status: ReelOfMonthStatus) => {
-    if (!selectedCategory) return;
+    if (!selectedSkill) return;
     const nowIso = new Date().toISOString();
     const isCurrentOrPast = picker.month <= thisMonth;
     const finalStatus: ReelOfMonthStatus = status === 'scheduled' && isCurrentOrPast ? 'live' : status;
@@ -370,8 +379,8 @@ function CategoryPickerModal({
       id: existing?.id || `rom-skill-${picker.month}-${Date.now()}`,
       category: 'skill',
       month: picker.month,
-      skillCategory: selectedCategory,
-      theme: selectedCategory,
+      skill: selectedSkill,
+      theme: selectedSkill,
       status: finalStatus,
       finalAverage: existing?.finalAverage ?? null,
       finalVoteCount: existing?.finalVoteCount ?? null,
@@ -387,7 +396,7 @@ function CategoryPickerModal({
         <View style={modalStyles.panel}>
           <View style={modalStyles.header}>
             <Text style={modalStyles.headerTitle}>
-              {existing ? 'Edit' : 'Pick'} skill category · {monthLabel(picker.month)}
+              {existing ? 'Edit' : 'Pick'} skill · {monthLabel(picker.month)}
             </Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={Colors.textPrimary} />
@@ -396,20 +405,20 @@ function CategoryPickerModal({
 
           <TextInput
             style={modalStyles.search}
-            placeholder="Search categories…"
+            placeholder="Search skills (or category)…"
             placeholderTextColor={Colors.textMuted}
             value={query}
             onChangeText={setQuery}
           />
 
           <ScrollView style={modalStyles.results} contentContainerStyle={{ paddingVertical: 4 }}>
-            {categoryRows.map(row => {
-              const selected = row.name === selectedCategory;
+            {skillRows.map(row => {
+              const selected = row.name === selectedSkill;
               return (
                 <TouchableOpacity
                   key={row.name}
                   style={[modalStyles.resultRow, selected && modalStyles.resultRowSelected]}
-                  onPress={() => setSelectedCategory(row.name)}
+                  onPress={() => setSelectedSkill(row.name)}
                 >
                   {row.sampleThumb ? (
                     <Image source={{ uri: row.sampleThumb }} style={modalStyles.resultThumb} contentFit="cover" />
@@ -420,7 +429,9 @@ function CategoryPickerModal({
                   )}
                   <View style={{ flex: 1 }}>
                     <Text style={modalStyles.resultName}>{row.name}</Text>
-                    <Text style={modalStyles.resultSub}>{row.count} {row.count === 1 ? 'reel' : 'reels'}</Text>
+                    <Text style={modalStyles.resultSub}>
+                      {row.count} {row.count === 1 ? 'reel' : 'reels'}{row.parentCategory ? ` · ${row.parentCategory}` : ''}
+                    </Text>
                   </View>
                   {selected && <Ionicons name="checkmark-circle" size={22} color={Colors.accent} />}
                 </TouchableOpacity>
@@ -428,20 +439,20 @@ function CategoryPickerModal({
             })}
           </ScrollView>
 
-          {selectedCategory && (
+          {selectedSkill && selectedMeta && (
             <Text style={modalStyles.preview}>
-              Selected: {selectedCategory} · {skillReels.filter(r => r.cat === selectedCategory).length} reels
+              Selected: {selectedSkill} · {selectedMeta.count} {selectedMeta.count === 1 ? 'reel' : 'reels'}{selectedMeta.parentCategory ? ` · ${selectedMeta.parentCategory}` : ''}
             </Text>
           )}
 
           <View style={modalStyles.actions}>
-            <TouchableOpacity style={modalStyles.ghostBtn} onPress={() => save('draft')} disabled={!selectedCategory}>
-              <Text style={[modalStyles.ghostBtnText, !selectedCategory && { opacity: 0.4 }]}>Save as draft</Text>
+            <TouchableOpacity style={modalStyles.ghostBtn} onPress={() => save('draft')} disabled={!selectedSkill}>
+              <Text style={[modalStyles.ghostBtnText, !selectedSkill && { opacity: 0.4 }]}>Save as draft</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[modalStyles.primaryBtn, !selectedCategory && { opacity: 0.4 }]}
+              style={[modalStyles.primaryBtn, !selectedSkill && { opacity: 0.4 }]}
               onPress={() => save('scheduled')}
-              disabled={!selectedCategory}
+              disabled={!selectedSkill}
             >
               <Text style={modalStyles.primaryBtnText}>
                 {picker.month <= thisMonth ? `Go live for ${monthLabel(picker.month)}` : `Schedule for ${monthLabel(picker.month)}`}

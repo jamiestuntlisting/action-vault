@@ -515,8 +515,8 @@ function ReelOfTheMonthEntry({ navigation }: { navigation: any }) {
   const now = new Date();
   const nextMonthName = MONTH_NAMES_HOME[(now.getMonth() + 1) % 12];
 
-  const skillCategoryReels = liveSkill ? skillReels.filter(r => r.cat === liveSkill.skillCategory) : [];
-  const skillThumbs = skillCategoryReels.slice(0, 4).map(reelThumb);
+  const skillFocusReels = liveSkill ? skillReels.filter(r => r.skill === liveSkill.skill) : [];
+  const skillThumbs = skillFocusReels.slice(0, 4).map(reelThumb);
   const stuntThumbs = stuntReels.slice(0, 4).map(reelThumb);
 
   return (
@@ -529,7 +529,7 @@ function ReelOfTheMonthEntry({ navigation }: { navigation: any }) {
           onPress={() => navigation.navigate(liveSkill ? 'ReelOfTheMonth' : 'ReelOfTheMonthArchive')}
         >
           {liveSkill ? (
-            <Montage thumbs={skillThumbs} label={liveSkill.skillCategory} />
+            <Montage thumbs={skillThumbs} label={liveSkill.skill} />
           ) : (
             <View style={[homeReelCardStyles.montage, { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceHighlight }]}>
               <Ionicons name="trophy-outline" size={32} color={Colors.textMuted} />
