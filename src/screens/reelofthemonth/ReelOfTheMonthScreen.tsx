@@ -33,7 +33,6 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
 
   const { state, dispatch } = useAppState();
   const entries = state.settings.reelOfMonthEntries || [];
-  const votes = state.settings.reelOfMonthVotes || [];
   const liveEntry = useMemo(() => entries.find(e => e.category === 'skill' && e.status === 'live'), [entries]);
 
   const reels = useMemo<SkillReel[]>(() => {
@@ -44,43 +43,67 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
 
   const [activeReelIdx, setActiveReelIdx] = useState(0);
   useEffect(() => { setActiveReelIdx(0); }, [liveEntry?.id]);
+  const activeReel = reels[Math.min(activeReelIdx, Math.max(reels.length - 1, 0))];
 
   const currentEmail = state.currentUser?.email || '';
+  // Find this user's vote for the *current reel* (not the skill as a whole).
+  // myReelVotes is stored per-user in user-scoped storage so other users on
+  // the same device can't see it; each reel keeps its own independent rating.
   const existingVote = useMemo(
-    () => (liveEntry ? votes.find(v => v.entryId === liveEntry.id && v.userEmail.toLowerCase() === currentEmail.toLowerCase()) : undefined),
-    [votes, liveEntry, currentEmail],
+    () => (liveEntry && activeReel
+      ? state.myReelVotes.find(v => v.entryId === liveEntry.id && v.reelId === activeReel.id)
+      : undefined),
+    [state.myReelVotes, liveEntry, activeReel],
   );
 
   const [rating, setRating] = useState<number>(existingVote?.rating ?? 0);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  // Tracks the reel/entry the slider currently corresponds to. When the user
+  // navigates to a different reel, we reset to *that* reel's stored rating
+  // (or 0) WITHOUT triggering an auto-save — auto-save fires only on actual
+  // user interaction with the slider.
+  const sliderForRef = useRef<{ entryId: string; reelId: string } | null>(null);
   const hasInteractedRef = useRef(false);
 
+  // Sync slider when the active reel changes (or its stored vote changes).
   useEffect(() => {
-    if (existingVote) setRating(existingVote.rating);
-  }, [existingVote?.rating]);
+    if (!liveEntry || !activeReel) return;
+    sliderForRef.current = { entryId: liveEntry.id, reelId: activeReel.id };
+    hasInteractedRef.current = false;
+    setRating(existingVote?.rating ?? 0);
+  }, [liveEntry?.id, activeReel?.id, existingVote?.rating]);
 
   // Auto-save on change (debounced). Rating 0 = "no score" = no vote saved
   // (existing vote is removed if the user drags back down to 0).
   useEffect(() => {
     if (!hasInteractedRef.current) return;
-    if (!liveEntry || !currentEmail) return;
+    if (!liveEntry || !activeReel || !currentEmail) return;
+    // Guard against a slider value being saved against the wrong reel during
+    // the brief moment after navigation but before the sync effect runs.
+    if (sliderForRef.current?.reelId !== activeReel.id) return;
+
     const t = setTimeout(() => {
-      const nowIso = new Date().toISOString();
-      const withoutMine = (state.settings.reelOfMonthVotes || []).filter(
-        v => !(v.entryId === liveEntry.id && v.userEmail.toLowerCase() === currentEmail.toLowerCase()),
-      );
-      const next = rating >= 1
-        ? [...withoutMine, {
+      if (rating >= 1) {
+        const nowIso = new Date().toISOString();
+        dispatch({
+          type: 'SET_REEL_VOTE',
+          payload: {
             entryId: liveEntry.id,
+            reelId: activeReel.id,
             userEmail: currentEmail,
             userName: state.activeProfile?.name || currentEmail.split('@')[0],
             experienceLevel: state.activeProfile?.experienceLevel || null,
             rating,
             createdAt: existingVote?.createdAt || nowIso,
             updatedAt: nowIso,
-          }]
-        : withoutMine;
-      dispatch({ type: 'UPDATE_SETTINGS', payload: { reelOfMonthVotes: next } });
+          },
+        });
+      } else {
+        dispatch({
+          type: 'CLEAR_REEL_VOTE',
+          payload: { entryId: liveEntry.id, reelId: activeReel.id },
+        });
+      }
       setSavedAt(Date.now());
     }, 350);
     return () => clearTimeout(t);
@@ -144,12 +167,15 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
     );
   }
 
-  const activeReel = reels[Math.min(activeReelIdx, reels.length - 1)];
   const embedUrl = getEmbedUrl(activeReel);
   const daysLeft = daysLeftIn(liveEntry.month);
   const [y, m] = liveEntry.month.split('-').map(Number);
   const monthLabel = `${MONTH_NAMES[m - 1]} ${y}`;
   const nextRevealLabel = `${nextMonthLabel(liveEntry.month)} 1`;
+  const goPrev = () => setActiveReelIdx(i => Math.max(0, i - 1));
+  const goNext = () => setActiveReelIdx(i => Math.min(reels.length - 1, i + 1));
+  const canGoPrev = activeReelIdx > 0;
+  const canGoNext = activeReelIdx < reels.length - 1;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
@@ -162,7 +188,7 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
             <Text style={styles.eyebrow}>{monthLabel} · Skill reel of the month</Text>
             <Text style={styles.title}>{liveEntry.skill}</Text>
             <Text style={styles.subtitle}>
-              {reels.length} {reels.length === 1 ? 'reel' : 'reels'}{parentCategory ? ` · ${parentCategory}` : ''} · rate this skill as a whole
+              {reels.length} {reels.length === 1 ? 'reel' : 'reels'}{parentCategory ? ` · ${parentCategory}` : ''} · rate each reel individually
             </Text>
           </View>
           <View style={styles.daysPill}>
@@ -216,6 +242,31 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
           </View>
         </View>
 
+        {/* Prev / Next reel navigation */}
+        <View style={styles.prevNextRow}>
+          <TouchableOpacity
+            style={[styles.prevNextBtn, !canGoPrev && styles.prevNextBtnDisabled]}
+            onPress={goPrev}
+            disabled={!canGoPrev}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={18} color={canGoPrev ? Colors.textPrimary : Colors.textMuted} />
+            <Text style={[styles.prevNextText, !canGoPrev && styles.prevNextTextDisabled]}>Previous reel</Text>
+          </TouchableOpacity>
+          <Text style={styles.prevNextCounter}>
+            {Math.min(activeReelIdx + 1, reels.length)} of {reels.length}
+          </Text>
+          <TouchableOpacity
+            style={[styles.prevNextBtn, !canGoNext && styles.prevNextBtnDisabled]}
+            onPress={goNext}
+            disabled={!canGoNext}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.prevNextText, !canGoNext && styles.prevNextTextDisabled]}>Next reel</Text>
+            <Ionicons name="chevron-forward" size={18} color={canGoNext ? Colors.textPrimary : Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+
         {/* Active reel meta */}
         <View style={styles.activeMetaBlock}>
           <TouchableOpacity
@@ -236,7 +287,7 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
         />
 
         <Text style={styles.caption}>
-          One rating per member for the whole skill · scores hidden until {nextRevealLabel} · you can change your vote until then
+          Your ratings are private · one rating per reel · you can change your votes until {nextRevealLabel}
         </Text>
 
         <TouchableOpacity
@@ -376,6 +427,27 @@ const styles = StyleSheet.create({
   },
   saveText: { color: Colors.success, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
   saveHint: { color: Colors.textMuted, fontSize: FontSize.xs, fontStyle: 'italic', textAlign: 'center' },
+  prevNextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.lg,
+    paddingHorizontal: Spacing.sm,
+    gap: Spacing.md,
+  },
+  prevNextBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.sm,
+  },
+  prevNextBtnDisabled: { opacity: 0.4 },
+  prevNextText: { color: Colors.textPrimary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
+  prevNextTextDisabled: { color: Colors.textMuted },
+  prevNextCounter: { color: Colors.textTertiary, fontSize: FontSize.xs },
   activeMetaBlock: { marginTop: Spacing.lg, paddingBottom: Spacing.md },
   performerName: { color: Colors.textPrimary, fontSize: FontSize.lg, fontWeight: FontWeight.bold },
   performerRole: { color: Colors.textTertiary, fontSize: FontSize.sm, marginTop: 2 },

@@ -17,6 +17,7 @@ const KEYS = {
   PURCHASED_ATLAS_VIDEOS: '@actionvault_v2_purchased_atlas_videos',
   PURCHASED_ATLAS_COURSES: '@actionvault_v2_purchased_atlas_courses',
   AUTH_TOKEN: '@actionvault_v2_auth_token',
+  MY_REEL_VOTES: '@actionvault_v2_my_reel_votes',
 };
 
 // Suffix added to per-user storage keys so two StuntListing accounts

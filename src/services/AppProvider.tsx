@@ -30,6 +30,7 @@ const PER_USER_KEY_BASES = [
   StorageService.KEYS.VAULT_SUBMISSIONS,
   StorageService.KEYS.PURCHASED_ATLAS_VIDEOS,
   StorageService.KEYS.PURCHASED_ATLAS_COURSES,
+  StorageService.KEYS.MY_REEL_VOTES,
 ];
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -80,7 +81,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!state.isLoading) {
       persistState();
     }
-  }, [state.myList, state.watchHistory, state.ratings, state.bookmarks, state.collections, state.follows, state.notifications, state.settings, state.downloads, state.profiles, state.activeProfile, state.currentUser, state.onboardingComplete, state.purchasedAtlasVideos, state.purchasedAtlasCourses, state.authToken]);
+  }, [state.myList, state.watchHistory, state.ratings, state.bookmarks, state.collections, state.follows, state.notifications, state.settings, state.downloads, state.profiles, state.activeProfile, state.currentUser, state.onboardingComplete, state.purchasedAtlasVideos, state.purchasedAtlasCourses, state.authToken, state.myReelVotes]);
 
   // Reel of the Month: on load, promote scheduled → live and close live → closed as months elapse
   useEffect(() => {
@@ -185,7 +186,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   function shapePerUserSlice(values: any[]) {
-    const [profiles, activeProfile, watchHistory, myList, ratings, bookmarks, collections, follows, notifications, onboarding, downloads, purchasedAtlasVideos, purchasedAtlasCourses] = values;
+    const [profiles, activeProfile, watchHistory, myList, ratings, bookmarks, collections, follows, notifications, onboarding, downloads, purchasedAtlasVideos, purchasedAtlasCourses, myReelVotes] = values;
     return {
       profiles: profiles || [],
       activeProfile: activeProfile || null,
@@ -200,6 +201,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       downloads: downloads || [],
       purchasedAtlasVideos: purchasedAtlasVideos || [],
       purchasedAtlasCourses: purchasedAtlasCourses || [],
+      myReelVotes: myReelVotes || [],
     };
   }
 
@@ -265,6 +267,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           StorageService.set(StorageService.userKey(StorageService.KEYS.VAULT_SUBMISSIONS, userId), state.downloads),
           StorageService.set(StorageService.userKey(StorageService.KEYS.PURCHASED_ATLAS_VIDEOS, userId), state.purchasedAtlasVideos),
           StorageService.set(StorageService.userKey(StorageService.KEYS.PURCHASED_ATLAS_COURSES, userId), state.purchasedAtlasCourses),
+          StorageService.set(StorageService.userKey(StorageService.KEYS.MY_REEL_VOTES, userId), state.myReelVotes),
         );
       }
 

@@ -33,6 +33,10 @@ export interface ReelOfMonthEntry {
 
 export interface ReelOfMonthVote {
   entryId: string;
+  // reelId is the StuntListing skill-reel id within the entry's skill bucket.
+  // Optional only for backwards compat with pre-2026-05 votes that rated the
+  // skill as a whole; new votes always include it.
+  reelId?: string;
   userEmail: string;
   userName: string;
   experienceLevel: ExperienceLevel | null;
@@ -515,6 +519,11 @@ interface State {
   purchasedAtlasVideos: string[];
   purchasedAtlasCourses: string[];
   authToken: string | null;
+  // Per-user, per-reel ratings for Skill Reel of the Month. Stored
+  // separately from settings.reelOfMonthVotes (which was global +
+  // skill-level) so other users on the same device can't see this user's
+  // votes and so each reel gets its own independent score.
+  myReelVotes: ReelOfMonthVote[];
 }
 
 type Action =
@@ -547,6 +556,8 @@ type Action =
   | { type: 'PURCHASE_ATLAS_VIDEO'; payload: string }
   | { type: 'PURCHASE_ATLAS_COURSE'; payload: string }
   | { type: 'TOGGLE_WATCHED'; payload: { videoId: string; durationSeconds: number } }
+  | { type: 'SET_REEL_VOTE'; payload: ReelOfMonthVote }
+  | { type: 'CLEAR_REEL_VOTE'; payload: { entryId: string; reelId: string } }
   | { type: 'LOAD_STATE'; payload: Partial<State> };
 
 const initialState: State = {
@@ -568,6 +579,7 @@ const initialState: State = {
   purchasedAtlasVideos: [],
   purchasedAtlasCourses: [],
   authToken: null,
+  myReelVotes: [],
 };
 
 function reducer(state: State, action: Action): State {
@@ -597,6 +609,7 @@ function reducer(state: State, action: Action): State {
         purchasedAtlasVideos: [],
         purchasedAtlasCourses: [],
         onboardingComplete: false,
+        myReelVotes: [],
       };
     case 'LOGOUT':
       // Preserve app-wide settings across logout; clear everything else.
@@ -747,6 +760,24 @@ function reducer(state: State, action: Action): State {
       }
       return { ...state, watchHistory: [...state.watchHistory, entry] };
     }
+    case 'SET_REEL_VOTE': {
+      const idx = state.myReelVotes.findIndex(
+        v => v.entryId === action.payload.entryId && v.reelId === action.payload.reelId
+      );
+      if (idx >= 0) {
+        const updated = [...state.myReelVotes];
+        updated[idx] = action.payload;
+        return { ...state, myReelVotes: updated };
+      }
+      return { ...state, myReelVotes: [...state.myReelVotes, action.payload] };
+    }
+    case 'CLEAR_REEL_VOTE':
+      return {
+        ...state,
+        myReelVotes: state.myReelVotes.filter(
+          v => !(v.entryId === action.payload.entryId && v.reelId === action.payload.reelId)
+        ),
+      };
     case 'LOAD_STATE':
       return { ...state, ...action.payload, isLoading: false };
     default:
