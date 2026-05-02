@@ -40,7 +40,17 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // Production: connect to StuntListing database
+    // Production: connect to StuntListing database.
+    // Schema follows the StuntListing-BE TypeORM `User` entity: table is
+    // `user` (singular), names are split into first_name/last_name, and the
+    // password is sha256(SALT + plaintext) — NOT bcrypt. SALT must match the
+    // StuntListing-BE config.SALT env var.
+    const salt = process.env.SALT;
+    if (!salt) {
+      console.error('Auth error: SALT env var not configured');
+      return res.status(500).json({ success: false, error: 'Authentication service unavailable' });
+    }
+
     const mysql = require('mysql2/promise');
     const connection = await mysql.createConnection({
       host: dbHost,
@@ -50,7 +60,7 @@ export default async function handler(req: any, res: any) {
     });
 
     const [rows] = await connection.execute(
-      'SELECT id, email, name, password, role FROM users WHERE email = ? LIMIT 1',
+      'SELECT id, email, first_name, last_name, password, role FROM `user` WHERE email = ? LIMIT 1',
       [email]
     );
 
@@ -62,13 +72,14 @@ export default async function handler(req: any, res: any) {
 
     const user = rows[0];
 
-    // Verify password (bcrypt hash comparison)
-    const bcrypt = require('bcryptjs');
-    const passwordMatch = await bcrypt.compare(password, user.password);
+    const crypto = require('crypto');
+    const hashedPw = crypto.createHash('sha256').update(salt + password).digest('hex');
 
-    if (!passwordMatch) {
+    if (user.password !== hashedPw) {
       return res.status(401).json({ success: false, error: 'Invalid email or password' });
     }
+
+    const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
 
     // Generate a simple session token
     const token = Buffer.from(JSON.stringify({
@@ -82,7 +93,7 @@ export default async function handler(req: any, res: any) {
       user: {
         id: String(user.id),
         email: user.email,
-        name: user.name || email.split('@')[0],
+        name: fullName || email.split('@')[0],
         role: user.role || 'performer',
       },
       token,
