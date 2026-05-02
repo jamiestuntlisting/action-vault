@@ -578,12 +578,12 @@ function ReelOfTheMonthEntry({ navigation }: { navigation: any }) {
         <TouchableOpacity
           style={homeReelCardStyles.card}
           activeOpacity={0.85}
-          onPress={() => navigation.navigate('ReelGrid', { title: 'Stunt Reels', reelIds: stuntReels.map(r => r.id) })}
+          onPress={() => navigation.navigate('StuntReelVoting', { scope: 'month' })}
         >
-          <Montage thumbs={stuntThumbs} label="Recent stunt reels" />
+          <Montage thumbs={stuntThumbs} label="New this month" />
           <View style={homeReelCardStyles.pillRow}>
             <Text style={homeReelCardStyles.pillLabel}>Stunt</Text>
-            <Text style={homeReelCardStyles.cta}>Watch →</Text>
+            <Text style={homeReelCardStyles.cta}>Vote →</Text>
           </View>
         </TouchableOpacity>
       </View>

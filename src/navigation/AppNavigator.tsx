@@ -37,6 +37,7 @@ import { AnalyticsScreen } from '../screens/analytics/AnalyticsScreen';
 import { ReelOfTheMonthScreen } from '../screens/reelofthemonth/ReelOfTheMonthScreen';
 import { ReelOfTheMonthArchiveScreen } from '../screens/reelofthemonth/ReelOfTheMonthArchiveScreen';
 import { AdminReelOfTheMonthScreen } from '../screens/reelofthemonth/AdminReelOfTheMonthScreen';
+import { StuntReelVotingScreen } from '../screens/reelofthemonth/StuntReelVotingScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -128,6 +129,7 @@ export function AppNavigator() {
         <Stack.Screen name="ReelOfTheMonth" component={ReelOfTheMonthScreen} />
         <Stack.Screen name="ReelOfTheMonthArchive" component={ReelOfTheMonthArchiveScreen} />
         <Stack.Screen name="AdminReelOfTheMonth" component={AdminReelOfTheMonthScreen} />
+        <Stack.Screen name="StuntReelVoting" component={StuntReelVotingScreen} />
         <Stack.Screen
           name="ReviewModal"
           component={ReviewModalScreen}
