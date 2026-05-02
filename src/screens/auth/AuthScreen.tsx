@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
+import { StorageService } from '../../services/StorageService';
 import { usePageTitle } from '../../hooks/usePageTitle';
 
 const API_BASE = Platform.OS === 'web'
@@ -52,33 +53,44 @@ export function AuthScreen({ navigation }: any) {
         return;
       }
 
-      // Dispatch login with user data and token
+      const userId = data.user.id;
+
+      // Pre-seed this user's profile in storage if they've never logged in
+      // on this device. We can't dispatch ADD_PROFILE after LOGIN because the
+      // user-data watcher in AppProvider asynchronously hydrates from storage
+      // and would clobber the just-dispatched profile. Writing to storage
+      // first ensures the watcher loads it.
+      const profilesKey = StorageService.userKey(StorageService.KEYS.PROFILES, userId);
+      const storedProfiles = await StorageService.get<any[]>(profilesKey);
+      if (!storedProfiles || storedProfiles.length === 0) {
+        await StorageService.set(profilesKey, [{
+          id: 'profile-' + userId,
+          userId,
+          name: data.user.name || email.split('@')[0],
+          avatarKey: 'stunt',
+          experienceLevel: data.user.role === 'coordinator' ? 'professional' : 'fan',
+          onboardingComplete: false,
+          interests: [],
+        }]);
+      }
+
+      // Onboarding is per-user. state.onboardingComplete here reflects the
+      // pre-login (anonymous) state, so we can't trust it — read this user's
+      // scoped flag directly from storage to decide whether to skip onboarding.
+      const onboardingKey = StorageService.userKey(StorageService.KEYS.ONBOARDING_COMPLETE, userId);
+      const userOnboardingDone = await StorageService.get<boolean>(onboardingKey);
+
       dispatch({
         type: 'LOGIN',
         payload: {
-          id: data.user.id,
+          id: userId,
           email: data.user.email,
           name: data.user.name,
           token: data.token,
         },
       });
 
-      // Create a profile for the user
-      dispatch({
-        type: 'ADD_PROFILE',
-        payload: {
-          id: 'profile-' + data.user.id,
-          userId: data.user.id,
-          name: data.user.name || email.split('@')[0],
-          avatarKey: 'stunt',
-          experienceLevel: data.user.role === 'coordinator' ? 'professional' : 'fan',
-          onboardingComplete: false,
-          interests: [],
-        },
-      });
-
-      // Only show onboarding once — skip if already completed
-      if (state.onboardingComplete) {
+      if (userOnboardingDone) {
         navigation.replace('MainTabs');
       } else {
         navigation.replace('Onboarding');

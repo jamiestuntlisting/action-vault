@@ -149,4 +149,15 @@ export const podcasts: StuntPodcast[] = [
       website: 'https://kungfudrivein.libsyn.com/',
     },
   },
+  {
+    id: 'pod-12',
+    title: 'Philosophical Fall Guy',
+    hosts: 'Daniel Joshua Jackson',
+    description: 'YouTube channel from Daniel Joshua Jackson exploring the craft, mindset, and philosophy of being a stunt performer.',
+    status: 'active',
+    coverUrl: '',
+    links: {
+      youtube: 'https://www.youtube.com/@danieljoshuajackson',
+    },
+  },
 ];
