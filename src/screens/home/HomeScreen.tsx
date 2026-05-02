@@ -97,6 +97,23 @@ export function HomeScreen({ navigation }: any) {
     return entries.map(e => videoMap.get(e.videoId)).filter(Boolean) as Video[];
   }, [state.watchHistory]);
 
+  // Completed-watch entries for the active profile, newest first. Powers the
+  // "Recently Watched" home row and is also the basis for filtering watched
+  // videos out of the rotating discovery rows below.
+  const watchedEntries = useMemo(() => {
+    const profileId = state.activeProfile?.id || '';
+    return state.watchHistory
+      .filter(w => w.completed && w.profileId === profileId)
+      .sort((a, b) => new Date(b.lastWatchedAt).getTime() - new Date(a.lastWatchedAt).getTime());
+  }, [state.watchHistory, state.activeProfile]);
+
+  const recentlyWatched = useMemo(
+    () => watchedEntries.slice(0, 10).map(e => videoMap.get(e.videoId)).filter(Boolean) as Video[],
+    [watchedEntries]
+  );
+
+  const watchedIds = useMemo(() => new Set(watchedEntries.map(e => e.videoId)), [watchedEntries]);
+
   // Top 10: check if there are recent ratings (last 7 days) for "This Week", else "This Month"
   const top10Label = useMemo(() => {
     const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -306,11 +323,18 @@ export function HomeScreen({ navigation }: any) {
     return rows;
   }, [fightChoreography, carWork, classicStunts, actionActors, bondAndSpy, marvelDC, wireAndRigWork, tvBTS, stuntDocs, stuntmenReact, fallsVideos, fireVideos, trainingVideos, martialArts, gunFu, howStuntsAreMade, atlantaStunts, newYorkStunts, chicagoStunts]);
 
-  // Pick rotating rows — reshuffle on every load / pull-to-refresh
+  // Pick rotating rows — reshuffle on every load / pull-to-refresh.
+  // Also strip already-watched videos from each row so the discovery surface
+  // doesn't keep re-suggesting things the user is done with. Rows that end up
+  // empty get dropped. (Top 10 / Recently Added / Continue Watching are
+  // intentionally NOT filtered — those are canonical lists.)
   const todaysRows = useMemo(() => {
-    if (allRotatingRows.length <= ROTATING_ROWS_TO_SHOW) return allRotatingRows;
-    return seededShuffle(allRotatingRows, shuffleKey).slice(0, ROTATING_ROWS_TO_SHOW);
-  }, [allRotatingRows, shuffleKey]);
+    const filtered = allRotatingRows
+      .map(row => ({ ...row, videos: row.videos.filter(v => !watchedIds.has(v.id)) }))
+      .filter(row => row.videos.length > 0);
+    if (filtered.length <= ROTATING_ROWS_TO_SHOW) return filtered;
+    return seededShuffle(filtered, shuffleKey).slice(0, ROTATING_ROWS_TO_SHOW);
+  }, [allRotatingRows, shuffleKey, watchedIds]);
 
   // Also rotate which skill reel rows to show (pick 3 per load)
   const todaysSkillReels = useMemo(() => {
@@ -399,6 +423,15 @@ export function HomeScreen({ navigation }: any) {
             videos={continueWatching}
             onVideoPress={navigateToVideo}
             showProgress
+          />
+        )}
+
+        {recentlyWatched.length > 0 && (
+          <ContentRow
+            title="Recently Watched"
+            videos={recentlyWatched}
+            onVideoPress={navigateToVideo}
+            onSeeAll={() => navigateToCategory('Recently Watched', recentlyWatched)}
           />
         )}
 

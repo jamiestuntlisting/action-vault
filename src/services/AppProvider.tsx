@@ -338,6 +338,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         case 'PURCHASE_ATLAS_COURSE':
           AnalyticsService.purchase('course', action.payload, '', 0);
           break;
+        case 'TOGGLE_WATCHED':
+          AnalyticsService.track('video_marked_watched', { videoId: action.payload?.videoId });
+          break;
       }
     } catch {}
   }, []);

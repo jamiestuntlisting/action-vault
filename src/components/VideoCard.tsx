@@ -22,13 +22,19 @@ interface VideoCardProps {
 }
 
 export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, showProgress, showRank }: VideoCardProps) {
-  const { getWatchProgress } = useAppState();
+  const { getWatchProgress, dispatch } = useAppState();
   const [imgError, setImgError] = useState(false);
   const progress = getWatchProgress(video.id);
   const progressPercent = progress ? (progress.progressSeconds / video.durationSeconds) * 100 : 0;
   const isWatched = progress?.completed === true;
   const isPartiallyWatched = !isWatched && progress && progress.progressSeconds > 10;
   const height = width * 0.56;
+
+  const handleToggleWatched = (e: any) => {
+    // Don't navigate to the video — this tap is for the watched toggle only.
+    e?.stopPropagation?.();
+    dispatch({ type: 'TOGGLE_WATCHED', payload: { videoId: video.id, durationSeconds: video.durationSeconds } });
+  };
 
   return (
     <TouchableOpacity
@@ -78,6 +84,20 @@ export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, sho
             <Text style={styles.featuredText}>FEATURED</Text>
           </View>
         )}
+        {/* Mark-as-watched toggle. Lets the user manually flag a video as
+            seen so it stops showing in discovery rows. Tap toggles the
+            completed flag (un-watching removes the entry). */}
+        <TouchableOpacity
+          style={styles.watchedToggle}
+          onPress={handleToggleWatched}
+          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+        >
+          <Ionicons
+            name={isWatched ? 'checkmark-circle' : 'checkmark-circle-outline'}
+            size={22}
+            color={isWatched ? Colors.primary : 'rgba(255,255,255,0.85)'}
+          />
+        </TouchableOpacity>
         {/* Progress bar: show for continue watching or partially watched */}
         {((showProgress && progressPercent > 0) || isPartiallyWatched) && (
           <View style={styles.progressBar}>
@@ -188,6 +208,17 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: FontWeight.bold,
     letterSpacing: 1,
+  },
+  watchedToggle: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   progressBar: {
     position: 'absolute',
