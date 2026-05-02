@@ -3,10 +3,11 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email, password } = req.body;
-  if (!email || !password) {
+  const { email: rawEmail, password } = req.body;
+  if (!rawEmail || !password) {
     return res.status(400).json({ success: false, error: 'Email and password required' });
   }
+  const email = String(rawEmail).trim().toLowerCase();
 
   try {
     // Option 1: Direct database verification

@@ -41,7 +41,7 @@ export function AuthScreen({ navigation }: any) {
       const response = await fetch(`${API_BASE}/api/stuntlisting-auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
 
       const data = await response.json();
