@@ -1,12 +1,46 @@
-import React, { useReducer, useEffect, useMemo, useCallback, ReactNode } from 'react';
+import React, { useReducer, useEffect, useMemo, useCallback, useRef, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import { AppContext, reducer, initialState, State } from './AppState';
 import { StorageService } from './StorageService';
 import { StripeService } from './StripeService';
 import { AnalyticsService } from './AnalyticsService';
 
+// Storage keys split by lifetime/scope.
+//
+// GLOBAL keys are read/written at the bare key — they describe the device
+// or the active session, not "this user's stuff": who's logged in
+// (USER, AUTH_TOKEN) and app-wide config like Atlas catalog overrides
+// (SETTINGS).
+//
+// PER_USER keys are scoped by the logged-in StuntListing user.id (see
+// StorageService.userKey) so two accounts sharing the same browser
+// don't see each other's watch history, my-list, ratings, bookmarks,
+// follows, profiles, purchases, etc.
+const PER_USER_KEY_BASES = [
+  StorageService.KEYS.PROFILES,
+  StorageService.KEYS.ACTIVE_PROFILE,
+  StorageService.KEYS.WATCH_HISTORY,
+  StorageService.KEYS.MY_LIST,
+  StorageService.KEYS.RATINGS,
+  StorageService.KEYS.BOOKMARKS,
+  StorageService.KEYS.COLLECTIONS,
+  StorageService.KEYS.FOLLOWS,
+  StorageService.KEYS.NOTIFICATIONS,
+  StorageService.KEYS.ONBOARDING_COMPLETE,
+  StorageService.KEYS.VAULT_SUBMISSIONS,
+  StorageService.KEYS.PURCHASED_ATLAS_VIDEOS,
+  StorageService.KEYS.PURCHASED_ATLAS_COURSES,
+];
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+
+  // Tracks which user.id we've finished hydrating per-user state for.
+  // The persist effect skips writes while this lags state.currentUser?.id,
+  // preventing the brief window between LOGIN dispatch and async user-data
+  // load from clobbering the new user's stored data with empty arrays.
+  // null means "no user loaded" — also valid (logged-out state).
+  const hydratedForUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     loadPersistedState();
@@ -59,11 +93,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let changed = false;
     const updated = entries.map((e) => {
       if (e.status === 'live' && e.month < currentMonth) {
-        // Rating 0 = "No score" (abstain) — exclude from averages and vote count
-        const scoredVotes = votes.filter(v => v.entryId === e.id && v.rating >= 1);
-        const finalVoteCount = scoredVotes.length;
+        const entryVotes = votes.filter(v => v.entryId === e.id);
+        const finalVoteCount = entryVotes.length;
         const finalAverage = finalVoteCount > 0
-          ? Math.round((scoredVotes.reduce((s, v) => s + v.rating, 0) / finalVoteCount) * 100) / 100
+          ? Math.round((entryVotes.reduce((s, v) => s + v.rating, 0) / finalVoteCount) * 100) / 100
           : 0;
         changed = true;
         return { ...e, status: 'closed' as const, finalAverage, finalVoteCount, updatedAt: new Date().toISOString() };
@@ -79,69 +112,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [state.isLoading]);
 
+  // Initial app load: hydrate global state (currentUser, authToken, settings)
+  // and, if a user is already logged in, their per-user state.
   async function loadPersistedState() {
     try {
-      const [user, profiles, activeProfile, watchHistory, myList, ratings, bookmarks, collections, follows, notifications, settings, onboarding, downloads, purchasedAtlasVideos, purchasedAtlasCourses, authToken] = await Promise.all([
+      const [user, settings, authToken] = await Promise.all([
         StorageService.get<{ id: string; email: string }>(StorageService.KEYS.USER),
-        StorageService.get<any[]>(StorageService.KEYS.PROFILES),
-        StorageService.get<any>(StorageService.KEYS.ACTIVE_PROFILE),
-        StorageService.get<any[]>(StorageService.KEYS.WATCH_HISTORY),
-        StorageService.get<any[]>(StorageService.KEYS.MY_LIST),
-        StorageService.get<any[]>(StorageService.KEYS.RATINGS),
-        StorageService.get<any[]>(StorageService.KEYS.BOOKMARKS),
-        StorageService.get<any[]>(StorageService.KEYS.COLLECTIONS),
-        StorageService.get<any[]>(StorageService.KEYS.FOLLOWS),
-        StorageService.get<any[]>(StorageService.KEYS.NOTIFICATIONS),
         StorageService.get<any>(StorageService.KEYS.SETTINGS),
-        StorageService.get<boolean>(StorageService.KEYS.ONBOARDING_COMPLETE),
-        StorageService.get<string[]>(StorageService.KEYS.VAULT_SUBMISSIONS),
-        StorageService.get<string[]>(StorageService.KEYS.PURCHASED_ATLAS_VIDEOS),
-        StorageService.get<string[]>(StorageService.KEYS.PURCHASED_ATLAS_COURSES),
         StorageService.get<string>(StorageService.KEYS.AUTH_TOKEN),
       ]);
 
-      // Merge code-defined Atlas data with persisted admin edits (isFree, price, enabled)
-      const mergedSettings = settings
-        ? {
-            ...settings,
-            atlasActionVideos: initialState.settings.atlasActionVideos.map(codeVideo => {
-              const saved = (settings.atlasActionVideos || []).find((v: any) => v.id === codeVideo.id);
-              if (!saved) return codeVideo;
-              return { ...codeVideo, isFree: saved.isFree, price: saved.price, enabled: saved.enabled };
-            }),
-            atlasActionCourses: initialState.settings.atlasActionCourses.map(codeCourse => {
-              const saved = (settings.atlasActionCourses || []).find((c: any) => c.id === codeCourse.id);
-              if (!saved) return codeCourse;
-              // Always use code-defined price (formula: videos × $1.99 × 60%); only persist enabled state
-              return { ...codeCourse, enabled: saved.enabled };
-            }),
-          }
-        : initialState.settings;
+      const mergedSettings = mergeSettings(settings);
+
+      const userId = user?.id || null;
+      const perUser = userId
+        ? await loadPerUserData(userId)
+        : emptyPerUserSlice();
+
+      // Mark hydration complete BEFORE the LOAD_STATE dispatch so the persist
+      // effect that fires after this render sees a matching ref and runs.
+      hydratedForUserIdRef.current = userId;
 
       dispatch({
         type: 'LOAD_STATE',
         payload: {
           currentUser: user || null,
           isAuthenticated: !!user,
-          profiles: profiles || [],
-          activeProfile: activeProfile || null,
-          watchHistory: watchHistory || [],
-          myList: myList || [],
-          ratings: ratings || [],
-          bookmarks: bookmarks || [],
-          collections: collections || [],
-          follows: follows || [],
-          notifications: notifications || [],
           settings: mergedSettings,
-          onboardingComplete: onboarding || false,
-          downloads: downloads || [],
-          purchasedAtlasVideos: purchasedAtlasVideos || [],
-          purchasedAtlasCourses: purchasedAtlasCourses || [],
           authToken: authToken || null,
+          ...perUser,
         },
       });
 
-      // Initialize analytics tracking
       if (authToken) {
         AnalyticsService.init(authToken);
       }
@@ -150,30 +152,155 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Read all per-user keys for the given user.id. Falls back to a one-time
+  // migration of legacy unscoped keys (everyone shared one blob before this
+  // change) — the assumption is that whoever's currently logged in is the
+  // owner of that legacy data.
+  async function loadPerUserData(userId: string) {
+    const reads = await Promise.all(
+      PER_USER_KEY_BASES.map(base => StorageService.get<any>(StorageService.userKey(base, userId)))
+    );
+
+    const noScopedDataYet = reads.every(v => v === null);
+    if (noScopedDataYet) {
+      const legacyReads = await Promise.all(
+        PER_USER_KEY_BASES.map(base => StorageService.get<any>(base))
+      );
+      const hasLegacyData = legacyReads.some(v => v !== null);
+      if (hasLegacyData) {
+        await Promise.all(
+          PER_USER_KEY_BASES.map(async (base, i) => {
+            const v = legacyReads[i];
+            if (v !== null) {
+              await StorageService.set(StorageService.userKey(base, userId), v);
+              await StorageService.remove(base);
+            }
+          })
+        );
+        return shapePerUserSlice(legacyReads);
+      }
+    }
+
+    return shapePerUserSlice(reads);
+  }
+
+  function shapePerUserSlice(values: any[]) {
+    const [profiles, activeProfile, watchHistory, myList, ratings, bookmarks, collections, follows, notifications, onboarding, downloads, purchasedAtlasVideos, purchasedAtlasCourses] = values;
+    return {
+      profiles: profiles || [],
+      activeProfile: activeProfile || null,
+      watchHistory: watchHistory || [],
+      myList: myList || [],
+      ratings: ratings || [],
+      bookmarks: bookmarks || [],
+      collections: collections || [],
+      follows: follows || [],
+      notifications: notifications || [],
+      onboardingComplete: onboarding || false,
+      downloads: downloads || [],
+      purchasedAtlasVideos: purchasedAtlasVideos || [],
+      purchasedAtlasCourses: purchasedAtlasCourses || [],
+    };
+  }
+
+  function emptyPerUserSlice() {
+    return shapePerUserSlice([]);
+  }
+
+  function mergeSettings(settings: any) {
+    if (!settings) return initialState.settings;
+    return {
+      ...settings,
+      atlasActionVideos: initialState.settings.atlasActionVideos.map(codeVideo => {
+        const saved = (settings.atlasActionVideos || []).find((v: any) => v.id === codeVideo.id);
+        if (!saved) return codeVideo;
+        return { ...codeVideo, isFree: saved.isFree, price: saved.price, enabled: saved.enabled };
+      }),
+      atlasActionCourses: initialState.settings.atlasActionCourses.map(codeCourse => {
+        const saved = (settings.atlasActionCourses || []).find((c: any) => c.id === codeCourse.id);
+        if (!saved) return codeCourse;
+        // Always use code-defined price (formula: videos × $1.99 × 60%); only persist enabled state
+        return { ...codeCourse, enabled: saved.enabled };
+      }),
+    };
+  }
+
   async function persistState() {
     try {
-      await Promise.all([
-        state.currentUser ? StorageService.set(StorageService.KEYS.USER, state.currentUser) : StorageService.remove(StorageService.KEYS.USER),
-        StorageService.set(StorageService.KEYS.PROFILES, state.profiles),
-        state.activeProfile ? StorageService.set(StorageService.KEYS.ACTIVE_PROFILE, state.activeProfile) : StorageService.remove(StorageService.KEYS.ACTIVE_PROFILE),
-        StorageService.set(StorageService.KEYS.WATCH_HISTORY, state.watchHistory),
-        StorageService.set(StorageService.KEYS.MY_LIST, state.myList),
-        StorageService.set(StorageService.KEYS.RATINGS, state.ratings),
-        StorageService.set(StorageService.KEYS.BOOKMARKS, state.bookmarks),
-        StorageService.set(StorageService.KEYS.COLLECTIONS, state.collections),
-        StorageService.set(StorageService.KEYS.FOLLOWS, state.follows),
-        StorageService.set(StorageService.KEYS.NOTIFICATIONS, state.notifications),
+      const userId = state.currentUser?.id || null;
+
+      // Skip persistence while the in-memory per-user slice doesn't yet
+      // belong to state.currentUser — otherwise the brief window after LOGIN
+      // (before the user-id watcher reloads the new user's data) would
+      // overwrite the new user's stored blob with empty arrays.
+      const userMismatch = userId !== hydratedForUserIdRef.current;
+
+      const writes: Promise<void>[] = [
+        // Global keys: always written.
+        state.currentUser
+          ? StorageService.set(StorageService.KEYS.USER, state.currentUser)
+          : StorageService.remove(StorageService.KEYS.USER),
         StorageService.set(StorageService.KEYS.SETTINGS, state.settings),
-        StorageService.set(StorageService.KEYS.ONBOARDING_COMPLETE, state.onboardingComplete),
-        StorageService.set(StorageService.KEYS.VAULT_SUBMISSIONS, state.downloads),
-        StorageService.set(StorageService.KEYS.PURCHASED_ATLAS_VIDEOS, state.purchasedAtlasVideos),
-        StorageService.set(StorageService.KEYS.PURCHASED_ATLAS_COURSES, state.purchasedAtlasCourses),
-        state.authToken ? StorageService.set(StorageService.KEYS.AUTH_TOKEN, state.authToken) : StorageService.remove(StorageService.KEYS.AUTH_TOKEN),
-      ]);
+        state.authToken
+          ? StorageService.set(StorageService.KEYS.AUTH_TOKEN, state.authToken)
+          : StorageService.remove(StorageService.KEYS.AUTH_TOKEN),
+      ];
+
+      if (userId && !userMismatch) {
+        // Per-user keys: only when logged in AND the in-memory slice is the
+        // hydrated one for this user.
+        writes.push(
+          StorageService.set(StorageService.userKey(StorageService.KEYS.PROFILES, userId), state.profiles),
+          state.activeProfile
+            ? StorageService.set(StorageService.userKey(StorageService.KEYS.ACTIVE_PROFILE, userId), state.activeProfile)
+            : StorageService.remove(StorageService.userKey(StorageService.KEYS.ACTIVE_PROFILE, userId)),
+          StorageService.set(StorageService.userKey(StorageService.KEYS.WATCH_HISTORY, userId), state.watchHistory),
+          StorageService.set(StorageService.userKey(StorageService.KEYS.MY_LIST, userId), state.myList),
+          StorageService.set(StorageService.userKey(StorageService.KEYS.RATINGS, userId), state.ratings),
+          StorageService.set(StorageService.userKey(StorageService.KEYS.BOOKMARKS, userId), state.bookmarks),
+          StorageService.set(StorageService.userKey(StorageService.KEYS.COLLECTIONS, userId), state.collections),
+          StorageService.set(StorageService.userKey(StorageService.KEYS.FOLLOWS, userId), state.follows),
+          StorageService.set(StorageService.userKey(StorageService.KEYS.NOTIFICATIONS, userId), state.notifications),
+          StorageService.set(StorageService.userKey(StorageService.KEYS.ONBOARDING_COMPLETE, userId), state.onboardingComplete),
+          StorageService.set(StorageService.userKey(StorageService.KEYS.VAULT_SUBMISSIONS, userId), state.downloads),
+          StorageService.set(StorageService.userKey(StorageService.KEYS.PURCHASED_ATLAS_VIDEOS, userId), state.purchasedAtlasVideos),
+          StorageService.set(StorageService.userKey(StorageService.KEYS.PURCHASED_ATLAS_COURSES, userId), state.purchasedAtlasCourses),
+        );
+      }
+
+      await Promise.all(writes);
     } catch (e) {
       // Silent fail
     }
   }
+
+  // Watch for user.id changes (login, logout, account switch). On switch
+  // to a different logged-in user, reload that user's per-user data from
+  // storage so the UI reflects their state, not the previous user's.
+  useEffect(() => {
+    if (state.isLoading) return; // initial load handled by loadPersistedState
+    const userId = state.currentUser?.id || null;
+    if (userId === hydratedForUserIdRef.current) return;
+
+    if (!userId) {
+      // Logout: nothing to load. The LOGOUT reducer already cleared the
+      // in-memory per-user slice; mark hydrated so persist resumes (it'll
+      // skip per-user writes since there's no user).
+      hydratedForUserIdRef.current = null;
+      return;
+    }
+
+    // Fresh login or user switch: hydrate from storage (with legacy migration).
+    let cancelled = false;
+    (async () => {
+      const perUser = await loadPerUserData(userId);
+      if (cancelled) return;
+      hydratedForUserIdRef.current = userId;
+      dispatch({ type: 'LOAD_STATE', payload: perUser });
+    })();
+
+    return () => { cancelled = true; };
+  }, [state.currentUser?.id, state.isLoading]);
 
   // Analytics-aware dispatch: intercepts actions to track events
   const analyticsDispatch = useCallback((action: any) => {

@@ -19,6 +19,13 @@ const KEYS = {
   AUTH_TOKEN: '@actionvault_v2_auth_token',
 };
 
+// Suffix added to per-user storage keys so two StuntListing accounts
+// sharing one browser don't read/write the same blob. Returns the bare
+// base key when no userId is given (used for legacy reads during migration).
+function userKey(baseKey: string, userId: string | null | undefined): string {
+  return userId ? `${baseKey}_user_${userId}` : baseKey;
+}
+
 async function get<T>(key: string): Promise<T | null> {
   const raw = await AsyncStorage.getItem(key);
   return raw ? JSON.parse(raw) : null;
@@ -34,6 +41,7 @@ async function remove(key: string): Promise<void> {
 
 export const StorageService = {
   KEYS,
+  userKey,
   get,
   set,
   remove,

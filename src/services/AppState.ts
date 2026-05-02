@@ -574,9 +574,32 @@ function reducer(state: State, action: Action): State {
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
     case 'LOGIN':
-      return { ...state, isAuthenticated: true, currentUser: { id: action.payload.id, email: action.payload.email }, authToken: action.payload.token || null };
+      // Switch user context: clear in-memory per-user state so the previous
+      // user's data isn't visible (or accidentally written under the new
+      // user's storage key) before AppProvider's user-id watcher loads the
+      // new user's persisted data. Settings are app-wide; preserve them.
+      return {
+        ...state,
+        isAuthenticated: true,
+        currentUser: { id: action.payload.id, email: action.payload.email },
+        authToken: action.payload.token || null,
+        profiles: [],
+        activeProfile: null,
+        watchHistory: [],
+        myList: [],
+        ratings: [],
+        bookmarks: [],
+        collections: [],
+        follows: [],
+        notifications: [],
+        downloads: [],
+        purchasedAtlasVideos: [],
+        purchasedAtlasCourses: [],
+        onboardingComplete: false,
+      };
     case 'LOGOUT':
-      return { ...initialState, isLoading: false };
+      // Preserve app-wide settings across logout; clear everything else.
+      return { ...initialState, settings: state.settings, isLoading: false };
     case 'SET_ONBOARDING_COMPLETE':
       return { ...state, onboardingComplete: action.payload };
     case 'SET_PROFILES':
