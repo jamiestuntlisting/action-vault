@@ -5,38 +5,61 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
 import { VerticalRatingSlider } from '../../components/VerticalRatingSlider';
-import { stuntReels, getProfileUrl, getEmbedUrl, StuntReel } from '../../services/StuntListingService';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import discoveredData from '../../data/stunt-reels.json';
 
 const MAX_WIDTH = 960;
-// How many of the most-recently-imported reels count as "this month's" set.
-// Stunt reels don't carry a date in the source data; we sort by the numeric
-// suffix on the id (which increases with import order) as a stand-in for
-// "newest". This is what makes the monthly list a manageable subset rather
-// than all 700+ reels. Admin-driven curation can replace this later.
-const MONTHLY_LIMIT = 30;
 
-// Single shared entry id for stunt-reel votes. We don't have a per-month
-// admin curation flow yet, so all stunt votes live under one bucket — the
-// reelId discriminates them. Switching from 'month' to 'all' view shows
-// the same vote on the same reel.
+// All stunt-reel votes share this entry id; the per-reel youtubeId
+// discriminates them. Same scheme used by the skill flow.
 const STUNT_ENTRY_ID = 'stunt-monthly';
 
-function reelOrdinal(r: StuntReel): number {
-  const n = parseInt((r.id || '').replace(/^\D+/, ''), 10);
-  return Number.isFinite(n) ? n : 0;
+// Shape of each entry in src/data/stunt-reels.json — written by the daily
+// cron at api/cron/discover-stunt-reels (and seeded in this commit by the
+// initial backfill). Stays in sync with the cron's output schema.
+interface DiscoveredReel {
+  youtubeId: string;
+  title: string;
+  channelName: string;
+  channelId: string;
+  publishedAt: string;
+  durationSeconds: number;
+  thumbnailUrl: string;
+  description: string;
+  viewCount: number;
+  discoveredAt: string;
+  excluded: boolean;
+}
+
+const ALL_DISCOVERED: DiscoveredReel[] = (discoveredData as any).reels || [];
+
+function monthKey(iso: string): string {
+  // YYYY-MM from an ISO timestamp.
+  return iso.slice(0, 7);
+}
+function currentMonthKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 export function StuntReelVotingScreen({ navigation, route }: any) {
   const scope: 'month' | 'all' = route?.params?.scope === 'all' ? 'all' : 'month';
-  usePageTitle(scope === 'all' ? 'All Stunt Reels' : 'Stunt Reels of the Month');
+  usePageTitle(scope === 'all' ? 'All Discovered Stunt Reels' : 'Stunt Reels of the Month');
 
   const { state, dispatch } = useAppState();
 
-  const reels = useMemo<StuntReel[]>(() => {
-    const playable = stuntReels.filter(r => r.thumb || r.youtubeId);
-    const sorted = [...playable].sort((a, b) => reelOrdinal(b) - reelOrdinal(a));
-    return scope === 'all' ? sorted : sorted.slice(0, MONTHLY_LIMIT);
+  // Filter the discovered set by scope. 'month' = current calendar month;
+  // 'all' = everything the cron has ever pulled in. Excluded reels are
+  // dropped in both views (admin can flip excluded=true via a future
+  // admin endpoint that updates this same JSON file).
+  const reels = useMemo<DiscoveredReel[]>(() => {
+    const visible = ALL_DISCOVERED.filter(r => !r.excluded && (r.thumbnailUrl || r.youtubeId));
+    const sorted = [...visible].sort((a, b) =>
+      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+    );
+    if (scope === 'all') return sorted;
+    const cm = currentMonthKey();
+    return sorted.filter(r => monthKey(r.publishedAt) === cm);
   }, [scope]);
 
   const [activeReelIdx, setActiveReelIdx] = useState(0);
@@ -46,7 +69,7 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
   const currentEmail = state.currentUser?.email || '';
   const existingVote = useMemo(
     () => (activeReel
-      ? state.myReelVotes.find(v => v.entryId === STUNT_ENTRY_ID && v.reelId === activeReel.id)
+      ? state.myReelVotes.find(v => v.entryId === STUNT_ENTRY_ID && v.reelId === activeReel.youtubeId)
       : undefined),
     [state.myReelVotes, activeReel],
   );
@@ -56,20 +79,17 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
   const sliderForRef = useRef<{ entryId: string; reelId: string } | null>(null);
   const hasInteractedRef = useRef(false);
 
-  // Sync slider when active reel changes — same pattern as the skill-reel
-  // voting screen so a navigation between reels never auto-saves the wrong
-  // value against the new reel.
   useEffect(() => {
     if (!activeReel) return;
-    sliderForRef.current = { entryId: STUNT_ENTRY_ID, reelId: activeReel.id };
+    sliderForRef.current = { entryId: STUNT_ENTRY_ID, reelId: activeReel.youtubeId };
     hasInteractedRef.current = false;
     setRating(existingVote?.rating ?? 0);
-  }, [activeReel?.id, existingVote?.rating]);
+  }, [activeReel?.youtubeId, existingVote?.rating]);
 
   useEffect(() => {
     if (!hasInteractedRef.current) return;
     if (!activeReel || !currentEmail) return;
-    if (sliderForRef.current?.reelId !== activeReel.id) return;
+    if (sliderForRef.current?.reelId !== activeReel.youtubeId) return;
     const t = setTimeout(() => {
       if (rating >= 1) {
         const nowIso = new Date().toISOString();
@@ -77,7 +97,7 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
           type: 'SET_REEL_VOTE',
           payload: {
             entryId: STUNT_ENTRY_ID,
-            reelId: activeReel.id,
+            reelId: activeReel.youtubeId,
             userEmail: currentEmail,
             userName: state.activeProfile?.name || currentEmail.split('@')[0],
             experienceLevel: state.activeProfile?.experienceLevel || null,
@@ -89,7 +109,7 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
       } else {
         dispatch({
           type: 'CLEAR_REEL_VOTE',
-          payload: { entryId: STUNT_ENTRY_ID, reelId: activeReel.id },
+          payload: { entryId: STUNT_ENTRY_ID, reelId: activeReel.youtubeId },
         });
       }
       setSavedAt(Date.now());
@@ -124,15 +144,45 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
   }
 
   if (reels.length === 0 || !activeReel) {
+    const now = new Date();
+    const monthName = ['January','February','March','April','May','June','July','August','September','October','November','December'][now.getMonth()];
     return (
-      <View style={styles.centered}>
-        <Ionicons name="film-outline" size={48} color={Colors.textMuted} />
-        <Text style={styles.fallbackTitle}>No stunt reels yet</Text>
-      </View>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
+        <View style={styles.maxWidth}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.eyebrow}>{scope === 'all' ? 'Browse all' : 'New this month'}</Text>
+              <Text style={styles.title}>{scope === 'all' ? 'All Discovered Stunt Reels' : 'Stunt Reels of the Month'}</Text>
+            </View>
+            <View style={{ width: 40 }} />
+          </View>
+          <View style={styles.centeredCard}>
+            <Ionicons name="film-outline" size={48} color={Colors.textMuted} />
+            <Text style={styles.fallbackTitle}>
+              {scope === 'all' ? 'No stunt reels discovered yet' : `No new stunt reels found for ${monthName} yet`}
+            </Text>
+            <Text style={styles.fallbackBody}>
+              The daily YouTube scan will surface new reels here as they're published. Check back tomorrow.
+            </Text>
+            {scope === 'month' && ALL_DISCOVERED.length > 0 && (
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={() => navigation.replace('StuntReelVoting', { scope: 'all' })}
+              >
+                <Text style={styles.primaryBtnText}>Browse all discovered reels</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </ScrollView>
     );
   }
 
-  const embedUrl = getEmbedUrl(activeReel);
+  const embedUrl = activeReel.youtubeId ? `https://www.youtube.com/embed/${activeReel.youtubeId}` : null;
+  const watchUrl = activeReel.youtubeId ? `https://www.youtube.com/watch?v=${activeReel.youtubeId}` : null;
   const goPrev = () => setActiveReelIdx(i => Math.max(0, i - 1));
   const goNext = () => setActiveReelIdx(i => Math.min(reels.length - 1, i + 1));
   const canGoPrev = activeReelIdx > 0;
@@ -146,8 +196,8 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
             <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.eyebrow}>{scope === 'all' ? 'Browse all reels' : 'New this month'}</Text>
-            <Text style={styles.title}>{scope === 'all' ? 'All Stunt Reels' : 'Stunt Reels of the Month'}</Text>
+            <Text style={styles.eyebrow}>{scope === 'all' ? 'Browse all discovered' : 'New this month'}</Text>
+            <Text style={styles.title}>{scope === 'all' ? 'All Discovered Stunt Reels' : 'Stunt Reels of the Month'}</Text>
             <Text style={styles.subtitle}>
               {reels.length} {reels.length === 1 ? 'reel' : 'reels'} · rate each reel individually
             </Text>
@@ -160,7 +210,7 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
             {Platform.OS === 'web' && embedUrl ? (
               // @ts-ignore web-only element
               <iframe
-                key={activeReel.id}
+                key={activeReel.youtubeId}
                 src={embedUrl}
                 style={{ width: '100%', height: '100%', border: 0, borderRadius: 8 }}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -169,7 +219,7 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
             ) : (
               <TouchableOpacity
                 style={styles.nativeFallback}
-                onPress={() => embedUrl && navigation.navigate('VideoPlayer', { embedUrl, title: activeReel.title, reelId: activeReel.id })}
+                onPress={() => embedUrl && navigation.navigate('VideoPlayer', { embedUrl, title: activeReel.title, reelId: activeReel.youtubeId })}
               >
                 <Ionicons name="play-circle" size={64} color={Colors.accent} />
                 <Text style={styles.nativeFallbackText}>Play reel</Text>
@@ -225,11 +275,13 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
 
         <View style={styles.activeMetaBlock}>
           <TouchableOpacity
-            onPress={() => { if (Platform.OS === 'web') window.open(getProfileUrl(activeReel.alias), '_blank'); }}
+            onPress={() => { if (Platform.OS === 'web' && watchUrl) window.open(watchUrl, '_blank'); }}
           >
-            <Text style={styles.performerName}>{activeReel.name}</Text>
+            <Text style={styles.performerName}>{activeReel.channelName}</Text>
           </TouchableOpacity>
-          <Text style={styles.performerRole}>{activeReel.role === 'coordinator' ? 'Coordinator' : 'Performer'}</Text>
+          <Text style={styles.performerRole}>
+            {activeReel.publishedAt.slice(0, 10)} · {Math.round(activeReel.durationSeconds)}s · {activeReel.viewCount.toLocaleString()} views
+          </Text>
           {activeReel.title ? <Text style={styles.contextLine}>{activeReel.title}</Text> : null}
         </View>
 
@@ -247,7 +299,7 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
           }
         >
           <Text style={styles.scopeToggleText}>
-            {scope === 'all' ? '← Back to this month' : 'View all stunt reels →'}
+            {scope === 'all' ? '← Back to this month' : 'View all discovered stunt reels →'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -258,7 +310,7 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
 function ReelChooser({
   reels, activeIdx, onSelect,
 }: {
-  reels: StuntReel[];
+  reels: DiscoveredReel[];
   activeIdx: number;
   onSelect: (i: number) => void;
 }) {
@@ -269,9 +321,7 @@ function ReelChooser({
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
 
-  useEffect(() => {
-    setAtEnd(contentW <= scrollW + 1);
-  }, [contentW, scrollW]);
+  useEffect(() => { setAtEnd(contentW <= scrollW + 1); }, [contentW, scrollW]);
 
   const pageBy = (dir: 1 | -1) => {
     const next = Math.max(0, Math.min(contentW - scrollW, scrollXRef.current + dir * Math.max(200, scrollW * 0.8)));
@@ -296,11 +346,11 @@ function ReelChooser({
         scrollEventThrottle={32}
       >
         {reels.map((r, i) => {
-          const thumb = r.thumb || (r.youtubeId ? `https://i.ytimg.com/vi/${r.youtubeId}/hqdefault.jpg` : null);
+          const thumb = r.thumbnailUrl || (r.youtubeId ? `https://i.ytimg.com/vi/${r.youtubeId}/hqdefault.jpg` : null);
           const active = i === activeIdx;
           return (
             <TouchableOpacity
-              key={r.id}
+              key={r.youtubeId}
               style={[styles.chooserCard, active && styles.chooserCardActive]}
               onPress={() => onSelect(i)}
               activeOpacity={0.8}
@@ -312,7 +362,7 @@ function ReelChooser({
                   <Ionicons name="film-outline" size={20} color={Colors.textMuted} />
                 </View>
               )}
-              <Text style={styles.chooserName} numberOfLines={1}>{r.name}</Text>
+              <Text style={styles.chooserName} numberOfLines={1}>{r.channelName}</Text>
               {active && <View style={styles.chooserActiveDot} />}
             </TouchableOpacity>
           );
@@ -336,6 +386,7 @@ function ReelChooser({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   centered: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl },
+  centeredCard: { alignItems: 'center', padding: Spacing.xxxl, backgroundColor: Colors.surface, borderRadius: BorderRadius.md, marginTop: Spacing.xl },
   maxWidth: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: Spacing.screen },
   headerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.lg, gap: Spacing.md, paddingTop: Platform.OS === 'web' ? Spacing.lg : 50 },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
@@ -423,4 +474,6 @@ const styles = StyleSheet.create({
   scopeToggleText: { color: Colors.accent, fontSize: FontSize.md, fontWeight: FontWeight.semibold },
   fallbackTitle: { color: Colors.textPrimary, fontSize: FontSize.xxl, fontWeight: FontWeight.bold, marginTop: Spacing.md, textAlign: 'center' },
   fallbackBody: { color: Colors.textSecondary, fontSize: FontSize.md, marginTop: Spacing.sm, textAlign: 'center' },
+  primaryBtn: { marginTop: Spacing.xl, backgroundColor: Colors.accent, paddingVertical: Spacing.md, paddingHorizontal: Spacing.xxl, borderRadius: BorderRadius.md },
+  primaryBtnText: { color: '#fff', fontSize: FontSize.md, fontWeight: FontWeight.bold },
 });

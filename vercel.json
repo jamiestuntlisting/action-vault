@@ -5,5 +5,11 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/discover-stunt-reels",
+      "schedule": "0 6 * * *"
+    }
   ]
 }
