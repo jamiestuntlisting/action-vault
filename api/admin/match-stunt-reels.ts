@@ -1,16 +1,20 @@
-// GET /api/admin/match-stunt-reels
-// For each YouTube-discovered stunt reel in src/data/stunt-reels.json (current
-// month, not excluded), tries to find a StuntListing performer match by
-// running the public searchUserNavbar query against:
-//   1. the YouTube channelName as-is
-//   2. a name parsed from the title (best-effort: "FirstName LastName Stunt
-//      Reel ..." → "FirstName LastName")
-// For the top match per reel, fetches their profile to retrieve their
-// stunt_reels list and instagram handle, then checks whether the YouTube
-// videoId is in any of those reel URLs.
+// GET /api/admin/match-stunt-reels?scope=month|all
 //
-// Admin-only (StuntListing email allowlist). Live lookups every call —
-// no caching yet, ~12 GraphQL calls per stunt reel × N reels.
+// For each YouTube-discovered stunt reel in src/data/stunt-reels.json (current
+// month or all, not excluded), tries to find a StuntListing performer match by
+// querying the StuntListing MySQL database directly:
+//
+//   - SELECT id, alias, first_name, last_name, instagram FROM `user`
+//     WHERE fullTextSearch LIKE '%name%'
+//
+// Search candidates are the YouTube channelName + a name parsed from the title
+// ("FirstName LastName Stunt Reel ..." → "FirstName LastName"). For the top
+// match, fetches their stunt_reels rows and checks whether the YouTube
+// videoId appears in any reel_url. Honors manual overrides from
+// data/stunt-reel-overrides.json — when an override is set, we look up that
+// user.id directly (no name search needed).
+//
+// Admin-only (StuntListing email allowlist). Live every call.
 
 const REPO_OWNER = 'jamiestuntlisting';
 const REPO_NAME = 'action-vault';
@@ -29,27 +33,16 @@ const ADMIN_EMAILS = [
   'warren@stuntlisting.com',
 ];
 
-async function gql(query: string, variables: Record<string, any> = {}, token?: string): Promise<any> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers.Authorization = `Bearer ${token}`;
+async function getMyProfile(token: string): Promise<any | null> {
   const r = await fetch(STUNTLISTING_GRAPHQL, {
     method: 'POST',
-    headers,
-    body: JSON.stringify({ query, variables }),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ query: `query { getMyProfile { id email } }` }),
   });
-  if (!r.ok) throw new Error(`gql ${r.status}`);
+  if (!r.ok) return null;
   const j: any = await r.json();
-  if (j.errors?.length) throw new Error(j.errors[0].message);
-  return j.data;
-}
-
-async function getMyProfile(token: string): Promise<any | null> {
-  try {
-    const d = await gql(`query { getMyProfile { id email } }`, {}, token);
-    return d?.getMyProfile || null;
-  } catch {
-    return null;
-  }
+  if (j.errors?.length) return null;
+  return j.data?.getMyProfile || null;
 }
 
 async function readJsonFromRepo<T>(ghToken: string, path: string): Promise<T> {
@@ -62,23 +55,17 @@ async function readJsonFromRepo<T>(ghToken: string, path: string): Promise<T> {
   return JSON.parse(Buffer.from(j.content, 'base64').toString('utf-8'));
 }
 
-// Best-effort extraction of a performer's name from a YouTube reel title.
-// Patterns covered: "Name - Stunt Reel", "Name Stunt Reel", "Name Action Reel",
-// "Name | Stunt Reel YYYY", etc. Returns null if nothing reasonable found.
+// Best-effort extraction of a performer name from a YouTube reel title.
 function parsePerformerNameFromTitle(title: string): string | null {
   if (!title) return null;
-  // Strip common reel suffixes and surrounding punctuation.
   const stripped = title
-    .replace(/[\(\[].*?[\)\]]/g, ' ') // drop parenthesized parts
-    .replace(/\s*[-|·:]\s*/g, ' - ') // normalize separators
+    .replace(/[\(\[].*?[\)\]]/g, ' ')
+    .replace(/\s*[-|·:]\s*/g, ' - ')
     .replace(/\s+/g, ' ')
     .trim();
-
-  // Try: text before " - Stunt Reel" / " Stunt Reel" etc.
   const m1 = /^(.+?)\s*(?:-\s*)?(?:stunt\s+reel|demo\s+reel|action\s+reel|showreel|show\s+reel|stunt\s+demo|fight\s+reel|stunts?\s+reel)/i.exec(stripped);
   if (m1) {
     const cand = m1[1].replace(/[-|]$/, '').trim();
-    // Sanity: 2-4 words, looks like a personal name.
     if (/^[A-Z][\w'.-]*(\s+[A-Z][\w'.-]*){1,3}$/.test(cand)) return cand;
   }
   return null;
@@ -86,40 +73,8 @@ function parsePerformerNameFromTitle(title: string): string | null {
 
 function videoIdFromUrl(url: string): string | null {
   if (!url) return null;
-  // youtube.com/watch?v=ID, youtu.be/ID, /shorts/ID, /embed/ID
   const m = url.match(/(?:v=|youtu\.be\/|\/shorts\/|\/embed\/)([\w-]{6,})/);
   return m ? m[1] : null;
-}
-
-async function searchByName(name: string): Promise<any[]> {
-  if (!name || name.trim().length < 3) return [];
-  const data = await gql(
-    `query SearchUsersNavbar($query: String!) {
-       searchUserNavbar(query: $query, users_pagination_page: 1, users_page_size: 5) {
-         users { id alias first_name last_name instagram }
-       }
-     }`,
-    { query: name.trim() },
-  );
-  return data?.searchUserNavbar?.users || [];
-}
-
-async function getProfileByAlias(alias: string, callerToken: string): Promise<any | null> {
-  if (!alias) return null;
-  try {
-    const data = await gql(
-      `query Profile($alias: String!) {
-         getUsersProfile(alias: $alias, is_profile_view_only: true) {
-           id alias first_name last_name instagram stunt_reels { id reel_url thumb_url title }
-         }
-       }`,
-      { alias },
-      callerToken,
-    );
-    return data?.getUsersProfile || null;
-  } catch {
-    return null;
-  }
 }
 
 export default async function handler(req: any, res: any) {
@@ -139,7 +94,16 @@ export default async function handler(req: any, res: any) {
   }
 
   const ghToken = process.env.GITHUB_TOKEN_REPO_WRITE;
-  if (!ghToken) return res.status(500).json({ error: 'Server not configured' });
+  const dbHost = process.env.STUNTLISTING_DB_HOST;
+  const dbUser = process.env.STUNTLISTING_DB_USER;
+  const dbPass = process.env.STUNTLISTING_DB_PASSWORD;
+  const dbName = process.env.STUNTLISTING_DB_NAME;
+  if (!ghToken || !dbHost || !dbUser || !dbPass || !dbName) {
+    return res.status(500).json({ error: 'Server not configured (missing GH or DB env vars)' });
+  }
+
+  const mysql = require('mysql2/promise');
+  let connection: any = null;
 
   try {
     const reelsData = await readJsonFromRepo<{ reels: any[] }>(ghToken, STUNT_REELS_PATH);
@@ -150,7 +114,6 @@ export default async function handler(req: any, res: any) {
       overridesByYoutubeId.set(o.youtubeId, o);
     }
 
-    // Filter to current month, not excluded.
     const scope: 'month' | 'all' = req.query?.scope === 'all' ? 'all' : 'month';
     const now = new Date();
     const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -160,52 +123,87 @@ export default async function handler(req: any, res: any) {
       return (r.publishedAt || '').startsWith(monthKey);
     });
 
+    connection = await mysql.createConnection({
+      host: dbHost, user: dbUser, password: dbPass, database: dbName,
+    });
+
+    // Helper: search by name, returns up to N candidate users.
+    async function searchByName(name: string, limit = 5): Promise<any[]> {
+      if (!name || name.trim().length < 3) return [];
+      const [rows] = await connection.execute(
+        `SELECT id, alias, first_name, last_name, instagram
+           FROM \`user\`
+          WHERE fullTextSearch LIKE ?
+          ORDER BY id ASC
+          LIMIT ?`,
+        [`%${name.trim()}%`, limit]
+      );
+      return rows;
+    }
+
+    // Helper: fetch a single user by id (for overrides + top-match enrichment).
+    async function getUserById(id: number): Promise<any | null> {
+      const [rows] = await connection.execute(
+        `SELECT id, alias, first_name, last_name, instagram FROM \`user\` WHERE id = ? LIMIT 1`,
+        [id]
+      );
+      return rows[0] || null;
+    }
+
+    // Helper: fetch a user's stunt_reels rows (id + reel_url for videoId compare).
+    async function getStuntReelsForUser(userId: number): Promise<Array<{ id: number; reel_url: string; title: string }>> {
+      const [rows] = await connection.execute(
+        `SELECT id, reel_url, title FROM stunt_reels WHERE userId = ?`,
+        [userId]
+      );
+      return rows;
+    }
+
     const matches: any[] = [];
+
     for (const reel of targetReels) {
       const youtubeId = reel.youtubeId;
       const override = overridesByYoutubeId.get(youtubeId);
 
-      // Candidate name pool to search for.
-      const candidates = new Set<string>();
-      if (reel.channelName) candidates.add(reel.channelName);
+      const candidateNames = new Set<string>();
+      if (reel.channelName) candidateNames.add(reel.channelName);
       const parsed = parsePerformerNameFromTitle(reel.title);
-      if (parsed) candidates.add(parsed);
+      if (parsed) candidateNames.add(parsed);
 
-      // If admin manually mapped this reel to a StuntListing user ID, skip
-      // search and go straight to that profile (still need the alias —
-      // if override has the alias too, no extra lookup; otherwise we'd
-      // need a search-by-id which isn't exposed publicly. For now, the
-      // admin endpoint requires the override to also include `alias`).
-      if (override?.stuntListingId && override?.alias) {
-        const fullProfile = await getProfileByAlias(override.alias, auth);
-        const reels = fullProfile?.stunt_reels || [];
-        const onProfile = reels.some((sr: any) => videoIdFromUrl(sr.reel_url) === youtubeId);
-        matches.push({
-          youtubeId,
-          title: reel.title,
-          thumbnailUrl: reel.thumbnailUrl,
-          channelName: reel.channelName,
-          publishedAt: reel.publishedAt,
-          override: true,
-          searchedNames: Array.from(candidates),
-          match: {
-            id: fullProfile?.id || override.stuntListingId,
-            alias: fullProfile?.alias || override.alias,
-            firstName: fullProfile?.first_name || null,
-            lastName: fullProfile?.last_name || null,
-            instagram: fullProfile?.instagram || null,
-            profileUrl: STUNTLISTING_PROFILE_BASE + (fullProfile?.alias || override.alias),
-            reelOnProfile: onProfile,
-          },
-          fallbackSearchUrl: null,
-        });
-        continue;
+      // Override path: skip name search, fetch the manually-set user directly.
+      if (override?.stuntListingId) {
+        const user = await getUserById(Number(override.stuntListingId));
+        if (user) {
+          const userReels = await getStuntReelsForUser(user.id);
+          const onProfile = userReels.some(sr => videoIdFromUrl(sr.reel_url) === youtubeId);
+          matches.push({
+            youtubeId,
+            title: reel.title,
+            thumbnailUrl: reel.thumbnailUrl,
+            channelName: reel.channelName,
+            publishedAt: reel.publishedAt,
+            override: true,
+            searchedNames: Array.from(candidateNames),
+            match: {
+              id: user.id,
+              alias: user.alias,
+              firstName: user.first_name,
+              lastName: user.last_name,
+              instagram: user.instagram || null,
+              profileUrl: STUNTLISTING_PROFILE_BASE + (user.alias || ''),
+              reelOnProfile: onProfile,
+            },
+            fallbackSearchUrl: null,
+          });
+          continue;
+        }
+        // Override pointed at a non-existent ID — fall through to search.
       }
 
-      // Search StuntListing by each candidate name; collect unique users.
+      // Search by each candidate, dedupe by user.id.
       const seen = new Set<number>();
       const allHits: any[] = [];
-      for (const name of candidates) {
+      for (const name of candidateNames) {
         try {
           const hits = await searchByName(name);
           for (const h of hits) {
@@ -215,7 +213,7 @@ export default async function handler(req: any, res: any) {
             }
           }
         } catch (e: any) {
-          console.warn(`search err for "${name}":`, e.message);
+          console.warn(`db search err for "${name}":`, e.message);
         }
         if (allHits.length >= 5) break;
       }
@@ -225,21 +223,18 @@ export default async function handler(req: any, res: any) {
       let fallbackSearchUrl: string | null = null;
 
       if (top) {
-        // Fetch their profile to get stunt_reels and instagram.
-        const fullProfile = await getProfileByAlias(top.alias, auth);
-        const reels = fullProfile?.stunt_reels || [];
-        const onProfile = reels.some((sr: any) => videoIdFromUrl(sr.reel_url) === youtubeId);
+        const userReels = await getStuntReelsForUser(top.id);
+        const onProfile = userReels.some(sr => videoIdFromUrl(sr.reel_url) === youtubeId);
         match = {
           id: top.id,
           alias: top.alias,
           firstName: top.first_name,
           lastName: top.last_name,
-          instagram: fullProfile?.instagram || top.instagram || null,
-          profileUrl: STUNTLISTING_PROFILE_BASE + top.alias,
+          instagram: top.instagram || null,
+          profileUrl: STUNTLISTING_PROFILE_BASE + (top.alias || ''),
           reelOnProfile: onProfile,
         };
       } else {
-        // No match — link to a search the admin can run on stuntlisting.com.
         const seed = (parsed || reel.channelName || '').replace(/\s+/g, '_');
         if (seed) fallbackSearchUrl = STUNTLISTING_SEARCH_BASE + encodeURIComponent(seed);
       }
@@ -251,7 +246,7 @@ export default async function handler(req: any, res: any) {
         channelName: reel.channelName,
         publishedAt: reel.publishedAt,
         override: false,
-        searchedNames: Array.from(candidates),
+        searchedNames: Array.from(candidateNames),
         match,
         fallbackSearchUrl,
         otherCandidates: allHits.slice(1, 5).map(h => ({
@@ -272,5 +267,7 @@ export default async function handler(req: any, res: any) {
   } catch (e: any) {
     console.error('match-stunt-reels error:', e);
     return res.status(500).json({ error: e.message });
+  } finally {
+    if (connection) try { await connection.end(); } catch {}
   }
 }

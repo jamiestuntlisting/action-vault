@@ -49,7 +49,7 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<MatchRow[]>([]);
-  const [inputs, setInputs] = useState<Record<string, { id: string; alias: string }>>({});
+  const [inputs, setInputs] = useState<Record<string, { id: string }>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const userEmail = state.currentUser?.email?.toLowerCase() || '';
@@ -77,13 +77,13 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
     }
   }
 
-  async function saveOverride(youtubeId: string, idStr: string, alias: string) {
+  async function saveOverride(youtubeId: string, idStr: string) {
     if (!state.authToken) return;
     setSavingId(youtubeId);
     try {
-      const body = idStr || alias
-        ? { youtubeId, stuntListingId: idStr ? Number(idStr) : null, alias: alias || null }
-        : { youtubeId };
+      const body = idStr
+        ? { youtubeId, stuntListingId: Number(idStr) }
+        : { youtubeId }; // empty input = clear override
       const r = await fetch(`${API_BASE}/api/admin/stunt-reel-overrides`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.authToken}` },
@@ -93,7 +93,6 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
         const j = await r.json().catch(() => ({}));
         throw new Error(j.error || `HTTP ${r.status}`);
       }
-      // Refresh just this row by re-fetching everything (small, simpler than partial update).
       await fetchMatches();
     } catch (e: any) {
       setError(e.message);
@@ -157,7 +156,7 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
         )}
 
         {rows.map(row => {
-          const cur = inputs[row.youtubeId] || { id: row.match?.id?.toString() || '', alias: row.match?.alias || '' };
+          const cur = inputs[row.youtubeId] || { id: row.match?.id?.toString() || '' };
           return (
             <View key={row.youtubeId} style={styles.row}>
               <View style={styles.rowHead}>
@@ -248,27 +247,19 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
                     placeholder="StuntListing ID"
                     placeholderTextColor={Colors.inputPlaceholder}
                     value={cur.id}
-                    onChangeText={(t) => setInputs(s => ({ ...s, [row.youtubeId]: { ...cur, id: t } }))}
+                    onChangeText={(t) => setInputs(s => ({ ...s, [row.youtubeId]: { id: t } }))}
                     keyboardType="number-pad"
-                    style={[styles.input, { width: 130 }]}
-                  />
-                  <TextInput
-                    placeholder="alias"
-                    placeholderTextColor={Colors.inputPlaceholder}
-                    value={cur.alias}
-                    onChangeText={(t) => setInputs(s => ({ ...s, [row.youtubeId]: { ...cur, alias: t } }))}
-                    autoCapitalize="none"
                     style={[styles.input, { flex: 1 }]}
                   />
                   <TouchableOpacity
-                    onPress={() => saveOverride(row.youtubeId, cur.id, cur.alias)}
+                    onPress={() => saveOverride(row.youtubeId, cur.id)}
                     disabled={savingId === row.youtubeId}
                     style={[styles.saveBtn, savingId === row.youtubeId && { opacity: 0.5 }]}
                   >
                     <Text style={styles.saveBtnText}>{savingId === row.youtubeId ? 'Saving…' : 'Save'}</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.hint}>Both ID and alias are needed to fully override the match (we need alias for profile lookup). Leave both blank and save to clear an override.</Text>
+                <Text style={styles.hint}>Type a StuntListing user ID and Save to override the match. Save an empty value to clear the override.</Text>
               </View>
             </View>
           );

@@ -1,9 +1,12 @@
 // GET  /api/admin/stunt-reel-overrides — list all stored overrides
 // POST /api/admin/stunt-reel-overrides — set/clear an override for one reel
-//   body: { youtubeId, stuntListingId?, alias? }   (omit/null both to clear)
+//   body: { youtubeId, stuntListingId? }   (omit stuntListingId or pass null/0
+//                                           to clear an existing override)
 //
-// Persists to data/stunt-reel-overrides.json in the repo via GitHub Contents
-// API. Admin-only.
+// With direct DB access in the matcher, an override only needs the
+// StuntListing user.id — the matcher resolves alias/name/instagram from the
+// `user` table at request time. Persists to data/stunt-reel-overrides.json
+// in the repo via GitHub Contents API. Admin-only.
 
 const REPO_OWNER = 'jamiestuntlisting';
 const REPO_NAME = 'action-vault';
@@ -62,19 +65,6 @@ async function writeOverrides(ghToken: string, sha: string, data: any, msg: stri
   if (!r.ok) throw new Error(`gh write failed: ${r.status} ${await r.text()}`);
 }
 
-// Resolve alias from a numeric StuntListing user id by walking pages of
-// searchUserNavbar. The public schema doesn't expose a getUserById, so we
-// search and filter. This is best-effort; if the admin enters an id that
-// doesn't surface in search, alias stays null and the matcher will skip
-// the live profile lookup until next time.
-async function findAliasForId(stuntListingId: number, callerToken: string): Promise<string | null> {
-  // Cheap shortcut: searchUserNavbar with empty-ish query rarely returns the
-  // target. So instead try fetching getUsersProfile with the id encoded as
-  // alias — won't work for numeric. Skip lookup; rely on the UI prompting
-  // the admin to also paste an alias if known.
-  return null;
-}
-
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -100,8 +90,7 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json(data);
     }
 
-    // POST: set/clear an override.
-    const { youtubeId, stuntListingId, alias } = req.body || {};
+    const { youtubeId, stuntListingId } = req.body || {};
     if (!youtubeId) return res.status(400).json({ error: 'youtubeId required' });
 
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -109,22 +98,22 @@ export default async function handler(req: any, res: any) {
         const { data, sha } = await readOverrides(ghToken);
         const existing = (data.overrides || []).filter((o: any) => o.youtubeId !== youtubeId);
         const nowIso = new Date().toISOString();
+        const id = Number(stuntListingId);
+        const cleared = !id;
         let updated;
         let summary;
-        const cleared = !stuntListingId && !alias;
         if (cleared) {
           updated = { ...data, lastUpdatedAt: nowIso, overrides: existing };
           summary = `clear ${youtubeId}`;
         } else {
           const o = {
             youtubeId,
-            stuntListingId: stuntListingId ? Number(stuntListingId) : null,
-            alias: alias || null,
+            stuntListingId: id,
             setBy: profile.email,
             setAt: nowIso,
           };
           updated = { ...data, lastUpdatedAt: nowIso, overrides: [...existing, o] };
-          summary = `set ${youtubeId} → id=${o.stuntListingId ?? '?'} alias=${o.alias ?? '?'} (by ${profile.email})`;
+          summary = `set ${youtubeId} → user.id=${id} (by ${profile.email})`;
         }
         await writeOverrides(ghToken, sha, updated, summary);
         return res.status(200).json({ status: 'ok', overrides: updated.overrides });
