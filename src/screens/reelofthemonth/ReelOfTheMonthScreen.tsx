@@ -75,6 +75,8 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
 
   // Auto-save on change (debounced). Rating 0 = "no score" = no vote saved
   // (existing vote is removed if the user drags back down to 0).
+  // Local dispatch is mirrored to /api/votes/submit so the admin voting-
+  // results page sees the vote (best-effort; UI doesn't block on it).
   useEffect(() => {
     if (!hasInteractedRef.current) return;
     if (!liveEntry || !activeReel || !currentEmail) return;
@@ -103,6 +105,15 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
           type: 'CLEAR_REEL_VOTE',
           payload: { entryId: liveEntry.id, reelId: activeReel.id },
         });
+      }
+      // Fire-and-forget server-side vote sync.
+      if (state.authToken) {
+        const apiBase = Platform.OS === 'web' ? '' : 'https://action-vault-blond.vercel.app';
+        fetch(`${apiBase}/api/votes/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.authToken}` },
+          body: JSON.stringify({ entryId: liveEntry.id, reelId: activeReel.id, rating }),
+        }).catch(() => { /* offline / network error — local dispatch already saved */ });
       }
       setSavedAt(Date.now());
     }, 350);

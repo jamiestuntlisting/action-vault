@@ -112,6 +112,15 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
           payload: { entryId: STUNT_ENTRY_ID, reelId: activeReel.youtubeId },
         });
       }
+      // Fire-and-forget server-side vote sync (admin aggregator reads from here).
+      if (state.authToken) {
+        const apiBase = Platform.OS === 'web' ? '' : 'https://action-vault-blond.vercel.app';
+        fetch(`${apiBase}/api/votes/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.authToken}` },
+          body: JSON.stringify({ entryId: STUNT_ENTRY_ID, reelId: activeReel.youtubeId, rating }),
+        }).catch(() => { /* offline / network error — local dispatch already saved */ });
+      }
       setSavedAt(Date.now());
     }, 350);
     return () => clearTimeout(t);

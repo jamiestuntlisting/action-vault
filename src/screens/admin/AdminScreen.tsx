@@ -681,6 +681,40 @@ export function AdminScreen({ navigation }: any) {
             </View>
             <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+              padding: Spacing.md, marginBottom: Spacing.md,
+              backgroundColor: Colors.accent + '1A', borderRadius: BorderRadius.md,
+              borderWidth: 1, borderColor: Colors.accent + '55',
+            }}
+            onPress={() => navigation.navigate('AdminVotingResults')}
+          >
+            <Ionicons name="bar-chart-outline" size={22} color={Colors.accent} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.bold }}>Voting Results</Text>
+              <Text style={{ color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 }}>Aggregate ratings across all members · skill + stunt reels of the month</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+              padding: Spacing.md, marginBottom: Spacing.md,
+              backgroundColor: Colors.accent + '1A', borderRadius: BorderRadius.md,
+              borderWidth: 1, borderColor: Colors.accent + '55',
+            }}
+            onPress={() => navigation.navigate('AdminStuntReelMatcher')}
+          >
+            <Ionicons name="link-outline" size={22} color={Colors.accent} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.bold }}>Stunt Reel ↔ StuntListing Matcher</Text>
+              <Text style={{ color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 }}>Match YouTube-discovered reels to StuntListing performers · IDs · Instagram · manual overrides</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
+          </TouchableOpacity>
           {activeTab === 'videos' && (
             <View>
               {/* Removal Requests */}
