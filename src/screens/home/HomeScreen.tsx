@@ -16,6 +16,7 @@ import { Image } from 'expo-image';
 import { books } from '../../data/books';
 import { BooksSection } from '../../components/BookRow';
 import { podcasts } from '../../data/podcasts';
+import discoveredStuntReelsData from '../../data/stunt-reels.json';
 import { PodcastSection } from '../../components/PodcastRow';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { AnalyticsService } from '../../services/AnalyticsService';
@@ -515,19 +516,25 @@ function reelThumb(r: { thumb: string | null; youtubeId: string | null }): strin
   return null;
 }
 
-function Montage({ thumbs, label }: { thumbs: Array<string | null>; label: string }) {
+function Montage({ thumbs, label, gridSize = 3 }: { thumbs: Array<string | null>; label: string; gridSize?: number }) {
+  const total = gridSize * gridSize;
   const filled = thumbs.filter(Boolean) as string[];
-  const slots = [0, 1, 2, 3].map(i => filled[i % Math.max(filled.length, 1)] || null);
+  // Cycle through whatever unique thumbs we have — but only repeat if we
+  // genuinely have fewer thumbs than slots, so a healthy data source fills
+  // every cell with a different reel.
+  const slots = Array.from({ length: total }, (_, i) =>
+    filled.length > 0 ? filled[i % filled.length] : null
+  );
+  const rows = Array.from({ length: gridSize }, (_, r) =>
+    slots.slice(r * gridSize, (r + 1) * gridSize)
+  );
   return (
     <View style={homeReelCardStyles.montage}>
-      <View style={homeReelCardStyles.montageRow}>
-        <MontageCell uri={slots[0]} />
-        <MontageCell uri={slots[1]} />
-      </View>
-      <View style={homeReelCardStyles.montageRow}>
-        <MontageCell uri={slots[2]} />
-        <MontageCell uri={slots[3]} />
-      </View>
+      {rows.map((row, ri) => (
+        <View key={ri} style={homeReelCardStyles.montageRow}>
+          {row.map((uri, ci) => <MontageCell key={`${ri}-${ci}`} uri={uri} />)}
+        </View>
+      ))}
       <View style={homeReelCardStyles.montageOverlay} pointerEvents="none" />
       <View style={homeReelCardStyles.montageLabelBlock} pointerEvents="none">
         <Text style={homeReelCardStyles.montageLabel} numberOfLines={2}>{label}</Text>
@@ -548,9 +555,36 @@ function ReelOfTheMonthEntry({ navigation }: { navigation: any }) {
   const now = new Date();
   const nextMonthName = MONTH_NAMES_HOME[(now.getMonth() + 1) % 12];
 
+  // SKILL montage: up to 9 thumbs from this month's skill reels, deduped by
+  // youtubeId so we don't show the same reel twice in the 3x3 grid.
   const skillFocusReels = liveSkill ? skillReels.filter(r => r.skill === liveSkill.skill) : [];
-  const skillThumbs = skillFocusReels.slice(0, 4).map(reelThumb);
-  const stuntThumbs = stuntReels.slice(0, 4).map(reelThumb);
+  const seenSkillIds = new Set<string>();
+  const uniqueSkillThumbs: Array<string | null> = [];
+  for (const r of skillFocusReels) {
+    const key = r.youtubeId || r.id;
+    if (key && seenSkillIds.has(key)) continue;
+    if (key) seenSkillIds.add(key);
+    const thumb = reelThumb(r);
+    if (thumb) uniqueSkillThumbs.push(thumb);
+    if (uniqueSkillThumbs.length >= 9) break;
+  }
+  const skillThumbs = uniqueSkillThumbs;
+
+  // STUNT montage: up to 9 thumbs from THIS MONTH's YouTube-discovered set
+  // (the same source the StuntReelVoting screen reads). The cron updates
+  // the bundled JSON daily, so this montage refreshes once a day.
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const monthlyDiscovered = ((discoveredStuntReelsData as any).reels || [])
+    .filter((r: any) => !r.excluded && (r.publishedAt || '').startsWith(monthKey));
+  const seenStuntIds = new Set<string>();
+  const stuntThumbs: Array<string | null> = [];
+  for (const r of monthlyDiscovered) {
+    if (!r.youtubeId || seenStuntIds.has(r.youtubeId)) continue;
+    seenStuntIds.add(r.youtubeId);
+    const thumb = r.thumbnailUrl || (r.youtubeId ? `https://i.ytimg.com/vi/${r.youtubeId}/hqdefault.jpg` : null);
+    if (thumb) stuntThumbs.push(thumb);
+    if (stuntThumbs.length >= 9) break;
+  }
 
   return (
     <View style={homeReelCardStyles.container}>
