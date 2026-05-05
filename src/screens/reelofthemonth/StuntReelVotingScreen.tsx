@@ -95,6 +95,43 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
   const sliderForRef = useRef<{ entryId: string; reelId: string } | null>(null);
   const hasInteractedRef = useRef(false);
 
+  // Per-reel performer info pulled from /api/stunt-reel-performer when we
+  // can match the YouTube channel/title to a StuntListing user. Surfaces
+  // name/location/height/weight/profile link below the reel meta block.
+  // Cached per youtubeId so prev/next doesn't refetch the same reel.
+  type Performer = {
+    id: number;
+    alias: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    instagram: string | null;
+    height: number | null;
+    weight: number | null;
+    location: string | null;
+    profileUrl: string;
+  };
+  const [performerByReel, setPerformerByReel] = useState<Record<string, Performer | null>>({});
+  const performer = activeReel ? performerByReel[activeReel.youtubeId] : undefined;
+  useEffect(() => {
+    if (!activeReel) return;
+    if (performerByReel[activeReel.youtubeId] !== undefined) return; // cached (incl. null misses)
+    const youtubeId = activeReel.youtubeId;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`${API_BASE}/api/stunt-reel-performer?youtubeId=${encodeURIComponent(youtubeId)}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const j = await r.json();
+        if (cancelled) return;
+        setPerformerByReel(p => ({ ...p, [youtubeId]: j.match || null }));
+      } catch {
+        if (!cancelled) setPerformerByReel(p => ({ ...p, [youtubeId]: null }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeReel?.youtubeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const isAdmin = ADMIN_EMAILS.includes((state.currentUser?.email || '').toLowerCase());
 
   // Admin-only: hide a reel from this voting list (and from the home
@@ -343,6 +380,32 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
             {activeReel.publishedAt.slice(0, 10)} · {Math.round(activeReel.durationSeconds)}s · {activeReel.viewCount.toLocaleString()} views
           </Text>
           {activeReel.title ? <Text style={styles.contextLine}>{activeReel.title}</Text> : null}
+
+          {/* Matched StuntListing performer info, when found. Pulled live
+              from /api/stunt-reel-performer; cache hit → no flash. */}
+          {performer ? (
+            <View style={styles.slCard}>
+              <View style={styles.slCardHeader}>
+                <Ionicons name="person-circle" size={20} color={Colors.accent} />
+                <View style={{ flex: 1 }}>
+                  <TouchableOpacity onPress={() => Platform.OS === 'web' && window.open(performer.profileUrl, '_blank')}>
+                    <Text style={styles.slName}>{performer.fullName} ↗</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.slMeta}>StuntListing performer</Text>
+                </View>
+              </View>
+              <View style={styles.slStatsRow}>
+                {performer.location ? <Text style={styles.slStat}>📍 {performer.location}</Text> : null}
+                {performer.height ? <Text style={styles.slStat}>{Math.floor(performer.height / 12)}'{performer.height % 12}"</Text> : null}
+                {performer.weight ? <Text style={styles.slStat}>{performer.weight} lb</Text> : null}
+                {performer.instagram ? (
+                  <TouchableOpacity onPress={() => Platform.OS === 'web' && window.open(`https://www.instagram.com/${performer.instagram!.replace(/^@/, '')}`, '_blank')}>
+                    <Text style={[styles.slStat, styles.slStatLink]}>{performer.instagram} ↗</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
           {isAdmin && (
             <TouchableOpacity
               onPress={removeCurrentReel}
@@ -517,6 +580,21 @@ const styles = StyleSheet.create({
   performerName: { color: Colors.textPrimary, fontSize: FontSize.lg, fontWeight: FontWeight.bold },
   performerRole: { color: Colors.textTertiary, fontSize: FontSize.sm, marginTop: 2 },
   contextLine: { color: Colors.textSecondary, fontSize: FontSize.sm, marginTop: Spacing.xs },
+  slCard: {
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.accent + '12',
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.accent + '40',
+    gap: Spacing.sm,
+  },
+  slCardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  slName: { color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.bold },
+  slMeta: { color: Colors.textTertiary, fontSize: FontSize.xs, marginTop: 1 },
+  slStatsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginTop: 4 },
+  slStat: { color: Colors.textSecondary, fontSize: FontSize.sm },
+  slStatLink: { color: Colors.accent, textDecorationLine: 'underline' },
   adminRemoveBtn: {
     flexDirection: 'row',
     alignItems: 'center',

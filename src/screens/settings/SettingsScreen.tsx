@@ -319,15 +319,9 @@ export function SettingsScreen({ navigation }: any) {
         )}
       </View>
 
-      {/* Admin — only visible to admin users */}
-      {state.currentUser?.email && ADMIN_EMAILS.includes(state.currentUser.email.toLowerCase()) && (
-        <>
-          <Text style={styles.sectionTitle}>Admin</Text>
-          <View style={styles.section}>
-            <SettingsRow icon="settings-outline" label="Admin Panel" onPress={() => navigation.navigate('Admin')} />
-          </View>
-        </>
-      )}
+      {/* Admin entry moved to its own bottom-nav tab — visible only to
+          admins (see MainTabs in AppNavigator). Kept this comment instead
+          of the link so future readers know why the row disappeared. */}
 
       {/* Sign Out */}
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>

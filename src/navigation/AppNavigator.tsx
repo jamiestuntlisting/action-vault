@@ -41,11 +41,25 @@ import { StuntReelVotingScreen } from '../screens/reelofthemonth/StuntReelVoting
 import { AdminVotingResultsScreen } from '../screens/admin/AdminVotingResultsScreen';
 import { AdminStuntReelMatcherScreen } from '../screens/admin/AdminStuntReelMatcherScreen';
 import { AdminHealthCheckScreen } from '../screens/admin/AdminHealthCheckScreen';
+import { useAppState } from '../services/AppState';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+// Same allowlist used by the admin endpoints/screens — kept in sync here so
+// non-admins don't see the Admin tab in the bottom nav at all.
+const ADMIN_EMAILS = [
+  'james.northrup@gmail.com',
+  'warrenhullstunts@gmail.com',
+  'greg@stuntlisting.com',
+  'info@stuntlisting.com',
+  'jamie@stuntlisting.com',
+  'warren@stuntlisting.com',
+];
+
 function MainTabs() {
+  const { state } = useAppState();
+  const isAdmin = ADMIN_EMAILS.includes((state.currentUser?.email || '').toLowerCase());
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -55,7 +69,7 @@ function MainTabs() {
             case 'Home': iconName = focused ? 'home' : 'home-outline'; break;
             case 'Search': iconName = focused ? 'search' : 'search-outline'; break;
             case 'MyList': iconName = focused ? 'bookmark' : 'bookmark-outline'; break;
-
+            case 'Admin': iconName = focused ? 'construct' : 'construct-outline'; break;
             case 'Profile': iconName = focused ? 'person' : 'person-outline'; break;
           }
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -79,6 +93,7 @@ function MainTabs() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="MyList" component={MyListScreen} options={{ tabBarLabel: 'My List' }} />
+      {isAdmin && <Tab.Screen name="Admin" component={AdminScreen} />}
       <Tab.Screen name="Profile" component={SettingsScreen} />
     </Tab.Navigator>
   );
