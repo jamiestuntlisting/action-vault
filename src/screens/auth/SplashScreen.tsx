@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight } from '../../theme';
 import { useAppState } from '../../services/AppState';
+import { StorageService } from '../../services/StorageService';
 
 export function SplashScreen({ navigation }: any) {
   const { state } = useAppState();
@@ -15,7 +16,7 @@ export function SplashScreen({ navigation }: any) {
       Animated.spring(scaleAnim, { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }),
     ]).start();
 
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       if (state.isLoading) return;
 
       // Deep link: /analytics goes directly to analytics screen
@@ -26,10 +27,21 @@ export function SplashScreen({ navigation }: any) {
 
       if (!state.isAuthenticated) {
         navigation.replace('Auth');
-      } else if (!state.onboardingComplete) {
-        navigation.replace('Onboarding');
-      } else {
+        return;
+      }
+
+      // state.onboardingComplete reflects the in-memory slice, which may
+      // race with the async per-user hydration on slow loads. Read the
+      // user-scoped storage flag directly so we never bounce a returning
+      // user back into onboarding.
+      const userId = state.currentUser?.id;
+      const onboardingDone = userId
+        ? await StorageService.get<boolean>(StorageService.userKey(StorageService.KEYS.ONBOARDING_COMPLETE, userId))
+        : false;
+      if (onboardingDone || state.onboardingComplete) {
         navigation.replace('MainTabs');
+      } else {
+        navigation.replace('Onboarding');
       }
     }, 2000);
 

@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Dimensions, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
+import { StorageService } from '../../services/StorageService';
 import { skillTags } from '../../data';
 import { avatarOptions } from '../../data/avatars';
 import { SkillTagChip } from '../../components/SkillTagChip';
@@ -17,6 +18,24 @@ export function OnboardingScreen({ navigation }: any) {
   usePageTitle('Welcome');
   const { state, dispatch } = useAppState();
   const [step, setStep] = useState(0);
+
+  // Guard: if this user already finished onboarding, never show it again.
+  // Reads the user-scoped storage flag directly so it survives URL refresh
+  // on /Onboarding and any race where state.onboardingComplete hasn't yet
+  // been hydrated from the per-user slice.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const userId = state.currentUser?.id;
+      if (!userId) return;
+      const stored = await StorageService.get<boolean>(StorageService.userKey(StorageService.KEYS.ONBOARDING_COMPLETE, userId));
+      if (cancelled) return;
+      if (stored || state.onboardingComplete) {
+        navigation.replace('MainTabs');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [state.currentUser?.id, state.onboardingComplete]);
   const [selectedSkills, setSelectedSkills] = useState<SkillTag[]>([]);
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>('fan');
   const [profileName, setProfileName] = useState(state.profiles[0]?.name || '');
@@ -38,7 +57,7 @@ export function OnboardingScreen({ navigation }: any) {
     }
   }
 
-  function finishOnboarding() {
+  async function finishOnboarding() {
     const profile = state.profiles[0];
     if (profile) {
       dispatch({
@@ -55,6 +74,22 @@ export function OnboardingScreen({ navigation }: any) {
       dispatch({ type: 'SET_ACTIVE_PROFILE', payload: { ...profile, name: profileName || profile.name, avatarKey: selectedAvatar, experienceLevel, onboardingComplete: true, interests: selectedSkills } });
     }
     dispatch({ type: 'SET_ONBOARDING_COMPLETE', payload: true });
+
+    // Belt-and-suspenders: write the user-scoped flag synchronously before
+    // navigating. The persist effect would catch this too, but it's async
+    // and has previously been racy on slow loads — Jamie reported seeing
+    // onboarding more than once. SplashScreen + AuthScreen both read THIS
+    // exact key, so writing it here guarantees they skip onboarding next time.
+    const userId = state.currentUser?.id;
+    if (userId) {
+      try {
+        await StorageService.set(
+          StorageService.userKey(StorageService.KEYS.ONBOARDING_COMPLETE, userId),
+          true
+        );
+      } catch {}
+    }
+
     navigation.replace('MainTabs');
   }
 
@@ -64,7 +99,7 @@ export function OnboardingScreen({ navigation }: any) {
         return (
           <View style={styles.stepContent}>
             <Ionicons name="film" size={80} color={Colors.primary} />
-            <Text style={styles.welcomeTitle}>Welcome to StuntListing TV</Text>
+            <Text style={styles.welcomeTitle}>Welcome to Action Vault</Text>
             <Text style={styles.welcomeSubtitle}>The best behind-the-scenes stunt content, all in one place.</Text>
             <Text style={styles.welcomeDescription}>
               Browse, study, and learn the craft of stunts with curated videos, courses, and stunt-specific tools.
