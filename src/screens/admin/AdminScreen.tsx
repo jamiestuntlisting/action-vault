@@ -626,45 +626,66 @@ export function AdminScreen({ navigation }: any) {
     );
   }
 
-  // Tabs + page-nav definitions used by both the wide-sidebar layout and
-  // the narrow horizontal-tabs layout. Single source of truth so a tab
-  // added here shows up in both places.
+  // Tab definitions used by both layouts. Grouped into named sections for
+  // the sidebar; the narrow layout flattens them back into one row.
   const pendingSubmissions = (state.settings.vaultSubmissions || []).filter(s => !s.status || s.status === 'pending').length;
-  const tabDefs: Array<{ key: AdminTab; label: string; icon: any }> = [
-    { key: 'videos', label: 'Videos', icon: 'videocam-outline' },
-    { key: 'submissions', label: `Submissions${pendingSubmissions > 0 ? ` (${pendingSubmissions})` : ''}`, icon: 'cloud-upload-outline' },
-    { key: 'byproduction', label: 'By Production', icon: 'film-outline' },
-    { key: 'bytag', label: 'By Tag', icon: 'pricetag-outline' },
-    { key: 'lists', label: 'Lists', icon: 'list-outline' },
-    { key: 'categories', label: 'Categories', icon: 'grid-outline' },
-    { key: 'atlas', label: 'Atlas Action', icon: 'globe-outline' },
-    { key: 'books', label: 'Books', icon: 'book-outline' },
-    { key: 'podcasts', label: 'Podcasts', icon: 'mic-outline' },
-    { key: 'reviews', label: 'Reviews', icon: 'chatbubbles-outline' },
-    { key: 'stats', label: 'Stats', icon: 'stats-chart-outline' },
-    { key: 'flags', label: 'Flags', icon: 'flag-outline' },
+
+  type TabDef = { key: AdminTab; label: string; icon: any };
+  const tabSections: Array<{ section: string; items: TabDef[] }> = [
+    {
+      section: 'Content',
+      items: [
+        { key: 'videos', label: 'Videos', icon: 'videocam-outline' },
+        { key: 'submissions', label: `Submissions${pendingSubmissions > 0 ? ` (${pendingSubmissions})` : ''}`, icon: 'cloud-upload-outline' },
+        { key: 'byproduction', label: 'By Production', icon: 'film-outline' },
+        { key: 'bytag', label: 'By Tag', icon: 'pricetag-outline' },
+      ],
+    },
+    {
+      section: 'Curation',
+      items: [
+        { key: 'lists', label: 'Lists', icon: 'list-outline' },
+        { key: 'categories', label: 'Categories', icon: 'grid-outline' },
+        { key: 'atlas', label: 'Atlas Action', icon: 'globe-outline' },
+        { key: 'books', label: 'Books', icon: 'book-outline' },
+        { key: 'podcasts', label: 'Podcasts', icon: 'mic-outline' },
+      ],
+    },
+    {
+      section: 'Moderation',
+      items: [
+        { key: 'reviews', label: 'Reviews', icon: 'chatbubbles-outline' },
+        { key: 'flags', label: 'Flags', icon: 'flag-outline' },
+      ],
+    },
+    {
+      section: 'Insights',
+      items: [
+        { key: 'stats', label: 'Stats', icon: 'stats-chart-outline' },
+      ],
+    },
+  ];
+  // Flat list for the narrow horizontal-tabs layout.
+  const tabDefs: TabDef[] = tabSections.flatMap(s => s.items);
+
+  // Page-level admin destinations — render in the same row style as tabs in
+  // the sidebar (no big tinted boxes, no subtitles).
+  const pageDefs: Array<{ key: string; label: string; icon: any; route: string }> = [
+    { key: 'reelOfMonth', label: 'Reel of the Month', icon: 'trophy-outline', route: 'AdminReelOfTheMonth' },
+    { key: 'votingResults', label: 'Voting Results', icon: 'bar-chart-outline', route: 'AdminVotingResults' },
+    { key: 'matcher', label: 'Stunt ↔ StuntListing', icon: 'link-outline', route: 'AdminStuntReelMatcher' },
+    { key: 'health', label: 'Health Check', icon: 'pulse-outline', route: 'AdminHealthCheck' },
   ];
 
-  // Page-level admin destinations rendered in the sidebar header.
-  const pageDefs: Array<{ key: string; label: string; icon: any; route: string; sub?: string }> = [
-    { key: 'reelOfMonth', label: 'Reel of the Month', icon: 'trophy-outline', route: 'AdminReelOfTheMonth', sub: 'Schedule · voter participation' },
-    { key: 'votingResults', label: 'Voting Results', icon: 'bar-chart-outline', route: 'AdminVotingResults', sub: 'Aggregate ratings' },
-    { key: 'matcher', label: 'Stunt ↔ StuntListing', icon: 'link-outline', route: 'AdminStuntReelMatcher', sub: 'Match reels to performers' },
-    { key: 'health', label: 'Health Check', icon: 'pulse-outline', route: 'AdminHealthCheck', sub: 'Test all backing services' },
-  ];
-
-  // Sidebar tab-button renderer (vertical, full-width rows).
-  const renderSidebarTab = (tab: typeof tabDefs[number]) => {
+  // One unified row style — page links and tabs both use this so the
+  // sidebar reads as a single nav, just with section headers between groups.
+  const renderSidebarTab = (tab: TabDef) => {
     const active = activeTab === tab.key;
     const submissionsHighlight = tab.key === 'submissions' && pendingSubmissions > 0 && !active;
     return (
       <TouchableOpacity
         key={tab.key}
-        style={[
-          styles.sidebarTab,
-          active && styles.sidebarTabActive,
-          submissionsHighlight && { borderColor: '#f59e0b' },
-        ]}
+        style={[styles.sidebarTab, active && styles.sidebarTabActive, submissionsHighlight && { borderColor: '#f59e0b', borderWidth: 1 }]}
         onPress={() => setActiveTab(tab.key)}
       >
         <Ionicons
@@ -673,11 +694,7 @@ export function AdminScreen({ navigation }: any) {
           color={active ? '#fff' : submissionsHighlight ? '#f59e0b' : Colors.textSecondary}
         />
         <Text
-          style={[
-            styles.sidebarTabText,
-            active && styles.sidebarTabTextActive,
-            submissionsHighlight && { color: '#f59e0b' },
-          ]}
+          style={[styles.sidebarTabText, active && styles.sidebarTabTextActive, submissionsHighlight && { color: '#f59e0b' }]}
           numberOfLines={1}
         >
           {tab.label}
@@ -685,6 +702,17 @@ export function AdminScreen({ navigation }: any) {
       </TouchableOpacity>
     );
   };
+  const renderSidebarPageRow = (p: typeof pageDefs[number]) => (
+    <TouchableOpacity
+      key={p.key}
+      style={styles.sidebarTab}
+      onPress={() => navigation.navigate(p.route)}
+    >
+      <Ionicons name={p.icon} size={16} color={Colors.textSecondary} />
+      <Text style={styles.sidebarTabText} numberOfLines={1}>{p.label}</Text>
+      <Ionicons name="chevron-forward" size={12} color={Colors.textTertiary} />
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
@@ -723,28 +751,19 @@ export function AdminScreen({ navigation }: any) {
         )}
 
         <View style={useSidebar ? styles.bodyRow : undefined}>
-          {/* Wide viewports get a left sidebar with page-level navigation
-              cards on top and the tab list below. */}
+          {/* Wide viewports get a left sidebar. Single unified row style;
+              section headers separate page-level destinations from tabs
+              and group tabs by purpose. */}
           {useSidebar && (
             <ScrollView style={styles.sidebar} contentContainerStyle={{ paddingBottom: Spacing.xxl }}>
               <Text style={styles.sidebarSectionLabel}>Admin pages</Text>
-              {pageDefs.map(p => (
-                <TouchableOpacity
-                  key={p.key}
-                  style={styles.sidebarPageRow}
-                  onPress={() => navigation.navigate(p.route)}
-                >
-                  <Ionicons name={p.icon} size={18} color={Colors.accent} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.sidebarPageLabel}>{p.label}</Text>
-                    {p.sub && <Text style={styles.sidebarPageSub} numberOfLines={1}>{p.sub}</Text>}
-                  </View>
-                  <Ionicons name="chevron-forward" size={14} color={Colors.accent} />
-                </TouchableOpacity>
+              {pageDefs.map(renderSidebarPageRow)}
+              {tabSections.map(s => (
+                <View key={s.section}>
+                  <Text style={styles.sidebarSectionLabel}>{s.section}</Text>
+                  {s.items.map(renderSidebarTab)}
+                </View>
               ))}
-              <View style={styles.sidebarDivider} />
-              <Text style={styles.sidebarSectionLabel}>Tabs</Text>
-              {tabDefs.map(renderSidebarTab)}
             </ScrollView>
           )}
 
@@ -2492,42 +2511,30 @@ const styles = StyleSheet.create({
   // Sidebar layout, used on viewports ≥ 900px wide.
   bodyRow: { flex: 1, flexDirection: 'row' },
   sidebar: {
-    width: 240,
-    paddingLeft: Spacing.lg,
-    paddingRight: Spacing.md,
-    paddingTop: Spacing.md,
+    width: 180,
+    paddingLeft: Spacing.md,
+    paddingRight: Spacing.sm,
+    paddingTop: Spacing.sm,
     borderRightWidth: 1,
     borderRightColor: Colors.divider,
   },
   sidebarSectionLabel: {
     color: Colors.textTertiary,
-    fontSize: FontSize.xs,
+    fontSize: 10,
     fontWeight: FontWeight.bold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: Spacing.md,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
-  sidebarPageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    padding: Spacing.sm,
-    marginBottom: 4,
-    backgroundColor: Colors.accent + '14',
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1,
-    borderColor: Colors.accent + '40',
-  },
-  sidebarPageLabel: { color: Colors.textPrimary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
-  sidebarPageSub: { color: Colors.textTertiary, fontSize: 10, marginTop: 1 },
-  sidebarDivider: { height: 1, backgroundColor: Colors.divider, marginVertical: Spacing.md },
+  // Unified sidebar row — used by both page links and tabs. Active state
+  // (only meaningful for tabs) flips background to the primary fill.
   sidebarTab: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     borderRadius: BorderRadius.sm,
     marginBottom: 2,
   },
