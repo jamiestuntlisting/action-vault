@@ -273,6 +273,8 @@ async function actionMatchStuntReels(req: any, res: any, profile: any, ghToken: 
             youtubeId, title: reel.title, thumbnailUrl: reel.thumbnailUrl,
             channelName: reel.channelName, publishedAt: reel.publishedAt,
             excluded: !!reel.excluded, override: true, searchedNames: Array.from(candidateNames),
+            notOnStuntListing: !!override?.notOnStuntListing,
+            email: override?.email || null,
             match: {
               id: user.id, alias: user.alias,
               firstName: user.first_name, lastName: user.last_name,
@@ -316,6 +318,8 @@ async function actionMatchStuntReels(req: any, res: any, profile: any, ghToken: 
         youtubeId, title: reel.title, thumbnailUrl: reel.thumbnailUrl,
         channelName: reel.channelName, publishedAt: reel.publishedAt,
         excluded: !!reel.excluded, override: false, searchedNames: Array.from(candidateNames),
+        notOnStuntListing: !!override?.notOnStuntListing,
+        email: override?.email || null,
         match, fallbackSearchUrl,
         otherCandidates: allHits.slice(1, 5).map((h: any) => ({
           id: h.id, alias: h.alias, firstName: h.first_name, lastName: h.last_name,
@@ -331,23 +335,47 @@ async function actionStuntReelOverrides(req: any, res: any, profile: any, ghToke
     const { data } = await readJsonFromRepo(ghToken, OVERRIDES_PATH);
     return res.status(200).json(data);
   }
-  // POST
-  const { youtubeId, stuntListingId } = req.body || {};
+  // POST. Body fields are independent — pass any subset:
+  //   stuntListingId?: number   → set/clear matched StuntListing user
+  //   notOnStuntListing?: bool  → mark/unmark "this performer isn't on STLG"
+  //   email?: string            → contact email for the not-on-STLG list
+  // Sending stuntListingId=0 / null clears the match. The override entry
+  // is removed entirely only when BOTH stuntListingId is empty AND
+  // notOnStuntListing is false (and no email kept).
+  const body = req.body || {};
+  const { youtubeId, stuntListingId, notOnStuntListing, email } = body;
   if (!youtubeId) return res.status(400).json({ error: 'youtubeId required' });
+  const stuntListingIdProvided = Object.prototype.hasOwnProperty.call(body, 'stuntListingId');
+  const notFlagProvided = Object.prototype.hasOwnProperty.call(body, 'notOnStuntListing');
+  const emailProvided = Object.prototype.hasOwnProperty.call(body, 'email');
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const { data, sha } = await readJsonFromRepo(ghToken, OVERRIDES_PATH);
-      const existing = (data.overrides || []).filter((o: any) => o.youtubeId !== youtubeId);
-      const id = Number(stuntListingId);
-      const cleared = !id;
-      const updated = cleared
-        ? { ...data, lastUpdatedAt: new Date().toISOString(), overrides: existing }
-        : { ...data, lastUpdatedAt: new Date().toISOString(), overrides: [...existing, {
-            youtubeId, stuntListingId: id, setBy: profile.email, setAt: new Date().toISOString(),
-          }] };
-      const summary = cleared
-        ? `clear ${youtubeId}`
-        : `set ${youtubeId} → user.id=${id} (by ${profile.email})`;
+      const all = (data.overrides || []) as any[];
+      const prev = all.find((o: any) => o.youtubeId === youtubeId) || {};
+      const rest = all.filter((o: any) => o.youtubeId !== youtubeId);
+      const id = stuntListingIdProvided ? Number(stuntListingId) || 0 : (prev.stuntListingId || 0);
+      const flag = notFlagProvided ? !!notOnStuntListing : !!prev.notOnStuntListing;
+      const finalEmail = emailProvided ? (typeof email === 'string' ? email.trim() : '') : (prev.email || '');
+      const merged: any = {
+        youtubeId,
+        setBy: profile.email,
+        setAt: new Date().toISOString(),
+      };
+      if (id > 0) merged.stuntListingId = id;
+      if (flag) merged.notOnStuntListing = true;
+      if (finalEmail) merged.email = finalEmail;
+
+      // If neither matched-id nor not-on-STLG flag remain, drop the entry.
+      const drop = !merged.stuntListingId && !merged.notOnStuntListing;
+      const updated = drop
+        ? { ...data, lastUpdatedAt: new Date().toISOString(), overrides: rest }
+        : { ...data, lastUpdatedAt: new Date().toISOString(), overrides: [...rest, merged] };
+      const parts: string[] = [];
+      if (stuntListingIdProvided) parts.push(id > 0 ? `id=${id}` : 'clear-id');
+      if (notFlagProvided) parts.push(flag ? 'not-on-stlg' : 'unmark-not-on-stlg');
+      if (emailProvided) parts.push(finalEmail ? `email=${finalEmail}` : 'clear-email');
+      const summary = `${youtubeId}: ${parts.join(', ') || 'noop'} (by ${profile.email})`;
       await writeJsonToRepo(ghToken, OVERRIDES_PATH, sha, updated, `override: ${summary}`);
       return res.status(200).json({ status: 'ok', overrides: updated.overrides });
     } catch (e: any) {
@@ -356,6 +384,34 @@ async function actionStuntReelOverrides(req: any, res: any, profile: any, ghToke
     }
   }
   return res.status(500).json({ error: 'retry exhausted' });
+}
+
+// Returns the full list of reels currently flagged "not on StuntListing",
+// joined with the stunt-reels.json data for display (title, channel, link).
+async function actionNotOnStuntListing(_req: any, res: any, _profile: any, ghToken: string) {
+  const overridesData = (await readJsonFromRepo(ghToken, OVERRIDES_PATH)).data;
+  const reelsData = (await readJsonFromRepo(ghToken, STUNT_REELS_PATH)).data;
+  const reelsByYid = new Map<string, any>();
+  for (const r of (reelsData.reels || []) as any[]) reelsByYid.set(r.youtubeId, r);
+  const flagged = ((overridesData.overrides || []) as any[])
+    .filter(o => !!o.notOnStuntListing)
+    .map(o => {
+      const reel = reelsByYid.get(o.youtubeId);
+      return {
+        youtubeId: o.youtubeId,
+        email: o.email || null,
+        setBy: o.setBy || null,
+        setAt: o.setAt || null,
+        title: reel?.title || null,
+        channelName: reel?.channelName || null,
+        thumbnailUrl: reel?.thumbnailUrl || null,
+        publishedAt: reel?.publishedAt || null,
+        youtubeUrl: o.youtubeId ? `https://www.youtube.com/watch?v=${o.youtubeId}` : null,
+        excluded: !!reel?.excluded,
+      };
+    })
+    .sort((a, b) => String(a.channelName || '').localeCompare(String(b.channelName || '')));
+  return res.status(200).json({ count: flagged.length, performers: flagged });
 }
 
 async function actionExcludeStuntReel(req: any, res: any, profile: any, ghToken: string) {
@@ -663,6 +719,9 @@ export default async function handler(req: any, res: any) {
       case 'health-check':
         if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
         return await actionHealthCheck(req, res, profile, ghToken);
+      case 'not-on-stuntlisting':
+        if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
+        return await actionNotOnStuntListing(req, res, profile, ghToken);
       default:
         return res.status(404).json({ error: `Unknown admin action: ${action}` });
     }

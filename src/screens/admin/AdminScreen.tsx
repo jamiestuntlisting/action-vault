@@ -18,6 +18,7 @@ import { AdminReelOfTheMonthScreen } from '../reelofthemonth/AdminReelOfTheMonth
 import { AdminVotingResultsScreen } from './AdminVotingResultsScreen';
 import { AdminStuntReelMatcherScreen } from './AdminStuntReelMatcherScreen';
 import { AdminHealthCheckScreen } from './AdminHealthCheckScreen';
+import { AdminNotOnStuntListingScreen } from './AdminNotOnStuntListingScreen';
 
 const MAX_WIDTH = 960;
 
@@ -27,7 +28,7 @@ const MAX_WIDTH = 960;
 type AdminTab =
   | 'videos' | 'categories' | 'byproduction' | 'lists' | 'atlas'
   | 'books' | 'podcasts' | 'submissions' | 'reviews' | 'stats' | 'flags'
-  | 'page-reelOfMonth' | 'page-votingResults' | 'page-matcher' | 'page-health';
+  | 'page-reelOfMonth' | 'page-votingResults' | 'page-matcher' | 'page-health' | 'page-notOnStl';
 
 // Autocomplete tag input component
 function TagInput({
@@ -210,8 +211,19 @@ export function AdminScreen({ navigation }: any) {
   const [tmdbKey, setTmdbKey] = useState('');
   const [tmdbStatus, setTmdbStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
 
-  // Atlas Action state
-  const [atlasMode, setAtlasMode] = useState<'videos' | 'courses'>('videos');
+  // Atlas Action state. Default to courses view (Jamie: "default view be
+  // courses"); the Add forms are collapsed by default to reclaim space.
+  const [atlasMode, setAtlasMode] = useState<'videos' | 'courses'>('courses');
+  const [atlasAddVideoOpen, setAtlasAddVideoOpen] = useState(false);
+  const [atlasAddCourseOpen, setAtlasAddCourseOpen] = useState(false);
+  const [atlasExpandedCourseIds, setAtlasExpandedCourseIds] = useState<Set<string>>(new Set());
+  const toggleAtlasCourseExpanded = (id: string) => {
+    setAtlasExpandedCourseIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
   const [atlasVideoTitle, setAtlasVideoTitle] = useState('');
   const [atlasVideoDesc, setAtlasVideoDesc] = useState('');
   const [atlasVideoInstructor, setAtlasVideoInstructor] = useState('Brad Martin');
@@ -693,10 +705,11 @@ export function AdminScreen({ navigation }: any) {
   // `label` is for the narrow horizontal-tabs layout (more room).
   // `shortLabel` is for the 70px sidebar (must fit two short lines).
   const pageDefs: Array<{ key: string; label: string; shortLabel: string; icon: any; tabKey: AdminTab; route: string }> = [
-    { key: 'reelOfMonth',   label: 'Reel of the Month',    shortLabel: 'Reel',    icon: 'trophy-outline',    tabKey: 'page-reelOfMonth',   route: 'AdminReelOfTheMonth' },
-    { key: 'votingResults', label: 'Voting Results',       shortLabel: 'Votes',   icon: 'bar-chart-outline', tabKey: 'page-votingResults', route: 'AdminVotingResults' },
-    { key: 'matcher',       label: 'Stunt ↔ StuntListing', shortLabel: 'Match',   icon: 'link-outline',      tabKey: 'page-matcher',       route: 'AdminStuntReelMatcher' },
-    { key: 'health',        label: 'Health Check',         shortLabel: 'Health',  icon: 'pulse-outline',     tabKey: 'page-health',        route: 'AdminHealthCheck' },
+    { key: 'reelOfMonth',   label: 'Reel of the Month',          shortLabel: 'Reel',    icon: 'trophy-outline',         tabKey: 'page-reelOfMonth',   route: 'AdminReelOfTheMonth' },
+    { key: 'votingResults', label: 'Voting Results',             shortLabel: 'Votes',   icon: 'bar-chart-outline',      tabKey: 'page-votingResults', route: 'AdminVotingResults' },
+    { key: 'matcher',       label: 'Stunt ↔ StuntListing',       shortLabel: 'Match',   icon: 'link-outline',           tabKey: 'page-matcher',       route: 'AdminStuntReelMatcher' },
+    { key: 'notOnStl',      label: 'Not on StuntListing',        shortLabel: 'Not on',  icon: 'person-remove-outline',  tabKey: 'page-notOnStl',      route: 'AdminNotOnStuntListing' },
+    { key: 'health',        label: 'Health Check',               shortLabel: 'Health',  icon: 'pulse-outline',          tabKey: 'page-health',        route: 'AdminHealthCheck' },
   ];
 
   // One unified row style — page links and tabs both use this so the
@@ -845,6 +858,11 @@ export function AdminScreen({ navigation }: any) {
           {activeTab === 'page-health' && (
             <View style={{ flex: 1 }}>
               <AdminHealthCheckScreen navigation={navigation} />
+            </View>
+          )}
+          {activeTab === 'page-notOnStl' && (
+            <View style={{ flex: 1 }}>
+              <AdminNotOnStuntListingScreen navigation={navigation} />
             </View>
           )}
 
@@ -1423,7 +1441,21 @@ export function AdminScreen({ navigation }: any) {
 
               {atlasMode === 'videos' && (
                 <View>
-                  <Text style={styles.sectionTitle}>{editingAtlasVideoId ? 'Edit Video' : 'Add Video'}</Text>
+                  {/* Collapsible Add Video form — open when editing or when
+                      the admin clicks the header. Default collapsed so the
+                      videos list isn't pushed below the fold. */}
+                  <TouchableOpacity
+                    style={styles.collapsibleHeader}
+                    onPress={() => setAtlasAddVideoOpen(o => !o)}
+                  >
+                    <Text style={styles.sectionTitle}>{editingAtlasVideoId ? 'Edit Video' : 'Add Video'}</Text>
+                    <Ionicons
+                      name={(atlasAddVideoOpen || editingAtlasVideoId) ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color={Colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                  {(atlasAddVideoOpen || editingAtlasVideoId) && (<>
                   <TextInput style={styles.input} placeholder="Title" placeholderTextColor={Colors.textMuted} value={atlasVideoTitle} onChangeText={setAtlasVideoTitle} />
                   <TextInput style={styles.input} placeholder="Description" placeholderTextColor={Colors.textMuted} value={atlasVideoDesc} onChangeText={setAtlasVideoDesc} multiline />
                   <TextInput style={styles.input} placeholder="Instructor Name" placeholderTextColor={Colors.textMuted} value={atlasVideoInstructor} onChangeText={setAtlasVideoInstructor} />
@@ -1522,6 +1554,7 @@ export function AdminScreen({ navigation }: any) {
                       <Text style={[styles.addBtnText, { color: Colors.textPrimary }]}>Cancel Edit</Text>
                     </TouchableOpacity>
                   )}
+                  </>)}
 
                   {/* Existing videos */}
                   <Text style={[styles.sectionTitle, { marginTop: Spacing.xxl }]}>
@@ -1575,7 +1608,20 @@ export function AdminScreen({ navigation }: any) {
 
               {atlasMode === 'courses' && (
                 <View>
-                  <Text style={styles.sectionTitle}>{editingAtlasCourseId ? 'Edit Course' : 'Add Course'}</Text>
+                  {/* Collapsible Add Course form — same pattern as Add Video:
+                      collapsed by default so the courses list dominates. */}
+                  <TouchableOpacity
+                    style={styles.collapsibleHeader}
+                    onPress={() => setAtlasAddCourseOpen(o => !o)}
+                  >
+                    <Text style={styles.sectionTitle}>{editingAtlasCourseId ? 'Edit Course' : 'Add Course'}</Text>
+                    <Ionicons
+                      name={(atlasAddCourseOpen || editingAtlasCourseId) ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color={Colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                  {(atlasAddCourseOpen || editingAtlasCourseId) && (<>
                   <TextInput style={styles.input} placeholder="Course Title" placeholderTextColor={Colors.textMuted} value={atlasCourseTitle} onChangeText={setAtlasCourseTitle} />
                   <TextInput style={styles.input} placeholder="Description" placeholderTextColor={Colors.textMuted} value={atlasCourseDesc} onChangeText={setAtlasCourseDesc} multiline />
                   <TextInput style={styles.input} placeholder="Instructor Name" placeholderTextColor={Colors.textMuted} value={atlasCourseInstructor} onChangeText={setAtlasCourseInstructor} />
@@ -1624,64 +1670,133 @@ export function AdminScreen({ navigation }: any) {
                       <Text style={[styles.addBtnText, { color: Colors.textPrimary }]}>Cancel Edit</Text>
                     </TouchableOpacity>
                   )}
+                  </>)}
 
-                  {/* Existing courses */}
-                  <Text style={[styles.sectionTitle, { marginTop: Spacing.xxl }]}>
+                  {/* Existing courses + orphan-videos pseudo-card. Each row is
+                      tappable to expand/collapse the videos under it. */}
+                  <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>
                     Courses ({(state.settings.atlasActionCourses || []).length})
                   </Text>
-                  {(state.settings.atlasActionCourses || []).map(c => (
-                    <View key={c.id} style={[styles.catCard, !c.enabled && { opacity: 0.5 }]}>
-                      <View style={styles.catCardHeader}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.catTitle}>{c.title}</Text>
-                          <Text style={styles.catFilter}>
-                            {c.instructorName} · ${c.price.toFixed(2)} · {c.videoIds.length} videos
-                          </Text>
-                        </View>
-                        <View style={styles.videoActions}>
-                          <TouchableOpacity style={styles.iconBtn} onPress={() => {
-                            setEditingAtlasCourseId(c.id);
-                            setAtlasCourseTitle(c.title); setAtlasCourseDesc(c.description);
-                            setAtlasCourseInstructor(c.instructorName); setAtlasCourseThumb(c.thumbnailUrl);
-                            setAtlasCoursePrice(String(c.price));
-                          }}>
-                            <Ionicons name="pencil" size={18} color={Colors.textMuted} />
-                          </TouchableOpacity>
-                          <TouchableOpacity style={styles.iconBtn} onPress={() => {
-                            const updated = (state.settings.atlasActionCourses || []).map(
-                              cr => cr.id === c.id ? { ...cr, enabled: !cr.enabled } : cr
-                            );
-                            dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionCourses: updated } });
-                          }}>
-                            <Ionicons name={c.enabled ? 'eye' : 'eye-off'} size={18} color={c.enabled ? Colors.primary : Colors.textMuted} />
-                          </TouchableOpacity>
-                          <TouchableOpacity style={styles.iconBtn} onPress={() => {
-                            // Remove videos from course first, then delete
-                            const updatedVideos = (state.settings.atlasActionVideos || []).map(
-                              v => v.courseId === c.id ? { ...v, courseId: null } : v
-                            );
-                            const updated = (state.settings.atlasActionCourses || []).filter(cr => cr.id !== c.id);
-                            dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionCourses: updated, atlasActionVideos: updatedVideos } });
-                          }}>
-                            <Ionicons name="trash" size={18} color="#f44" />
-                          </TouchableOpacity>
-                        </View>
+                  {(state.settings.atlasActionCourses || []).map(c => {
+                    const isExpanded = atlasExpandedCourseIds.has(c.id);
+                    const courseVideos = (state.settings.atlasActionVideos || []).filter(v => v.courseId === c.id);
+                    return (
+                      <View key={c.id} style={[styles.catCard, !c.enabled && { opacity: 0.5 }]}>
+                        <TouchableOpacity
+                          style={styles.catCardHeader}
+                          onPress={() => toggleAtlasCourseExpanded(c.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons
+                            name={isExpanded ? 'chevron-down' : 'chevron-forward'}
+                            size={18}
+                            color={Colors.textMuted}
+                            style={{ marginRight: 6 }}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.catTitle}>{c.title}</Text>
+                            <Text style={styles.catFilter}>
+                              {c.instructorName} · ${c.price.toFixed(2)} · {courseVideos.length} videos
+                            </Text>
+                          </View>
+                          <View style={styles.videoActions}>
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => {
+                              setEditingAtlasCourseId(c.id);
+                              setAtlasCourseTitle(c.title); setAtlasCourseDesc(c.description);
+                              setAtlasCourseInstructor(c.instructorName); setAtlasCourseThumb(c.thumbnailUrl);
+                              setAtlasCoursePrice(String(c.price));
+                            }}>
+                              <Ionicons name="pencil" size={18} color={Colors.textMuted} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => {
+                              const updated = (state.settings.atlasActionCourses || []).map(
+                                cr => cr.id === c.id ? { ...cr, enabled: !cr.enabled } : cr
+                              );
+                              dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionCourses: updated } });
+                            }}>
+                              <Ionicons name={c.enabled ? 'eye' : 'eye-off'} size={18} color={c.enabled ? Colors.primary : Colors.textMuted} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => {
+                              // Remove videos from course first, then delete
+                              const updatedVideos = (state.settings.atlasActionVideos || []).map(
+                                v => v.courseId === c.id ? { ...v, courseId: null } : v
+                              );
+                              const updated = (state.settings.atlasActionCourses || []).filter(cr => cr.id !== c.id);
+                              dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionCourses: updated, atlasActionVideos: updatedVideos } });
+                            }}>
+                              <Ionicons name="trash" size={18} color="#f44" />
+                            </TouchableOpacity>
+                          </View>
+                        </TouchableOpacity>
+                        {isExpanded && (
+                          <View style={styles.catCardBody}>
+                            {courseVideos.length === 0 ? (
+                              <Text style={styles.hint}>No videos in this course yet.</Text>
+                            ) : (
+                              courseVideos.map((video, idx) => (
+                                <View key={video.id} style={styles.catVideoRow}>
+                                  <Text style={styles.catVideoIndex}>{idx + 1}</Text>
+                                  <Text style={[styles.catVideoTitle, { flex: 1 }]} numberOfLines={1}>{video.title}</Text>
+                                  <Text style={styles.videoMeta}>
+                                    {video.isFree ? 'FREE' : `$${video.price.toFixed(2)}`} · {Math.floor(video.durationSeconds / 60)}m
+                                  </Text>
+                                </View>
+                              ))
+                            )}
+                          </View>
+                        )}
                       </View>
-                      {c.videoIds.length > 0 && (
-                        <View style={styles.catCardBody}>
-                          {c.videoIds.map((vid, idx) => {
-                            const video = (state.settings.atlasActionVideos || []).find(v => v.id === vid);
-                            return (
-                              <View key={vid} style={styles.catVideoRow}>
-                                <Text style={styles.catVideoIndex}>{idx + 1}</Text>
-                                <Text style={styles.catVideoTitle}>{video?.title || vid}</Text>
-                              </View>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-                  ))}
+                    );
+                  })}
+
+                  {/* Pseudo-course: videos that aren't assigned to any course.
+                      Same expand/collapse behavior so it visually slots in
+                      with real courses. */}
+                  {(() => {
+                    const orphanId = '__orphan__';
+                    const orphanVideos = (state.settings.atlasActionVideos || []).filter(v => !v.courseId);
+                    if (orphanVideos.length === 0 && (state.settings.atlasActionCourses || []).length === 0) return null;
+                    const isExpanded = atlasExpandedCourseIds.has(orphanId);
+                    return (
+                      <View style={styles.catCard}>
+                        <TouchableOpacity
+                          style={styles.catCardHeader}
+                          onPress={() => toggleAtlasCourseExpanded(orphanId)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons
+                            name={isExpanded ? 'chevron-down' : 'chevron-forward'}
+                            size={18}
+                            color={Colors.textMuted}
+                            style={{ marginRight: 6 }}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.catTitle}>Videos not in courses</Text>
+                            <Text style={styles.catFilter}>
+                              {orphanVideos.length} video{orphanVideos.length === 1 ? '' : 's'} unassigned
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                        {isExpanded && (
+                          <View style={styles.catCardBody}>
+                            {orphanVideos.length === 0 ? (
+                              <Text style={styles.hint}>All videos belong to a course.</Text>
+                            ) : (
+                              orphanVideos.map((video, idx) => (
+                                <View key={video.id} style={styles.catVideoRow}>
+                                  <Text style={styles.catVideoIndex}>{idx + 1}</Text>
+                                  <Text style={[styles.catVideoTitle, { flex: 1 }]} numberOfLines={1}>{video.title}</Text>
+                                  <Text style={styles.videoMeta}>
+                                    {video.isFree ? 'FREE' : `$${video.price.toFixed(2)}`} · {Math.floor(video.durationSeconds / 60)}m
+                                  </Text>
+                                </View>
+                              ))
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })()}
                 </View>
               )}
             </View>
@@ -2702,6 +2817,8 @@ const styles = StyleSheet.create({
   columnLabel: { color: Colors.textMuted, fontSize: 10, fontWeight: FontWeight.semibold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
 
   sectionTitle: { color: Colors.textPrimary, fontSize: FontSize.xl, fontWeight: FontWeight.bold, marginBottom: Spacing.sm },
+  // Used for tap-to-expand "Add Video" / "Add Course" headers in Atlas.
+  collapsibleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm, marginBottom: Spacing.xs },
   hint: { color: Colors.textMuted, fontSize: FontSize.sm, marginBottom: Spacing.lg },
   catItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.sm, gap: Spacing.sm },
   catReorder: { gap: 2 },

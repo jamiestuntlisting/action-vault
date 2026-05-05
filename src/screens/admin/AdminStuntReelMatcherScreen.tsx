@@ -29,6 +29,8 @@ interface MatchRow {
   publishedAt: string;
   excluded: boolean;
   override: boolean;
+  notOnStuntListing?: boolean;
+  email?: string | null;
   searchedNames: string[];
   match: null | {
     id: number;
@@ -130,6 +132,24 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
       setNameSearch(s => ({ ...s, [youtubeId]: { ...(s[youtubeId] || { open: true }), q, results, loading: false } }));
     } catch (e: any) {
       setNameSearch(s => ({ ...s, [youtubeId]: { ...(s[youtubeId] || { open: true, results: [] }), q, results: [], loading: false } }));
+    }
+  }
+
+  async function toggleNotOnStuntListing(youtubeId: string, currentlyFlagged: boolean) {
+    if (!state.authToken) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/stunt-reel-overrides`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.authToken}` },
+        body: JSON.stringify({ youtubeId, notOnStuntListing: !currentlyFlagged }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || `HTTP ${r.status}`);
+      }
+      setRows(rs => rs.map(r => r.youtubeId === youtubeId ? { ...r, notOnStuntListing: !currentlyFlagged } : r));
+    } catch (e: any) {
+      setError(e.message);
     }
   }
 
@@ -266,7 +286,7 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
                   <Text style={[styles.reelChannel, row.excluded && styles.textDim]}>
                     {row.channelName} · {row.publishedAt.slice(0, 10)}
                   </Text>
-                  <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: 4 }}>
+                  <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: 4, flexWrap: 'wrap' }}>
                     <TouchableOpacity onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${row.youtubeId}`)}>
                       <Text style={styles.linkSmall}>YouTube ↗</Text>
                     </TouchableOpacity>
@@ -278,6 +298,21 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
                         {excludingId === row.youtubeId
                           ? 'Saving…'
                           : row.excluded ? 'Re-include reel' : 'Exclude reel'}
+                      </Text>
+                    </TouchableOpacity>
+                    {/* "Not on StuntListing" toggle — flagged reels populate
+                        the Stunt people not on STLG admin page. */}
+                    <TouchableOpacity
+                      onPress={() => toggleNotOnStuntListing(row.youtubeId, !!row.notOnStuntListing)}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                    >
+                      <Ionicons
+                        name={row.notOnStuntListing ? 'checkbox' : 'square-outline'}
+                        size={16}
+                        color={row.notOnStuntListing ? Colors.accent : Colors.textTertiary}
+                      />
+                      <Text style={[styles.linkSmall, { color: row.notOnStuntListing ? Colors.accent : Colors.textTertiary }]}>
+                        Not on StuntListing
                       </Text>
                     </TouchableOpacity>
                   </View>

@@ -41,6 +41,7 @@ import { StuntReelVotingScreen } from '../screens/reelofthemonth/StuntReelVoting
 import { AdminVotingResultsScreen } from '../screens/admin/AdminVotingResultsScreen';
 import { AdminStuntReelMatcherScreen } from '../screens/admin/AdminStuntReelMatcherScreen';
 import { AdminHealthCheckScreen } from '../screens/admin/AdminHealthCheckScreen';
+import { AdminNotOnStuntListingScreen } from '../screens/admin/AdminNotOnStuntListingScreen';
 import { useAppState } from '../services/AppState';
 
 const Stack = createNativeStackNavigator();
@@ -151,6 +152,7 @@ export function AppNavigator() {
         <Stack.Screen name="AdminVotingResults" component={AdminVotingResultsScreen} />
         <Stack.Screen name="AdminStuntReelMatcher" component={AdminStuntReelMatcherScreen} />
         <Stack.Screen name="AdminHealthCheck" component={AdminHealthCheckScreen} />
+        <Stack.Screen name="AdminNotOnStuntListing" component={AdminNotOnStuntListingScreen} />
         <Stack.Screen
           name="ReviewModal"
           component={ReviewModalScreen}
