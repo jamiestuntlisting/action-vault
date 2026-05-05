@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-05T19:05:46.330Z",
+  "lastUpdatedAt": "2026-05-05T19:05:47.942Z",
   "votes": [
     {
       "userId": 33,
@@ -115,9 +115,9 @@
       "roles": "admin",
       "entryId": "rom-skill-2026-05-1777914182473",
       "reelId": "skill-71544",
-      "rating": 9,
+      "rating": 6,
       "createdAt": "2026-05-05T19:05:44.464Z",
-      "updatedAt": "2026-05-05T19:05:46.330Z"
+      "updatedAt": "2026-05-05T19:05:47.942Z"
     }
   ]
 }
