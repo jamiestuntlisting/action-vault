@@ -53,6 +53,10 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
   const [inputs, setInputs] = useState<Record<string, { id: string }>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [excludingId, setExcludingId] = useState<string | null>(null);
+  const [cronHealth, setCronHealth] = useState<{
+    lastCron: { date: string; added: number | null; candidates: number | null; filtered: number | null; sha: string } | null;
+    cronCountInRecent: number;
+  } | null>(null);
 
   const userEmail = state.currentUser?.email?.toLowerCase() || '';
   const isAdmin = ADMIN_EMAILS.includes(userEmail);
@@ -126,7 +130,18 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
     }
   }
 
+  async function fetchCronHealth() {
+    if (!state.authToken) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/cron-health`, {
+        headers: { Authorization: `Bearer ${state.authToken}` },
+      });
+      if (r.ok) setCronHealth(await r.json());
+    } catch { /* non-blocking */ }
+  }
+
   useEffect(() => { fetchMatches(); /* eslint-disable-next-line */ }, [scope]);
+  useEffect(() => { fetchCronHealth(); /* eslint-disable-next-line */ }, []);
 
   if (!isAdmin) {
     return (
@@ -156,6 +171,33 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
             <Ionicons name="refresh" size={20} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
+
+        {/* Cron health card — at-a-glance "is the daily ingestion working?" */}
+        {cronHealth && (
+          <View style={styles.cronCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cronTitle}>Daily YouTube discovery cron</Text>
+              {cronHealth.lastCron ? (
+                <Text style={styles.cronMeta}>
+                  Last run {new Date(cronHealth.lastCron.date).toLocaleString()}
+                  {' · '}
+                  {cronHealth.lastCron.added != null ? `+${cronHealth.lastCron.added} reels` : 'no reel-count parsed'}
+                  {cronHealth.lastCron.candidates != null && cronHealth.lastCron.filtered != null
+                    ? ` (${cronHealth.lastCron.candidates} candidates, ${cronHealth.lastCron.filtered} filtered)`
+                    : ''}
+                </Text>
+              ) : (
+                <Text style={styles.cronMetaWarn}>No cron commits found in recent history. Cron may not have run yet — scheduled 06:00 UTC daily.</Text>
+              )}
+              <Text style={styles.cronMetaSub}>
+                {cronHealth.cronCountInRecent} cron run{cronHealth.cronCountInRecent === 1 ? '' : 's'} in last 10 commits to stunt-reels.json
+              </Text>
+            </View>
+            <TouchableOpacity onPress={fetchCronHealth} style={styles.refreshBtn}>
+              <Ionicons name="refresh" size={16} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.scopeRow}>
           <TouchableOpacity
@@ -323,6 +365,11 @@ const styles = StyleSheet.create({
   eyebrow: { color: Colors.textTertiary, fontSize: FontSize.sm, fontWeight: FontWeight.medium, textTransform: 'uppercase', letterSpacing: 0.5 },
   title: { color: Colors.textPrimary, fontSize: FontSize.xxl, fontWeight: FontWeight.heavy, marginTop: 2 },
   subtitle: { color: Colors.textSecondary, fontSize: FontSize.sm, marginTop: 2 },
+  cronCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, marginTop: Spacing.md, backgroundColor: Colors.surface, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: Colors.surfaceHighlight },
+  cronTitle: { color: Colors.textPrimary, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
+  cronMeta: { color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 },
+  cronMetaSub: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 2 },
+  cronMetaWarn: { color: Colors.error, fontSize: FontSize.xs, marginTop: 2 },
   scopeRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md },
   scopeBtn: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, backgroundColor: Colors.surface, borderRadius: BorderRadius.sm },
   scopeBtnActive: { backgroundColor: Colors.accent },
