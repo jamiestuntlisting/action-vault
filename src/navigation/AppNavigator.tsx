@@ -40,6 +40,7 @@ import { AdminReelOfTheMonthScreen } from '../screens/reelofthemonth/AdminReelOf
 import { StuntReelVotingScreen } from '../screens/reelofthemonth/StuntReelVotingScreen';
 import { AdminVotingResultsScreen } from '../screens/admin/AdminVotingResultsScreen';
 import { AdminStuntReelMatcherScreen } from '../screens/admin/AdminStuntReelMatcherScreen';
+import { AdminHealthCheckScreen } from '../screens/admin/AdminHealthCheckScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -134,6 +135,7 @@ export function AppNavigator() {
         <Stack.Screen name="StuntReelVoting" component={StuntReelVotingScreen} />
         <Stack.Screen name="AdminVotingResults" component={AdminVotingResultsScreen} />
         <Stack.Screen name="AdminStuntReelMatcher" component={AdminStuntReelMatcherScreen} />
+        <Stack.Screen name="AdminHealthCheck" component={AdminHealthCheckScreen} />
         <Stack.Screen
           name="ReviewModal"
           component={ReviewModalScreen}
