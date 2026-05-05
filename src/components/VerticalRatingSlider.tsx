@@ -14,6 +14,7 @@ const MAX = 10;
 const STEPS = MAX - MIN;
 const TRACK_WIDTH = 8;
 const THUMB_SIZE = 32;
+const AREA_WIDTH = 170;
 
 export function VerticalRatingSlider({ value, onChange, height = 320, disabled = false }: VerticalRatingSliderProps) {
   const [dragging, setDragging] = useState(false);
@@ -31,8 +32,7 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
     if (disabled) return;
     trackRef.current?.measureInWindow?.((_x, trackY) => {
       trackTopRef.current = trackY;
-      const local = pageY - trackY;
-      onChange(valueFromY(local));
+      onChange(valueFromY(pageY - trackY));
     });
   }, [disabled, onChange, valueFromY]);
 
@@ -45,10 +45,8 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
         measureAndUpdate(evt.nativeEvent.pageY);
       },
       onPanResponderMove: (evt: GestureResponderEvent) => {
-        const pageY = evt.nativeEvent.pageY;
         if (trackTopRef.current != null) {
-          const local = pageY - trackTopRef.current;
-          onChange(valueFromY(local));
+          onChange(valueFromY(evt.nativeEvent.pageY - trackTopRef.current));
         }
       },
       onPanResponderRelease: () => setDragging(false),
@@ -57,9 +55,9 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
   ).current;
 
   const pct = (value - MIN) / STEPS;
-  // Thumb's CENTER aligns with the value tick; previously the formula put
-  // the thumb's TOP there, which made the value-10 thumb visually sit
-  // halfway below the "10" label (off the chart, per Jamie's feedback).
+  // Thumb's CENTER aligns with the value tick (previously the formula put
+  // the TOP at the tick line, which made the value-10 thumb visually sit
+  // halfway below the "10" label).
   const thumbCenterY = trackHeight - pct * trackHeight;
   const fillHeight = pct * trackHeight;
 
@@ -69,9 +67,8 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
     const tickY = trackHeight - tickPct * trackHeight;
     const isNoScore = i === 0;
     ticks.push(
-      // Right-anchor the row so the tick MARK lands at the same x for every
-      // row regardless of label width (otherwise "No score" pushed its mark
-      // far to the right of the numeric ticks').
+      // Right-anchor the row so each tick MARK lands at the same x —
+      // "No score" used to push its mark right of the numeric ticks'.
       <View key={i} style={[styles.tickRow, { top: tickY - 8 }]} pointerEvents="none">
         <Text
           style={[styles.tickLabel, isNoScore && styles.tickLabelNoScore]}
@@ -84,8 +81,7 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
     );
   }
 
-  // Web keyboard support: arrow keys nudge the rating ±1.
-  // Up/Right increases, Down/Left decreases. Active when the slider has DOM focus.
+  // Web keyboard support: arrows nudge the rating ±1 when slider is focused.
   const containerWebRef = useRef<any>(null);
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -93,7 +89,6 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
     if (!node) return;
     const onKey = (e: KeyboardEvent) => {
       if (disabled) return;
-      // Only react when the slider (or a child) is focused.
       if (!node.contains(document.activeElement) && document.activeElement !== node) return;
       let next = value;
       if (e.key === 'ArrowUp' || e.key === 'ArrowRight') next = Math.min(MAX, value + 1);
@@ -108,7 +103,6 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
     return () => document.removeEventListener('keydown', onKey);
   }, [value, disabled, onChange]);
 
-  // Web-only props for keyboard focus + ARIA semantics.
   const webProps: any = Platform.OS === 'web'
     ? {
         ref: containerWebRef,
@@ -140,11 +134,6 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
           style={[
             styles.thumb,
             {
-              // Thumb's center sits at the value's tick. Track has
-              // marginTop: THUMB_SIZE/2 within sliderArea, so a track-local
-              // y of thumbCenterY lands at sliderArea-local y of
-              // thumbCenterY + THUMB_SIZE/2; subtract THUMB_SIZE/2 to get
-              // the thumb's top → cancels to thumbCenterY.
               top: thumbCenterY,
               transform: [{ scale: dragging ? 1.15 : 1 }],
               backgroundColor: disabled ? Colors.textMuted : Colors.accent,
@@ -157,80 +146,36 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    width: 170,
-  },
+  container: { alignItems: 'center', width: AREA_WIDTH },
   readout: {
-    color: Colors.accent,
-    fontSize: 56,
-    fontWeight: FontWeight.heavy,
-    marginBottom: 12,
-    minWidth: 70,
-    textAlign: 'center',
+    color: Colors.accent, fontSize: 56, fontWeight: FontWeight.heavy,
+    marginBottom: 12, minWidth: 70, textAlign: 'center',
   },
   readoutNoScore: {
-    fontSize: 22,
-    color: Colors.textTertiary,
-    fontWeight: FontWeight.semibold,
+    fontSize: 22, color: Colors.textTertiary, fontWeight: FontWeight.semibold,
     marginBottom: 12 + (56 - 22),
   },
-  tickLabelNoScore: {
-    color: Colors.textMuted,
-    fontSize: FontSize.xs,
-    fontStyle: 'italic',
-  },
-  sliderArea: {
-    position: 'relative',
-    width: 170,
-    alignItems: 'center',
-  },
+  sliderArea: { position: 'relative', width: AREA_WIDTH, alignItems: 'center' },
   track: {
-    position: 'absolute',
-    width: TRACK_WIDTH,
-    borderRadius: BorderRadius.round,
+    position: 'absolute', width: TRACK_WIDTH, borderRadius: BorderRadius.round,
     backgroundColor: Colors.surfaceHighlight,
-    left: (170 - TRACK_WIDTH) / 2,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
+    left: (AREA_WIDTH - TRACK_WIDTH) / 2,
+    overflow: 'hidden', justifyContent: 'flex-end',
   },
-  trackFill: {
-    width: '100%',
-    backgroundColor: Colors.accent,
-    borderRadius: BorderRadius.round,
-  },
+  trackFill: { width: '100%', backgroundColor: Colors.accent, borderRadius: BorderRadius.round },
   thumb: {
-    position: 'absolute',
-    width: THUMB_SIZE,
-    height: THUMB_SIZE,
-    borderRadius: THUMB_SIZE / 2,
-    left: (170 - THUMB_SIZE) / 2,
-    borderWidth: 3,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    position: 'absolute', width: THUMB_SIZE, height: THUMB_SIZE, borderRadius: THUMB_SIZE / 2,
+    left: (AREA_WIDTH - THUMB_SIZE) / 2,
+    borderWidth: 3, borderColor: '#fff',
+    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  // Right-anchor each tick row so the tickMark column sits at the same x
-  // for every tick, regardless of whether the label is "10" or "No score".
   tickRow: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    right: (170 - TRACK_WIDTH) / 2 + TRACK_WIDTH + 6, // align mark to track's left edge + small gap
+    position: 'absolute', flexDirection: 'row', alignItems: 'center',
+    right: (AREA_WIDTH - TRACK_WIDTH) / 2 + TRACK_WIDTH + 6,
     gap: 6,
   },
-  tickLabel: {
-    color: Colors.textTertiary,
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.medium,
-  },
-  tickMark: {
-    width: 8,
-    height: 2,
-    backgroundColor: Colors.borderLight,
-    borderRadius: 1,
-  },
+  tickLabel: { color: Colors.textTertiary, fontSize: FontSize.sm, fontWeight: FontWeight.medium },
+  tickLabelNoScore: { color: Colors.textMuted, fontSize: FontSize.xs, fontStyle: 'italic' },
+  tickMark: { width: 8, height: 2, backgroundColor: Colors.borderLight, borderRadius: 1 },
 });

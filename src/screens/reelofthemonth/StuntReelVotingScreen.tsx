@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
 import { VerticalRatingSlider } from '../../components/VerticalRatingSlider';
+import { HorizontalRatingSlider } from '../../components/HorizontalRatingSlider';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import discoveredData from '../../data/stunt-reels.json';
 
@@ -282,11 +283,19 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
           </View>
 
           <View style={[styles.sliderPanel, narrow && styles.sliderPanelNarrow]}>
-            <VerticalRatingSlider
-              value={rating}
-              onChange={(v) => { hasInteractedRef.current = true; setRating(v); }}
-              height={300}
-            />
+            {narrow ? (
+              <HorizontalRatingSlider
+                value={rating}
+                onChange={(v) => { hasInteractedRef.current = true; setRating(v); }}
+                width={Math.min(winW - 80, 480)}
+              />
+            ) : (
+              <VerticalRatingSlider
+                value={rating}
+                onChange={(v) => { hasInteractedRef.current = true; setRating(v); }}
+                height={300}
+              />
+            )}
             <View style={styles.saveIndicator}>
               {savedAt ? (
                 <>
