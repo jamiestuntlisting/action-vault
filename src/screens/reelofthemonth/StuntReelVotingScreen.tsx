@@ -134,34 +134,35 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
 
   const isAdmin = ADMIN_EMAILS.includes((state.currentUser?.email || '').toLowerCase());
 
-  // Admin-only: hide a reel from this voting list (and from the home
-  // montage). Calls the same exclude endpoint the admin matcher uses.
-  // Confirms first since this is destructive (visible to all users
-  // after the next deploy).
-  async function removeCurrentReel() {
+  // Per-reel "locally excluded" state — admin clicks Remove and we set the
+  // server flag AND remember locally so this view can grey the reel out
+  // and offer Undo. Survives within the session; on next page load the
+  // bundled JSON's `excluded: true` field hides the reel from regular
+  // users entirely.
+  const [locallyExcluded, setLocallyExcluded] = useState<Record<string, boolean>>({});
+
+  async function toggleRemoveCurrentReel() {
     if (!activeReel || !state.authToken) return;
-    const ok = Platform.OS === 'web'
-      ? typeof window !== 'undefined' && window.confirm
-        ? window.confirm(`Remove this reel from display and block it from showing again?\n\n${activeReel.title}`)
-        : true
-      : true;
-    if (!ok) return;
+    const isExcluded = !!locallyExcluded[activeReel.youtubeId];
     setRemovingId(activeReel.youtubeId);
     try {
       await fetch(`${API_BASE}/api/admin/exclude-stunt-reel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.authToken}` },
-        body: JSON.stringify({ youtubeId: activeReel.youtubeId, excluded: true }),
+        body: JSON.stringify({ youtubeId: activeReel.youtubeId, excluded: !isExcluded }),
       });
-      // Optimistic local skip — advance to the next reel; the bundled JSON
-      // catches up on next deploy.
-      setActiveReelIdx(i => Math.min(reels.length - 2, i));
+      setLocallyExcluded(s => ({ ...s, [activeReel.youtubeId]: !isExcluded }));
+      // Stay on the reel either way — Jamie wanted "Undo remove" reachable
+      // from the same screen, not auto-advance.
     } catch (e) {
-      // Non-fatal — admin can retry from the matcher screen.
+      // Non-fatal — admin can retry. Don't toggle the local flag if the
+      // server write failed.
     } finally {
       setRemovingId(null);
     }
   }
+
+  const isCurrentRemoved = activeReel ? !!locallyExcluded[activeReel.youtubeId] : false;
 
   useEffect(() => {
     if (!activeReel) return;
@@ -297,7 +298,7 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
           <View style={{ width: 40 }} />
         </View>
 
-        <View style={[styles.grid, narrow && styles.gridNarrow]}>
+        <View style={[styles.grid, narrow && styles.gridNarrow, isCurrentRemoved && styles.greyedOut]} pointerEvents={isCurrentRemoved ? 'none' : 'auto'}>
           <View style={[styles.playerWrap, narrow && styles.playerWrapNarrow]}>
             {Platform.OS === 'web' && embedUrl ? (
               // @ts-ignore web-only element
@@ -408,14 +409,22 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
           ) : null}
           {isAdmin && (
             <TouchableOpacity
-              onPress={removeCurrentReel}
+              onPress={toggleRemoveCurrentReel}
               disabled={removingId === activeReel.youtubeId}
-              style={styles.adminRemoveBtn}
+              style={[styles.adminRemoveBtn, isCurrentRemoved && styles.adminRemoveBtnUndo]}
               activeOpacity={0.8}
             >
-              <Ionicons name="trash-outline" size={14} color={Colors.error} />
-              <Text style={styles.adminRemoveText}>
-                {removingId === activeReel.youtubeId ? 'Removing…' : 'Admin: remove this video'}
+              <Ionicons
+                name={isCurrentRemoved ? 'arrow-undo-outline' : 'trash-outline'}
+                size={14}
+                color={isCurrentRemoved ? (Colors.success || '#4CAF50') : Colors.error}
+              />
+              <Text style={[styles.adminRemoveText, isCurrentRemoved && styles.adminRemoveTextUndo]}>
+                {removingId === activeReel.youtubeId
+                  ? 'Saving…'
+                  : isCurrentRemoved
+                    ? 'Admin: undo remove'
+                    : 'Admin: remove this video'}
               </Text>
             </TouchableOpacity>
           )}
@@ -608,7 +617,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(238,45,36,0.4)',
   },
+  adminRemoveBtnUndo: {
+    backgroundColor: 'rgba(76,175,80,0.12)',
+    borderColor: 'rgba(76,175,80,0.4)',
+  },
   adminRemoveText: { color: Colors.error, fontSize: FontSize.xs, fontWeight: FontWeight.semibold },
+  adminRemoveTextUndo: { color: Colors.success || '#4CAF50' },
+  // Visual greying for the player + slider when admin has removed the
+  // active reel; pointerEvents=none on the parent View prevents
+  // accidental rating taps while removed.
+  greyedOut: { opacity: 0.4 },
   chooserLabel: { color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.semibold, marginTop: Spacing.lg, marginBottom: Spacing.sm },
   chooserWrap: { position: 'relative' },
   chooserRow: { gap: Spacing.sm, paddingVertical: 4 },

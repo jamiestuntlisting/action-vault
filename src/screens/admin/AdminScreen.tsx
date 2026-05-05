@@ -12,10 +12,22 @@ import { Video } from '../../types';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { books as allBooks, bookCategoryLabels } from '../../data/books';
 import { podcasts as allPodcasts } from '../../data/podcasts';
+// Embedded admin page screens — when their corresponding "page-" virtual
+// tab is active, render the screen here so the sidebar persists.
+import { AdminReelOfTheMonthScreen } from '../reelofthemonth/AdminReelOfTheMonthScreen';
+import { AdminVotingResultsScreen } from './AdminVotingResultsScreen';
+import { AdminStuntReelMatcherScreen } from './AdminStuntReelMatcherScreen';
+import { AdminHealthCheckScreen } from './AdminHealthCheckScreen';
 
 const MAX_WIDTH = 960;
 
-type AdminTab = 'videos' | 'categories' | 'bytag' | 'byproduction' | 'lists' | 'atlas' | 'books' | 'podcasts' | 'submissions' | 'reviews' | 'stats' | 'flags';
+// Tab union now includes the four "admin page" virtual tabs so the
+// content area can swap to the embedded page when one is selected.
+// Page keys are prefixed `page-` to avoid colliding with real tabs.
+type AdminTab =
+  | 'videos' | 'categories' | 'bytag' | 'byproduction' | 'lists' | 'atlas'
+  | 'books' | 'podcasts' | 'submissions' | 'reviews' | 'stats' | 'flags'
+  | 'page-reelOfMonth' | 'page-votingResults' | 'page-matcher' | 'page-health';
 
 // Autocomplete tag input component
 function TagInput({
@@ -668,13 +680,15 @@ export function AdminScreen({ navigation }: any) {
   // Flat list for the narrow horizontal-tabs layout.
   const tabDefs: TabDef[] = tabSections.flatMap(s => s.items);
 
-  // Page-level admin destinations — render in the same row style as tabs in
-  // the sidebar (no big tinted boxes, no subtitles).
-  const pageDefs: Array<{ key: string; label: string; icon: any; route: string }> = [
-    { key: 'reelOfMonth', label: 'Reel of the Month', icon: 'trophy-outline', route: 'AdminReelOfTheMonth' },
-    { key: 'votingResults', label: 'Voting Results', icon: 'bar-chart-outline', route: 'AdminVotingResults' },
-    { key: 'matcher', label: 'Stunt ↔ StuntListing', icon: 'link-outline', route: 'AdminStuntReelMatcher' },
-    { key: 'health', label: 'Health Check', icon: 'pulse-outline', route: 'AdminHealthCheck' },
+  // Page-level admin destinations — embedded inside this view in the
+  // sidebar layout (so the sidebar persists). `tabKey` is the activeTab
+  // state value; `route` is the fallback navigation target for the
+  // narrow horizontal-tabs layout where embedding doesn't apply.
+  const pageDefs: Array<{ key: string; label: string; icon: any; tabKey: AdminTab; route: string }> = [
+    { key: 'reelOfMonth',   label: 'Reel of the Month',     icon: 'trophy-outline',    tabKey: 'page-reelOfMonth',   route: 'AdminReelOfTheMonth' },
+    { key: 'votingResults', label: 'Voting Results',        icon: 'bar-chart-outline', tabKey: 'page-votingResults', route: 'AdminVotingResults' },
+    { key: 'matcher',       label: 'Stunt ↔ StuntListing',  icon: 'link-outline',      tabKey: 'page-matcher',       route: 'AdminStuntReelMatcher' },
+    { key: 'health',        label: 'Health Check',          icon: 'pulse-outline',     tabKey: 'page-health',        route: 'AdminHealthCheck' },
   ];
 
   // One unified row style — page links and tabs both use this so the
@@ -702,17 +716,24 @@ export function AdminScreen({ navigation }: any) {
       </TouchableOpacity>
     );
   };
-  const renderSidebarPageRow = (p: typeof pageDefs[number]) => (
-    <TouchableOpacity
-      key={p.key}
-      style={styles.sidebarTab}
-      onPress={() => navigation.navigate(p.route)}
-    >
-      <Ionicons name={p.icon} size={16} color={Colors.textSecondary} />
-      <Text style={styles.sidebarTabText} numberOfLines={1}>{p.label}</Text>
-      <Ionicons name="chevron-forward" size={12} color={Colors.textTertiary} />
-    </TouchableOpacity>
-  );
+  const renderSidebarPageRow = (p: typeof pageDefs[number]) => {
+    const active = activeTab === p.tabKey;
+    return (
+      <TouchableOpacity
+        key={p.key}
+        style={[styles.sidebarTab, active && styles.sidebarTabActive]}
+        onPress={() => {
+          // In the sidebar layout, swap the content panel to the embedded
+          // page; the narrow layout (no sidebar) still navigates as before.
+          if (useSidebar) setActiveTab(p.tabKey);
+          else navigation.navigate(p.route);
+        }}
+      >
+        <Ionicons name={p.icon} size={16} color={active ? '#fff' : Colors.textSecondary} />
+        <Text style={[styles.sidebarTabText, active && styles.sidebarTabTextActive]} numberOfLines={1}>{p.label}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -767,6 +788,36 @@ export function AdminScreen({ navigation }: any) {
             </ScrollView>
           )}
 
+          {/* Embedded admin page screens — render directly (NOT inside the
+              outer ScrollView, since each screen has its own scroller).
+              The early-return is OK because the existing tab branches
+              below all gate on activeTab === 'videos'/'lists'/etc. and
+              naturally render nothing when activeTab is a page key. */}
+          {activeTab === 'page-reelOfMonth' && (
+            <View style={{ flex: 1 }}>
+              <AdminReelOfTheMonthScreen navigation={navigation} />
+            </View>
+          )}
+          {activeTab === 'page-votingResults' && (
+            <View style={{ flex: 1 }}>
+              <AdminVotingResultsScreen navigation={navigation} />
+            </View>
+          )}
+          {activeTab === 'page-matcher' && (
+            <View style={{ flex: 1 }}>
+              <AdminStuntReelMatcherScreen navigation={navigation} route={{ params: {} }} />
+            </View>
+          )}
+          {activeTab === 'page-health' && (
+            <View style={{ flex: 1 }}>
+              <AdminHealthCheckScreen navigation={navigation} />
+            </View>
+          )}
+
+          {/* Tab content — only rendered when activeTab is a real tab key.
+              Wrapped in a single conditional so we can short-circuit the
+              whole tab section when on a page. */}
+          {!activeTab.startsWith('page-') && (
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Inline page-nav cards — narrow only. On wide viewports the
               same destinations live in the left sidebar. */}
@@ -784,7 +835,6 @@ export function AdminScreen({ navigation }: any) {
               <Ionicons name={p.icon} size={22} color={Colors.accent} />
               <View style={{ flex: 1 }}>
                 <Text style={{ color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.bold }}>{p.label}</Text>
-                {p.sub && <Text style={{ color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 }}>{p.sub}</Text>}
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
             </TouchableOpacity>
@@ -2489,6 +2539,7 @@ export function AdminScreen({ navigation }: any) {
 
           <View style={{ height: 100 }} />
         </ScrollView>
+          )}
         </View>
       </View>
     </View>
