@@ -1,7 +1,9 @@
-// Admin: list of YouTube-discovered stunt performers explicitly flagged
-// as NOT being on StuntListing. Each row has the performer's reel link
-// and an editable email field (when we manually find one). Source:
-// data/stunt-reel-overrides.json — entries with notOnStuntListing: true.
+// Admin: list of YouTube-discovered stunt performers we couldn't find on
+// StuntListing. Derived from /api/admin/match-stunt-reels (scope=all):
+// any reel with no `match` and not `excluded` is shown here. No explicit
+// "flag" — if we have an ID, they're on STLG; otherwise they're here.
+// Each row carries an editable email field saved via the existing
+// /api/admin/stunt-reel-overrides endpoint.
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, TextInput, Linking, Image } from 'react-native';
@@ -21,17 +23,17 @@ const ADMIN_EMAILS = [
   'warren@stuntlisting.com',
 ];
 
-interface Performer {
+interface MatchRow {
   youtubeId: string;
-  email: string | null;
-  setBy: string | null;
-  setAt: string | null;
-  title: string | null;
-  channelName: string | null;
-  thumbnailUrl: string | null;
-  publishedAt: string | null;
-  youtubeUrl: string | null;
+  title: string;
+  thumbnailUrl: string;
+  channelName: string;
+  publishedAt: string;
   excluded: boolean;
+  override: boolean;
+  email?: string | null;
+  match: null | { id: number; firstName: string | null; lastName: string | null };
+  fallbackSearchUrl: string | null;
 }
 
 export function AdminNotOnStuntListingScreen({ navigation }: any) {
@@ -39,12 +41,21 @@ export function AdminNotOnStuntListingScreen({ navigation }: any) {
   const { state } = useAppState();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [performers, setPerformers] = useState<Performer[]>([]);
+  const [rows, setRows] = useState<MatchRow[]>([]);
   const [emailEdits, setEmailEdits] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const userEmail = state.currentUser?.email?.toLowerCase() || '';
   const isAdmin = ADMIN_EMAILS.includes(userEmail);
+
+  // The matcher endpoint returns ALL reels with their match status. Anyone
+  // without a match (no auto-hit AND no manual override) AND not excluded
+  // is on this list — that's the rule Jamie wants ("Either we have their
+  // ID number or they are not on stuntlisting").
+  const performers = useMemo(
+    () => rows.filter(r => !r.excluded && !r.match),
+    [rows]
+  );
 
   async function fetchList() {
     if (!state.authToken) {
@@ -55,15 +66,16 @@ export function AdminNotOnStuntListingScreen({ navigation }: any) {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch(`${API_BASE}/api/admin/not-on-stuntlisting`, {
+      const r = await fetch(`${API_BASE}/api/admin/match-stunt-reels?scope=all`, {
         headers: { Authorization: `Bearer ${state.authToken}` },
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-      setPerformers(j.performers || []);
+      const matches: MatchRow[] = j.matches || [];
+      setRows(matches);
       // Seed the email-edit map with current values so the inputs render.
       const seeded: Record<string, string> = {};
-      for (const p of (j.performers || []) as Performer[]) seeded[p.youtubeId] = p.email || '';
+      for (const m of matches) seeded[m.youtubeId] = m.email || '';
       setEmailEdits(seeded);
     } catch (e: any) {
       setError(e.message);
@@ -85,8 +97,7 @@ export function AdminNotOnStuntListingScreen({ navigation }: any) {
         const j = await r.json().catch(() => ({}));
         throw new Error(j.error || `HTTP ${r.status}`);
       }
-      // Reflect locally without a refetch round-trip.
-      setPerformers(ps => ps.map(p => p.youtubeId === youtubeId ? { ...p, email: emailEdits[youtubeId] || null } : p));
+      setRows(rs => rs.map(row => row.youtubeId === youtubeId ? { ...row, email: emailEdits[youtubeId] || null } : row));
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -94,20 +105,21 @@ export function AdminNotOnStuntListingScreen({ navigation }: any) {
     }
   }
 
-  async function unflag(youtubeId: string) {
+  async function exclude(youtubeId: string) {
     if (!state.authToken) return;
     setSavingId(youtubeId);
     try {
-      const r = await fetch(`${API_BASE}/api/admin/stunt-reel-overrides`, {
+      const r = await fetch(`${API_BASE}/api/admin/exclude-stunt-reel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.authToken}` },
-        body: JSON.stringify({ youtubeId, notOnStuntListing: false }),
+        body: JSON.stringify({ youtubeId, excluded: true }),
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         throw new Error(j.error || `HTTP ${r.status}`);
       }
-      setPerformers(ps => ps.filter(p => p.youtubeId !== youtubeId));
+      // Mark excluded locally so the row drops out of the filter.
+      setRows(rs => rs.map(row => row.youtubeId === youtubeId ? { ...row, excluded: true } : row));
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -140,7 +152,7 @@ export function AdminNotOnStuntListingScreen({ navigation }: any) {
             <Text style={styles.eyebrow}>Admin</Text>
             <Text style={styles.title}>Stunt people not on StuntListing</Text>
             <Text style={styles.subtitle}>
-              {performers.length} performer{performers.length === 1 ? '' : 's'} flagged from the matcher.
+              {performers.length} performer{performers.length === 1 ? '' : 's'} with no StuntListing match.
               Add an email if you've found one — it lives alongside the override entry.
             </Text>
           </View>
@@ -159,13 +171,14 @@ export function AdminNotOnStuntListingScreen({ navigation }: any) {
 
         {!loading && !error && performers.length === 0 && (
           <Text style={styles.empty}>
-            No performers flagged. Open the Matcher and check "Not on StuntListing" next to a reel to add one here.
+            No unmatched performers. Every reel either has a StuntListing ID or is excluded.
           </Text>
         )}
 
         {performers.map(p => {
           const editValue = emailEdits[p.youtubeId] ?? '';
           const dirty = editValue !== (p.email || '');
+          const youtubeUrl = `https://www.youtube.com/watch?v=${p.youtubeId}`;
           return (
             <View key={p.youtubeId} style={styles.row}>
               <View style={styles.headerInfo}>
@@ -180,14 +193,17 @@ export function AdminNotOnStuntListingScreen({ navigation }: any) {
                   </Text>
                   <Text style={styles.reelTitle} numberOfLines={2}>{p.title || '(no title)'}</Text>
                   <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: 4, flexWrap: 'wrap' }}>
-                    {p.youtubeUrl && (
-                      <TouchableOpacity onPress={() => Linking.openURL(p.youtubeUrl!)}>
-                        <Text style={styles.linkSmall}>Watch reel ↗</Text>
+                    <TouchableOpacity onPress={() => Linking.openURL(youtubeUrl)}>
+                      <Text style={styles.linkSmall}>Watch reel ↗</Text>
+                    </TouchableOpacity>
+                    {p.fallbackSearchUrl && (
+                      <TouchableOpacity onPress={() => Linking.openURL(p.fallbackSearchUrl!)}>
+                        <Text style={styles.linkSmall}>Search StuntListing ↗</Text>
                       </TouchableOpacity>
                     )}
-                    <TouchableOpacity onPress={() => unflag(p.youtubeId)} disabled={savingId === p.youtubeId}>
+                    <TouchableOpacity onPress={() => exclude(p.youtubeId)} disabled={savingId === p.youtubeId}>
                       <Text style={[styles.linkSmall, { color: Colors.error }]}>
-                        {savingId === p.youtubeId ? 'Saving…' : 'Remove from list'}
+                        {savingId === p.youtubeId ? 'Saving…' : 'Exclude reel'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -214,11 +230,6 @@ export function AdminNotOnStuntListingScreen({ navigation }: any) {
                     <Text style={styles.saveBtnText}>{savingId === p.youtubeId ? 'Saving…' : 'Save'}</Text>
                   </TouchableOpacity>
                 </View>
-                {p.setBy && (
-                  <Text style={styles.metaSmall}>
-                    Flagged by {p.setBy}{p.setAt ? ` on ${new Date(p.setAt).toLocaleDateString()}` : ''}
-                  </Text>
-                )}
               </View>
             </View>
           );
@@ -256,5 +267,4 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: Colors.accent, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: BorderRadius.sm },
   saveBtnDisabled: { backgroundColor: Colors.surfaceHighlight },
   saveBtnText: { color: '#fff', fontWeight: FontWeight.semibold, fontSize: FontSize.sm },
-  metaSmall: { color: Colors.textMuted, fontSize: FontSize.xs },
 });
