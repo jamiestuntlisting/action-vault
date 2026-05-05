@@ -91,6 +91,11 @@ export interface AtlasActionCourse {
   videoIds: string[];
   enabled: boolean;
   createdAt: string;
+  // Per-course default price applied to every paid (non-free) video in
+  // the course. Free videos are untouched. When set/changed in the admin,
+  // all paid videos in this course are normalized to this price and the
+  // course bundle price is recomputed as the sum.
+  defaultVideoPrice?: number;
 }
 
 export interface AppSettings {

@@ -251,6 +251,10 @@ export function AdminScreen({ navigation, route }: any) {
   const [atlasCourseInstructor, setAtlasCourseInstructor] = useState('Brad Martin');
   const [atlasCourseThumb, setAtlasCourseThumb] = useState('');
   const [atlasCoursePrice, setAtlasCoursePrice] = useState('');
+  // Per-course default price applied to every paid (non-free) video in
+  // the course. Free videos are untouched. When set, all paid videos in
+  // the course are normalized and the bundle price is recomputed.
+  const [atlasCourseDefaultVideoPrice, setAtlasCourseDefaultVideoPrice] = useState('');
   const [editingAtlasVideoId, setEditingAtlasVideoId] = useState<string | null>(null);
   const [editingAtlasCourseId, setEditingAtlasCourseId] = useState<string | null>(null);
 
@@ -1496,7 +1500,17 @@ export function AdminScreen({ navigation, route }: any) {
                         <TouchableOpacity
                           key={c.id}
                           style={[styles.filterTypeBtn, atlasVideoCourseId === c.id && styles.filterTypeBtnActive]}
-                          onPress={() => setAtlasVideoCourseId(c.id)}
+                          onPress={() => {
+                            setAtlasVideoCourseId(c.id);
+                            // Pre-fill the price field with the course's
+                            // defaultVideoPrice (if set) when toggling to a
+                            // course — only when the price input is empty
+                            // or matches the previous default, so we don't
+                            // overwrite an explicit per-video override.
+                            if (c.defaultVideoPrice != null && (!atlasVideoPrice || atlasVideoPrice === '1.99' || atlasVideoPrice === '0.99')) {
+                              setAtlasVideoPrice(String(c.defaultVideoPrice));
+                            }
+                          }}
                         >
                           <Text style={[styles.filterTypeText, atlasVideoCourseId === c.id && styles.filterTypeTextActive]}>{c.title}</Text>
                         </TouchableOpacity>
@@ -1639,34 +1653,83 @@ export function AdminScreen({ navigation, route }: any) {
                   <TextInput style={styles.input} placeholder="Description" placeholderTextColor={Colors.textMuted} value={atlasCourseDesc} onChangeText={setAtlasCourseDesc} multiline />
                   <TextInput style={styles.input} placeholder="Instructor Name" placeholderTextColor={Colors.textMuted} value={atlasCourseInstructor} onChangeText={setAtlasCourseInstructor} />
                   <TextInput style={styles.input} placeholder="Thumbnail URL" placeholderTextColor={Colors.textMuted} value={atlasCourseThumb} onChangeText={setAtlasCourseThumb} />
-                  <TextInput style={styles.input} placeholder="Bundle Price (e.g. 29.99)" placeholderTextColor={Colors.textMuted} value={atlasCoursePrice} onChangeText={setAtlasCoursePrice} keyboardType="numeric" />
+                  {/* Per-course default video price. When set, every paid
+                      video in this course is normalized to this price and
+                      the bundle total recomputes. Free videos untouched. */}
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Default price per paid video (e.g. 1.99)"
+                    placeholderTextColor={Colors.textMuted}
+                    value={atlasCourseDefaultVideoPrice}
+                    onChangeText={setAtlasCourseDefaultVideoPrice}
+                    keyboardType="numeric"
+                  />
+                  <Text style={[styles.hint, { marginTop: -8 }]}>
+                    Sets the price for every paid video in this course (free videos stay free).
+                    The course bundle total below is the sum of all paid videos.
+                  </Text>
+                  <TextInput style={styles.input} placeholder="Bundle Price (auto if default-per-video set)" placeholderTextColor={Colors.textMuted} value={atlasCoursePrice} onChangeText={setAtlasCoursePrice} keyboardType="numeric" />
 
                   <TouchableOpacity
                     style={styles.addBtn}
                     onPress={() => {
-                      if (!atlasCourseTitle.trim() || !atlasCoursePrice.trim()) return;
+                      if (!atlasCourseTitle.trim()) return;
                       const existing = state.settings.atlasActionCourses || [];
+                      const allVideos = state.settings.atlasActionVideos || [];
+                      const parsedDefault = atlasCourseDefaultVideoPrice.trim() ? parseFloat(atlasCourseDefaultVideoPrice) : NaN;
+                      const hasDefault = !isNaN(parsedDefault) && parsedDefault > 0;
+
+                      // If the admin set a per-video default, normalize all
+                      // paid videos in this course to it and derive the
+                      // bundle total. Otherwise honor the manual bundle.
+                      function applyToCourseVideos(courseId: string): { videos: AtlasActionVideo[]; bundle: number } {
+                        if (!hasDefault) {
+                          // No default → leave video prices alone, use the
+                          // manual bundle (or sum the existing video prices
+                          // as a fallback).
+                          const sumExisting = allVideos
+                            .filter(v => v.courseId === courseId && !v.isFree)
+                            .reduce((acc, v) => acc + (v.price || 0), 0);
+                          const manual = parseFloat(atlasCoursePrice) || 0;
+                          return { videos: allVideos, bundle: manual || sumExisting };
+                        }
+                        const updatedVideos = allVideos.map(v =>
+                          (v.courseId === courseId && !v.isFree)
+                            ? { ...v, price: parsedDefault }
+                            : v
+                        );
+                        const paidCount = updatedVideos.filter(v => v.courseId === courseId && !v.isFree).length;
+                        return { videos: updatedVideos, bundle: parsedDefault * paidCount };
+                      }
+
                       if (editingAtlasCourseId) {
+                        const { videos: nextVideos, bundle } = applyToCourseVideos(editingAtlasCourseId);
                         const updated = existing.map(c => c.id === editingAtlasCourseId ? {
                           ...c,
                           title: atlasCourseTitle, description: atlasCourseDesc,
                           instructorName: atlasCourseInstructor, thumbnailUrl: atlasCourseThumb,
-                          price: parseFloat(atlasCoursePrice) || 0,
+                          price: bundle,
+                          defaultVideoPrice: hasDefault ? parsedDefault : c.defaultVideoPrice,
                         } : c);
-                        dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionCourses: updated } });
+                        dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionCourses: updated, atlasActionVideos: nextVideos } });
                         setEditingAtlasCourseId(null);
                       } else {
+                        // New course — no videos yet; bundle starts as
+                        // manual-or-zero. defaultVideoPrice persists for
+                        // future video additions.
                         const newCourse: AtlasActionCourse = {
                           id: `atlas_c_${Date.now()}`,
                           title: atlasCourseTitle, description: atlasCourseDesc,
                           instructorName: atlasCourseInstructor, thumbnailUrl: atlasCourseThumb,
                           price: parseFloat(atlasCoursePrice) || 0, videoIds: [],
                           enabled: true, createdAt: new Date().toISOString(),
+                          defaultVideoPrice: hasDefault ? parsedDefault : undefined,
                         };
                         dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionCourses: [...existing, newCourse] } });
                       }
                       setAtlasCourseTitle(''); setAtlasCourseDesc('');
                       setAtlasCourseThumb(''); setAtlasCoursePrice('');
+                      setAtlasCourseDefaultVideoPrice('');
                     }}
                   >
                     <Text style={styles.addBtnText}>{editingAtlasCourseId ? 'Update Course' : 'Add Course'}</Text>
@@ -1678,6 +1741,7 @@ export function AdminScreen({ navigation, route }: any) {
                         setEditingAtlasCourseId(null);
                         setAtlasCourseTitle(''); setAtlasCourseDesc('');
                         setAtlasCourseThumb(''); setAtlasCoursePrice('');
+                        setAtlasCourseDefaultVideoPrice('');
                       }}
                     >
                       <Text style={[styles.addBtnText, { color: Colors.textPrimary }]}>Cancel Edit</Text>
@@ -1710,6 +1774,7 @@ export function AdminScreen({ navigation, route }: any) {
                             <Text style={styles.catTitle}>{c.title}</Text>
                             <Text style={styles.catFilter}>
                               {c.instructorName} · ${c.price.toFixed(2)} · {courseVideos.length} videos
+                              {c.defaultVideoPrice != null ? ` · default $${c.defaultVideoPrice.toFixed(2)}/video` : ''}
                             </Text>
                           </View>
                           <View style={styles.videoActions}>
@@ -1718,6 +1783,7 @@ export function AdminScreen({ navigation, route }: any) {
                               setAtlasCourseTitle(c.title); setAtlasCourseDesc(c.description);
                               setAtlasCourseInstructor(c.instructorName); setAtlasCourseThumb(c.thumbnailUrl);
                               setAtlasCoursePrice(String(c.price));
+                              setAtlasCourseDefaultVideoPrice(c.defaultVideoPrice != null ? String(c.defaultVideoPrice) : '');
                             }}>
                               <Ionicons name="pencil" size={18} color={Colors.textMuted} />
                             </TouchableOpacity>
