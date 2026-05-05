@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight } from '../theme';
+import { AnalyticsService } from '../services/AnalyticsService';
 
 // Screens
 import { SplashScreen } from '../screens/auth/SplashScreen';
@@ -42,6 +43,7 @@ import { AdminVotingResultsScreen } from '../screens/admin/AdminVotingResultsScr
 import { AdminStuntReelMatcherScreen } from '../screens/admin/AdminStuntReelMatcherScreen';
 import { AdminHealthCheckScreen } from '../screens/admin/AdminHealthCheckScreen';
 import { AdminNotOnStuntListingScreen } from '../screens/admin/AdminNotOnStuntListingScreen';
+import { AdminActivityScreen } from '../screens/admin/AdminActivityScreen';
 import { useAppState } from '../services/AppState';
 
 const Stack = createNativeStackNavigator();
@@ -146,14 +148,41 @@ const linking = {
       AdminStuntReelMatcher: 'admin/match',
       AdminHealthCheck: 'admin/health',
       AdminNotOnStuntListing: 'admin/not-on-stuntlisting',
+      AdminActivity: 'admin/activity',
     },
   },
 };
 
 export function AppNavigator() {
+  const routeNameRef = useRef<string | undefined>();
   return (
     <NavigationContainer
       linking={linking as any}
+      // Tracks the active route name on every navigation change so the
+      // admin Activity page has a record of which screens users visit.
+      // Skips Splash/Auth/Onboarding (transient flows) to keep the data
+      // signal-to-noise high.
+      onReady={() => {
+        const navState = (NavigationContainer as any).getCurrentRoute?.();
+        routeNameRef.current = navState?.name;
+      }}
+      onStateChange={(state) => {
+        if (!state) return;
+        const route = state.routes[state.index];
+        // Drill into nested navigators (MainTabs → Home/Search/etc.)
+        let active: any = route;
+        while (active?.state) {
+          const inner = active.state;
+          active = inner.routes[inner.index];
+        }
+        const name = active?.name;
+        if (name && name !== routeNameRef.current) {
+          routeNameRef.current = name;
+          if (name !== 'Splash' && name !== 'Auth' && name !== 'Onboarding') {
+            AnalyticsService.pageView(name, active?.params || {});
+          }
+        }
+      }}
       theme={{
         dark: true,
         colors: {
@@ -204,6 +233,7 @@ export function AppNavigator() {
         <Stack.Screen name="AdminStuntReelMatcher" component={AdminStuntReelMatcherScreen} />
         <Stack.Screen name="AdminHealthCheck" component={AdminHealthCheckScreen} />
         <Stack.Screen name="AdminNotOnStuntListing" component={AdminNotOnStuntListingScreen} />
+        <Stack.Screen name="AdminActivity" component={AdminActivityScreen} />
         <Stack.Screen
           name="ReviewModal"
           component={ReviewModalScreen}

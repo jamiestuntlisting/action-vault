@@ -19,6 +19,7 @@ import { AdminVotingResultsScreen } from './AdminVotingResultsScreen';
 import { AdminStuntReelMatcherScreen } from './AdminStuntReelMatcherScreen';
 import { AdminHealthCheckScreen } from './AdminHealthCheckScreen';
 import { AdminNotOnStuntListingScreen } from './AdminNotOnStuntListingScreen';
+import { AdminActivityScreen } from './AdminActivityScreen';
 
 const MAX_WIDTH = 960;
 
@@ -28,7 +29,7 @@ const MAX_WIDTH = 960;
 type AdminTab =
   | 'videos' | 'categories' | 'byproduction' | 'lists' | 'atlas'
   | 'books' | 'podcasts' | 'submissions' | 'reviews' | 'stats' | 'flags'
-  | 'page-reelOfMonth' | 'page-votingResults' | 'page-matcher' | 'page-health' | 'page-notOnStl';
+  | 'page-reelOfMonth' | 'page-votingResults' | 'page-matcher' | 'page-health' | 'page-notOnStl' | 'page-activity';
 
 // Autocomplete tag input component
 function TagInput({
@@ -186,7 +187,7 @@ export function AdminScreen({ navigation, route }: any) {
   const VALID_TABS: AdminTab[] = [
     'videos', 'categories', 'byproduction', 'lists', 'atlas',
     'books', 'podcasts', 'submissions', 'reviews', 'stats', 'flags',
-    'page-reelOfMonth', 'page-votingResults', 'page-matcher', 'page-health', 'page-notOnStl',
+    'page-reelOfMonth', 'page-votingResults', 'page-matcher', 'page-health', 'page-notOnStl', 'page-activity',
   ];
   const paramTab = (route?.params?.tab || '') as string;
   const activeTab: AdminTab = (VALID_TABS.includes(paramTab as AdminTab) ? paramTab : 'videos') as AdminTab;
@@ -726,6 +727,7 @@ export function AdminScreen({ navigation, route }: any) {
     { key: 'votingResults', label: 'Voting Results',             shortLabel: 'Votes',   icon: 'bar-chart-outline',      tabKey: 'page-votingResults', route: 'AdminVotingResults' },
     { key: 'matcher',       label: 'Stunt ↔ StuntListing',       shortLabel: 'Match',   icon: 'link-outline',           tabKey: 'page-matcher',       route: 'AdminStuntReelMatcher' },
     { key: 'notOnStl',      label: 'Not on StuntListing',        shortLabel: 'Not on',  icon: 'person-remove-outline',  tabKey: 'page-notOnStl',      route: 'AdminNotOnStuntListing' },
+    { key: 'activity',      label: 'User Activity',              shortLabel: 'Users',   icon: 'people-outline',         tabKey: 'page-activity',      route: 'AdminActivity' },
     { key: 'health',        label: 'Health Check',               shortLabel: 'Health',  icon: 'pulse-outline',          tabKey: 'page-health',        route: 'AdminHealthCheck' },
   ];
 
@@ -880,6 +882,11 @@ export function AdminScreen({ navigation, route }: any) {
           {activeTab === 'page-notOnStl' && (
             <View style={{ flex: 1 }}>
               <AdminNotOnStuntListingScreen navigation={navigation} />
+            </View>
+          )}
+          {activeTab === 'page-activity' && (
+            <View style={{ flex: 1 }}>
+              <AdminActivityScreen navigation={navigation} />
             </View>
           )}
 

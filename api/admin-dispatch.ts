@@ -26,6 +26,7 @@ const STUNT_REELS_PATH = 'src/data/stunt-reels.json';
 const VOTES_PATH = 'data/votes.json';
 const OVERRIDES_PATH = 'data/stunt-reel-overrides.json';
 const ADMIN_SETTINGS_PATH = 'data/admin-settings.json';
+const ANALYTICS_PATH = 'data/analytics-events.json';
 const STUNTLISTING_GRAPHQL = 'https://api.stuntlisting.com/graphql';
 const STUNTLISTING_PROFILE_BASE = 'https://stuntlisting.com/profile/';
 const STUNTLISTING_SEARCH_BASE = 'https://www.stuntlisting.com/coordinator_dashboard?search_query=';
@@ -637,6 +638,121 @@ async function actionHealthCheck(req: any, res: any, _profile: any, ghToken: str
   return res.status(200).json({ summary, checks });
 }
 
+// Reads data/analytics-events.json (the GitHub fallback buffer) and
+// returns aggregated stats for the admin Activity page. Falls back
+// gracefully if the file doesn't exist yet (returns empty stats).
+async function actionAnalyticsSummary(_req: any, res: any, _profile: any, ghToken: string) {
+  let events: any[] = [];
+  let lastUpdatedAt: string | null = null;
+  try {
+    const { data } = await readJsonFromRepo(ghToken, ANALYTICS_PATH);
+    events = (data.events || []) as any[];
+    lastUpdatedAt = data.lastUpdatedAt || null;
+  } catch (e: any) {
+    if (!/404/.test(e?.message || '')) throw e;
+  }
+
+  const now = Date.now();
+  const HOUR = 3600 * 1000;
+  const DAY = 24 * HOUR;
+
+  // Aggregate per-user stats: total events, last seen, video plays,
+  // total watch seconds (sum of video_progress durations), session count.
+  const usersMap = new Map<string, any>();
+  for (const e of events) {
+    const userId = e.userId || 'unknown';
+    const u = usersMap.get(userId) || {
+      userId,
+      userEmail: e.userEmail || null,
+      totalEvents: 0,
+      videoPlays: 0,
+      pageViews: 0,
+      watchSeconds: 0,
+      firstSeen: e.timestamp,
+      lastSeen: e.timestamp,
+      sessions: new Set<string>(),
+    };
+    u.totalEvents += 1;
+    if (e.userEmail) u.userEmail = e.userEmail;
+    if (e.eventType === 'video_play') u.videoPlays += 1;
+    if (e.eventType === 'page_view') u.pageViews += 1;
+    if (e.eventType === 'video_progress') {
+      const secs = Number(e.eventData?.progressSeconds || 0);
+      if (secs > u.watchSeconds) u.watchSeconds = secs; // last reported progress per video → keep max as proxy
+    }
+    if (e.sessionId) u.sessions.add(e.sessionId);
+    if (e.timestamp && e.timestamp < u.firstSeen) u.firstSeen = e.timestamp;
+    if (e.timestamp && e.timestamp > u.lastSeen) u.lastSeen = e.timestamp;
+    usersMap.set(userId, u);
+  }
+  const users = Array.from(usersMap.values())
+    .map((u: any) => ({ ...u, sessionCount: u.sessions.size, sessions: undefined }))
+    .sort((a: any, b: any) => String(b.lastSeen).localeCompare(String(a.lastSeen)));
+
+  // Top videos by play count
+  const videoMap = new Map<string, any>();
+  for (const e of events) {
+    if (e.eventType !== 'video_play') continue;
+    const id = e.eventData?.videoId || 'unknown';
+    const v = videoMap.get(id) || { videoId: id, title: e.eventData?.title || null, plays: 0, uniqueViewers: new Set<string>() };
+    v.plays += 1;
+    v.uniqueViewers.add(e.userId || 'unknown');
+    if (!v.title && e.eventData?.title) v.title = e.eventData.title;
+    videoMap.set(id, v);
+  }
+  const topVideos = Array.from(videoMap.values())
+    .map((v: any) => ({ videoId: v.videoId, title: v.title, plays: v.plays, uniqueViewers: v.uniqueViewers.size }))
+    .sort((a: any, b: any) => b.plays - a.plays)
+    .slice(0, 30);
+
+  // Top pages by page_view count
+  const pageMap = new Map<string, number>();
+  for (const e of events) {
+    if (e.eventType !== 'page_view') continue;
+    const screen = e.eventData?.screen || 'unknown';
+    pageMap.set(screen, (pageMap.get(screen) || 0) + 1);
+  }
+  const topPages = Array.from(pageMap.entries())
+    .map(([screen, views]) => ({ screen, views }))
+    .sort((a, b) => b.views - a.views)
+    .slice(0, 30);
+
+  // Event counts by type
+  const eventCounts: Record<string, number> = {};
+  for (const e of events) {
+    eventCounts[e.eventType] = (eventCounts[e.eventType] || 0) + 1;
+  }
+
+  // Recent activity tail
+  const recent = events.slice(-200).reverse();
+
+  // Activity in the last 7 / 30 days
+  const activeUsers7d = new Set<string>();
+  const activeUsers30d = new Set<string>();
+  for (const e of events) {
+    const t = new Date(e.timestamp || 0).getTime();
+    if (now - t <= 7 * DAY) activeUsers7d.add(e.userId || 'unknown');
+    if (now - t <= 30 * DAY) activeUsers30d.add(e.userId || 'unknown');
+  }
+
+  return res.status(200).json({
+    lastUpdatedAt,
+    overview: {
+      totalUsers: usersMap.size,
+      activeUsers7d: activeUsers7d.size,
+      activeUsers30d: activeUsers30d.size,
+      totalEvents: events.length,
+      totalVideoPlays: eventCounts['video_play'] || 0,
+      totalPageViews: eventCounts['page_view'] || 0,
+    },
+    users,
+    topVideos,
+    topPages,
+    eventCounts,
+    recent,
+  });
+}
+
 // ─── Dispatcher ─────────────────────────────────────────────────────────
 
 export default async function handler(req: any, res: any) {
@@ -683,6 +799,9 @@ export default async function handler(req: any, res: any) {
       case 'health-check':
         if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
         return await actionHealthCheck(req, res, profile, ghToken);
+      case 'analytics-summary':
+        if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
+        return await actionAnalyticsSummary(req, res, profile, ghToken);
       default:
         return res.status(404).json({ error: `Unknown admin action: ${action}` });
     }

@@ -2,7 +2,7 @@
   "buildCommand": "npx expo export --platform web",
   "outputDirectory": "dist",
   "framework": null,
-  "ignoreCommand": "bash -c 'OTHER=$(git diff --name-only HEAD^ HEAD | grep -v -E \"^data/(votes|stunt-reel-overrides)\\.json$\" | wc -l); [ $OTHER -eq 0 ]'",
+  "ignoreCommand": "bash -c 'OTHER=$(git diff --name-only HEAD^ HEAD | grep -v -E \"^data/(votes|stunt-reel-overrides|analytics-events)\\.json$\" | wc -l); [ $OTHER -eq 0 ]'",
   "rewrites": [
     { "source": "/api/admin/(.*)", "destination": "/api/admin-dispatch?action=$1" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
