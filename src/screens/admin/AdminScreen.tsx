@@ -151,7 +151,7 @@ const ADMIN_EMAILS = [
   'warren@stuntlisting.com',
 ];
 
-export function AdminScreen({ navigation }: any) {
+export function AdminScreen({ navigation, route }: any) {
   usePageTitle('Admin Panel');
   const { state, dispatch } = useAppState();
 
@@ -177,7 +177,18 @@ export function AdminScreen({ navigation }: any) {
     );
   }
 
-  const [activeTab, setActiveTab] = useState<AdminTab>('videos');
+  // Active tab is route-driven so each admin view has its own URL
+  // (e.g. /admin?tab=lists). Sidebar/horizontal-tab clicks update
+  // navigation params instead of a local state value, so back/forward
+  // browser nav works and admins can deep-link to a specific view.
+  const VALID_TABS: AdminTab[] = [
+    'videos', 'categories', 'byproduction', 'lists', 'atlas',
+    'books', 'podcasts', 'submissions', 'reviews', 'stats', 'flags',
+    'page-reelOfMonth', 'page-votingResults', 'page-matcher', 'page-health', 'page-notOnStl',
+  ];
+  const paramTab = (route?.params?.tab || '') as string;
+  const activeTab: AdminTab = (VALID_TABS.includes(paramTab as AdminTab) ? paramTab : 'videos') as AdminTab;
+  const setActiveTab = (next: AdminTab) => navigation.setParams({ tab: next });
   const [searchQuery, setSearchQuery] = useState('');
   // Viewport width for sidebar/horizontal-tabs branching. Threshold matches
   // other admin/voting screens so behavior is consistent.

@@ -103,9 +103,57 @@ function MainTabs() {
   );
 }
 
+// React Navigation linking config — gives every screen a stable URL so
+// admins can bookmark/share specific views (e.g. /admin/lists,
+// /admin/votes). The SPA fallback in vercel.json sends every path to
+// index.html; React Navigation reads window.location and routes to the
+// right screen on load.
+const linking = {
+  prefixes: ['/'],
+  config: {
+    screens: {
+      MainTabs: {
+        screens: {
+          Home: 'home',
+          Search: 'search',
+          MyList: 'mylist',
+          Profile: 'profile',
+          Admin: 'admin',
+        },
+      },
+      VideoDetail: 'video/:videoId',
+      VideoPlayer: 'play/:videoId',
+      CoordinatorProfile: 'coordinator/:coordinatorId',
+      PerformerProfile: 'performer/:performerId',
+      ProductionPage: 'production/:productionId',
+      TrainingPathDetail: 'training/:pathId',
+      CollectionDetail: 'collection/:collectionId',
+      AllBookmarks: 'bookmarks',
+      CategoryVideos: 'category',
+      ReelGrid: 'reels',
+      ReelDetail: 'reel/:reelId',
+      AtlasAction: 'atlas',
+      AtlasActionDetail: 'atlas/:videoId',
+      BookDetail: 'book/:bookId',
+      BooksGrid: 'books',
+      PodcastDetail: 'podcast/:podcastId',
+      PodcastsGrid: 'podcasts',
+      ReelOfTheMonth: 'reel-of-month',
+      ReelOfTheMonthArchive: 'reel-of-month/archive',
+      StuntReelVoting: 'stunt-reel-voting',
+      AdminReelOfTheMonth: 'admin/reel-of-month',
+      AdminVotingResults: 'admin/votes',
+      AdminStuntReelMatcher: 'admin/match',
+      AdminHealthCheck: 'admin/health',
+      AdminNotOnStuntListing: 'admin/not-on-stuntlisting',
+    },
+  },
+};
+
 export function AppNavigator() {
   return (
     <NavigationContainer
+      linking={linking as any}
       theme={{
         dark: true,
         colors: {

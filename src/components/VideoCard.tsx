@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, BorderRadius, FontSize, Spacing, FontWeight } from '../theme';
@@ -26,6 +26,7 @@ export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, sho
   const { getWatchProgress, dispatch } = useAppState();
   const toast = useToast();
   const [imgError, setImgError] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const progress = getWatchProgress(video.id);
   const progressPercent = progress ? (progress.progressSeconds / video.durationSeconds) * 100 : 0;
   const isWatched = progress?.completed === true;
@@ -41,12 +42,7 @@ export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, sho
     toast.show(isWatched ? 'Marked as unwatched' : 'Marked as watched');
   };
 
-  // Web tooltip on hover for the checkmark — RN-Web passes unrecognized
-  // props through to the underlying div, so { title } becomes the standard
-  // HTML title attribute. Native ignores this object entirely.
-  const watchedTooltipProps = Platform.OS === 'web'
-    ? ({ title: isWatched ? 'Mark as unwatched' : 'Mark as watched' } as any)
-    : {};
+  const tooltipText = isWatched ? 'Mark as unwatched' : 'Mark as watched';
 
   return (
     <TouchableOpacity
@@ -99,19 +95,28 @@ export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, sho
         {/* Mark-as-watched toggle. Lets the user manually flag a video as
             seen so it stops showing in discovery rows. Tap toggles the
             completed flag (un-watching removes the entry). */}
-        <TouchableOpacity
+        {/* Pressable supports onHoverIn/Out cross-platform (no-op on native).
+            We render our own positioned tooltip rather than relying on the
+            HTML title attribute, which RN-Web doesn't reliably pass through. */}
+        <Pressable
           style={styles.watchedToggle}
           onPress={handleToggleWatched}
           hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-          accessibilityLabel={isWatched ? 'Mark as unwatched' : 'Mark as watched'}
-          {...watchedTooltipProps}
+          accessibilityLabel={tooltipText}
+          onHoverIn={() => setHovered(true)}
+          onHoverOut={() => setHovered(false)}
         >
           <Ionicons
             name={isWatched ? 'checkmark-circle' : 'checkmark-circle-outline'}
             size={22}
             color={isWatched ? Colors.primary : 'rgba(255,255,255,0.85)'}
           />
-        </TouchableOpacity>
+          {Platform.OS === 'web' && hovered && (
+            <View style={styles.tooltip} pointerEvents="none">
+              <Text style={styles.tooltipText}>{tooltipText}</Text>
+            </View>
+          )}
+        </Pressable>
         {/* Progress bar: show for continue watching or partially watched */}
         {((showProgress && progressPercent > 0) || isPartiallyWatched) && (
           <View style={styles.progressBar}>
@@ -233,6 +238,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Tooltip for the watched checkmark, anchored just below the icon.
+  // pointerEvents=none on the View keeps it from blocking the click.
+  tooltip: {
+    position: 'absolute',
+    top: 32,
+    right: 0,
+    backgroundColor: 'rgba(20,20,20,0.95)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    zIndex: 10,
+  },
+  tooltipText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
+    whiteSpace: 'nowrap' as any,
   },
   progressBar: {
     position: 'absolute',
