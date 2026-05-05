@@ -27,6 +27,7 @@ interface MatchRow {
   thumbnailUrl: string;
   channelName: string;
   publishedAt: string;
+  excluded: boolean;
   override: boolean;
   searchedNames: string[];
   match: null | {
@@ -51,6 +52,7 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
   const [rows, setRows] = useState<MatchRow[]>([]);
   const [inputs, setInputs] = useState<Record<string, { id: string }>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [excludingId, setExcludingId] = useState<string | null>(null);
 
   const userEmail = state.currentUser?.email?.toLowerCase() || '';
   const isAdmin = ADMIN_EMAILS.includes(userEmail);
@@ -98,6 +100,29 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
       setError(e.message);
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function toggleExcluded(youtubeId: string, currentlyExcluded: boolean) {
+    if (!state.authToken) return;
+    setExcludingId(youtubeId);
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/exclude-stunt-reel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.authToken}` },
+        body: JSON.stringify({ youtubeId, excluded: !currentlyExcluded }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || `HTTP ${r.status}`);
+      }
+      // Optimistic local update — saves a re-fetch round-trip; the bundled
+      // JSON catches up on next deploy.
+      setRows(rs => rs.map(r => r.youtubeId === youtubeId ? { ...r, excluded: !currentlyExcluded } : r));
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setExcludingId(null);
     }
   }
 
@@ -158,21 +183,36 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
         {rows.map(row => {
           const cur = inputs[row.youtubeId] || { id: row.match?.id?.toString() || '' };
           return (
-            <View key={row.youtubeId} style={styles.row}>
+            <View key={row.youtubeId} style={[styles.row, row.excluded && styles.rowExcluded]}>
               <View style={styles.rowHead}>
                 {row.thumbnailUrl ? (
-                  <Image source={{ uri: row.thumbnailUrl }} style={styles.thumb} />
+                  <Image source={{ uri: row.thumbnailUrl }} style={[styles.thumb, row.excluded && styles.thumbExcluded]} />
                 ) : (
                   <View style={[styles.thumb, { backgroundColor: Colors.surfaceHighlight }]} />
                 )}
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.reelTitle} numberOfLines={2}>{row.title}</Text>
-                  <Text style={styles.reelChannel}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {row.excluded && <View style={styles.excludedBadge}><Text style={styles.excludedBadgeText}>EXCLUDED</Text></View>}
+                    <Text style={[styles.reelTitle, row.excluded && styles.textDim]} numberOfLines={2}>{row.title}</Text>
+                  </View>
+                  <Text style={[styles.reelChannel, row.excluded && styles.textDim]}>
                     {row.channelName} · {row.publishedAt.slice(0, 10)}
                   </Text>
-                  <TouchableOpacity onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${row.youtubeId}`)}>
-                    <Text style={styles.linkSmall}>YouTube ↗</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: 4 }}>
+                    <TouchableOpacity onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${row.youtubeId}`)}>
+                      <Text style={styles.linkSmall}>YouTube ↗</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => toggleExcluded(row.youtubeId, row.excluded)}
+                      disabled={excludingId === row.youtubeId}
+                    >
+                      <Text style={[styles.linkSmall, { color: row.excluded ? Colors.success || '#4CAF50' : Colors.error }]}>
+                        {excludingId === row.youtubeId
+                          ? 'Saving…'
+                          : row.excluded ? 'Re-include reel' : 'Exclude reel'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
 
@@ -291,6 +331,11 @@ const styles = StyleSheet.create({
   errorBox: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: 'rgba(238,45,36,0.15)', padding: Spacing.md, borderRadius: BorderRadius.md, marginTop: Spacing.lg },
   errorText: { color: Colors.error, flex: 1 },
   row: { marginTop: Spacing.lg, padding: Spacing.lg, backgroundColor: Colors.surface, borderRadius: BorderRadius.md },
+  rowExcluded: { opacity: 0.55 },
+  thumbExcluded: { opacity: 0.4 },
+  textDim: { color: Colors.textMuted },
+  excludedBadge: { backgroundColor: Colors.error, paddingHorizontal: 6, paddingVertical: 2, borderRadius: BorderRadius.xs },
+  excludedBadgeText: { color: '#fff', fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5 },
   rowHead: { flexDirection: 'row', gap: Spacing.md },
   thumb: { width: 100, height: 56, borderRadius: BorderRadius.sm, backgroundColor: '#000' },
   reelTitle: { color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.semibold, lineHeight: 18 },

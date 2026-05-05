@@ -117,8 +117,11 @@ export default async function handler(req: any, res: any) {
     const scope: 'month' | 'all' = req.query?.scope === 'all' ? 'all' : 'month';
     const now = new Date();
     const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    // Admin matcher shows EVERYTHING including excluded — admin needs the
+    // ability to re-include. Excluded state is surfaced per-row so the UI
+    // can dim and flip the toggle. Public-facing screens still filter out
+    // excluded; this is admin-only.
     const targetReels = (reelsData.reels || []).filter((r: any) => {
-      if (r.excluded) return false;
       if (scope === 'all') return true;
       return (r.publishedAt || '').startsWith(monthKey);
     });
@@ -182,6 +185,7 @@ export default async function handler(req: any, res: any) {
             thumbnailUrl: reel.thumbnailUrl,
             channelName: reel.channelName,
             publishedAt: reel.publishedAt,
+            excluded: !!reel.excluded,
             override: true,
             searchedNames: Array.from(candidateNames),
             match: {
@@ -245,6 +249,7 @@ export default async function handler(req: any, res: any) {
         thumbnailUrl: reel.thumbnailUrl,
         channelName: reel.channelName,
         publishedAt: reel.publishedAt,
+        excluded: !!reel.excluded,
         override: false,
         searchedNames: Array.from(candidateNames),
         match,
