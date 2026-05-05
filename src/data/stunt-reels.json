@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-05T06:22:59.835Z",
+  "lastUpdatedAt": "2026-05-05T16:12:38.229Z",
   "reels": [
     {
       "youtubeId": "WpvuMhHqT5Q",
@@ -26,7 +26,9 @@
       "description": "",
       "viewCount": 474,
       "discoveredAt": "2026-05-03T00:12:50.251393Z",
-      "excluded": false
+      "excluded": true,
+      "excludedBy": "james.northrup@gmail.com",
+      "excludedAt": "2026-05-05T16:12:38.229Z"
     },
     {
       "youtubeId": "zGI02HliZaQ",
