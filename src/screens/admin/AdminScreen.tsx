@@ -1754,9 +1754,21 @@ export function AdminScreen({ navigation, route }: any) {
                   <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>
                     Courses ({(state.settings.atlasActionCourses || []).length})
                   </Text>
-                  {(state.settings.atlasActionCourses || []).map(c => {
+                  {(state.settings.atlasActionCourses || []).map((c, idx, arr) => {
                     const isExpanded = atlasExpandedCourseIds.has(c.id);
                     const courseVideos = (state.settings.atlasActionVideos || []).filter(v => v.courseId === c.id);
+                    const isFirst = idx === 0;
+                    const isLast = idx === arr.length - 1;
+                    // Swap this course with its neighbor in the array. The
+                    // live AtlasActionScreen iterates atlasActionCourses
+                    // in array order, so the user-facing order tracks.
+                    function moveCourse(dir: 'up' | 'down') {
+                      const all = [...(state.settings.atlasActionCourses || [])];
+                      const j = dir === 'up' ? idx - 1 : idx + 1;
+                      if (j < 0 || j >= all.length) return;
+                      [all[idx], all[j]] = [all[j], all[idx]];
+                      dispatch({ type: 'UPDATE_SETTINGS', payload: { atlasActionCourses: all } });
+                    }
                     return (
                       <View key={c.id} style={[styles.catCard, !c.enabled && { opacity: 0.5 }]}>
                         <TouchableOpacity
@@ -1778,6 +1790,24 @@ export function AdminScreen({ navigation, route }: any) {
                             </Text>
                           </View>
                           <View style={styles.videoActions}>
+                            {/* Reorder up/down — array order is the order
+                                shown on the live Atlas Action page.
+                                arrow-up/down (vs chevrons) so it's not
+                                confused with the expand chevron at left. */}
+                            <TouchableOpacity
+                              style={styles.iconBtn}
+                              onPress={() => moveCourse('up')}
+                              disabled={isFirst}
+                            >
+                              <Ionicons name="arrow-up" size={18} color={isFirst ? Colors.textMuted : Colors.textPrimary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.iconBtn}
+                              onPress={() => moveCourse('down')}
+                              disabled={isLast}
+                            >
+                              <Ionicons name="arrow-down" size={18} color={isLast ? Colors.textMuted : Colors.textPrimary} />
+                            </TouchableOpacity>
                             <TouchableOpacity style={styles.iconBtn} onPress={() => {
                               setEditingAtlasCourseId(c.id);
                               setAtlasCourseTitle(c.title); setAtlasCourseDesc(c.description);
