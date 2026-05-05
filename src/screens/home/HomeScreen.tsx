@@ -98,9 +98,9 @@ export function HomeScreen({ navigation }: any) {
     return entries.map(e => videoMap.get(e.videoId)).filter(Boolean) as Video[];
   }, [state.watchHistory]);
 
-  // Completed-watch entries for the active profile, newest first. Powers the
-  // "Recently Watched" home row and is also the basis for filtering watched
-  // videos out of the rotating discovery rows below.
+  // Completed-watch entries for the active profile, newest first. Used to
+  // filter out fully-watched videos from the rotating discovery rows so we
+  // don't keep recommending things the user already finished.
   const watchedEntries = useMemo(() => {
     const profileId = state.activeProfile?.id || '';
     return state.watchHistory
@@ -108,10 +108,17 @@ export function HomeScreen({ navigation }: any) {
       .sort((a, b) => new Date(b.lastWatchedAt).getTime() - new Date(a.lastWatchedAt).getTime());
   }, [state.watchHistory, state.activeProfile]);
 
-  const recentlyWatched = useMemo(
-    () => watchedEntries.slice(0, 10).map(e => videoMap.get(e.videoId)).filter(Boolean) as Video[],
-    [watchedEntries]
-  );
+  // "Recently Watched" home row. Includes BOTH completed and partial
+  // watches (Jamie: "I watched part of a video, but that video didn't show
+  // up in my recently watched queue"). Sorted by lastWatchedAt newest first.
+  const recentlyWatched = useMemo(() => {
+    const profileId = state.activeProfile?.id || '';
+    const entries = state.watchHistory
+      .filter(w => w.profileId === profileId && (w.completed || w.progressSeconds > 5))
+      .sort((a, b) => new Date(b.lastWatchedAt).getTime() - new Date(a.lastWatchedAt).getTime())
+      .slice(0, 10);
+    return entries.map(e => videoMap.get(e.videoId)).filter(Boolean) as Video[];
+  }, [state.watchHistory, state.activeProfile]);
 
   const watchedIds = useMemo(() => new Set(watchedEntries.map(e => e.videoId)), [watchedEntries]);
 

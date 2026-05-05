@@ -60,7 +60,10 @@ const ADMIN_EMAILS = [
 
 function MainTabs() {
   const { state } = useAppState();
-  const isAdmin = ADMIN_EMAILS.includes((state.currentUser?.email || '').toLowerCase());
+  const realIsAdmin = ADMIN_EMAILS.includes((state.currentUser?.email || '').toLowerCase());
+  // Admin can self-suppress the admin chrome via Settings → "View as user"
+  // to preview the member experience.
+  const isAdmin = realIsAdmin && !state.settings.adminViewAsUser;
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({

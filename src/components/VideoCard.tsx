@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, BorderRadius, FontSize, Spacing, FontWeight } from '../theme';
 import { Video } from '../types';
 import { useAppState } from '../services/AppState';
+import { useToast } from '../services/ToastService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Ensure at least 2 thumbnails visible on narrow phones
@@ -23,6 +24,7 @@ interface VideoCardProps {
 
 export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, showProgress, showRank }: VideoCardProps) {
   const { getWatchProgress, dispatch } = useAppState();
+  const toast = useToast();
   const [imgError, setImgError] = useState(false);
   const progress = getWatchProgress(video.id);
   const progressPercent = progress ? (progress.progressSeconds / video.durationSeconds) * 100 : 0;
@@ -34,7 +36,17 @@ export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, sho
     // Don't navigate to the video — this tap is for the watched toggle only.
     e?.stopPropagation?.();
     dispatch({ type: 'TOGGLE_WATCHED', payload: { videoId: video.id, durationSeconds: video.durationSeconds } });
+    // Show a toast confirming the action. We invert isWatched because the
+    // dispatch above flips it; the snapshot we have is pre-toggle.
+    toast.show(isWatched ? 'Marked as unwatched' : 'Marked as watched');
   };
+
+  // Web tooltip on hover for the checkmark — RN-Web passes unrecognized
+  // props through to the underlying div, so { title } becomes the standard
+  // HTML title attribute. Native ignores this object entirely.
+  const watchedTooltipProps = Platform.OS === 'web'
+    ? ({ title: isWatched ? 'Mark as unwatched' : 'Mark as watched' } as any)
+    : {};
 
   return (
     <TouchableOpacity
@@ -91,6 +103,8 @@ export function VideoCard({ video, onPress, onLongPress, width = CARD_WIDTH, sho
           style={styles.watchedToggle}
           onPress={handleToggleWatched}
           hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+          accessibilityLabel={isWatched ? 'Mark as unwatched' : 'Mark as watched'}
+          {...watchedTooltipProps}
         >
           <Ionicons
             name={isWatched ? 'checkmark-circle' : 'checkmark-circle-outline'}

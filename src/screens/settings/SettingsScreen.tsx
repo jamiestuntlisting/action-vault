@@ -8,6 +8,17 @@ import { avatarMap } from '../../data/avatars';
 import { TmdbService } from '../../services/TmdbService';
 import { usePageTitle } from '../../hooks/usePageTitle';
 
+// Same admin allowlist used in AppNavigator/admin endpoints. Inlined to
+// keep the toggle local to this screen without circular imports.
+const ADMIN_EMAILS_FOR_VIEW_TOGGLE = [
+  'james.northrup@gmail.com',
+  'warrenhullstunts@gmail.com',
+  'greg@stuntlisting.com',
+  'info@stuntlisting.com',
+  'jamie@stuntlisting.com',
+  'warren@stuntlisting.com',
+];
+
 const ADMIN_EMAILS = [
   'james.northrup@gmail.com',
   'warrenhullstunts@gmail.com',
@@ -322,6 +333,28 @@ export function SettingsScreen({ navigation }: any) {
       {/* Admin entry moved to its own bottom-nav tab — visible only to
           admins (see MainTabs in AppNavigator). Kept this comment instead
           of the link so future readers know why the row disappeared. */}
+
+      {/* "View as user" — admin-only switch that hides the Admin tab and
+          any other admin-conditional UI so the admin can preview what
+          regular members see. Toggling back off restores the chrome. */}
+      {ADMIN_EMAILS_FOR_VIEW_TOGGLE.includes((state.currentUser?.email || '').toLowerCase()) && (
+        <>
+          <Text style={styles.sectionTitle}>Admin Preview</Text>
+          <View style={[styles.section, { paddingTop: 0 }]}>
+            <View style={rowStyles.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={rowStyles.label}>View as user</Text>
+                <Text style={rowStyles.value}>Hide the admin tab and admin-only buttons.</Text>
+              </View>
+              <Switch
+                value={!!state.settings.adminViewAsUser}
+                onValueChange={v => dispatch({ type: 'UPDATE_SETTINGS', payload: { adminViewAsUser: v } })}
+                trackColor={{ false: Colors.surfaceHighlight, true: Colors.primary }}
+              />
+            </View>
+          </View>
+        </>
+      )}
 
       {/* Sign Out */}
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>

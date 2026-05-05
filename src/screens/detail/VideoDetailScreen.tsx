@@ -162,7 +162,20 @@ export function VideoDetailScreen({ route, navigation }: any) {
 
         <View style={styles.tags}>
           {video.skillTags.map(tag => (
-            <SkillTagChip key={tag.id} tag={tag} onPress={() => {}} />
+            <SkillTagChip
+              key={tag.id}
+              tag={tag}
+              onPress={() => {
+                // Open a CategoryVideos grid filtered to every video that
+                // shares this skill tag — that's the "all of those" search
+                // Jamie expects on tag tap.
+                const matching = videos.filter(v => v.skillTags.some(t => t.id === tag.id));
+                navigation.push('CategoryVideos', {
+                  title: tag.displayName,
+                  videoIds: matching.map(v => v.id),
+                });
+              }}
+            />
           ))}
         </View>
 

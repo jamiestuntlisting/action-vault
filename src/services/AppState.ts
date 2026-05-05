@@ -106,6 +106,10 @@ export interface AppSettings {
   notifyTrending: boolean;
   notifyWeeklyDigest: boolean;
   intensityFilter: number; // 1-5, show up to this level
+  // When an admin flips this on, all admin-only UI is suppressed across
+  // the app — Admin tab disappears from the bottom nav, etc. Lets an
+  // admin preview the experience a normal member sees without logging out.
+  adminViewAsUser?: boolean;
   youtubeChannel: string;
   vaultSubmissions: Array<{ videoId: string; title: string; author: string; thumbnailUrl: string; submittedAt: string; category?: string; status?: 'pending' | 'approved' | 'rejected'; submittedByEmail?: string; contentType?: 'video' | 'book' | 'podcast' | 'content' }>;
   adminCategories: AdminCategory[];
@@ -635,15 +639,22 @@ function reducer(state: State, action: Action): State {
     case 'SET_ACTIVE_PROFILE':
       return { ...state, activeProfile: action.payload };
     case 'ADD_TO_WATCH_HISTORY': {
+      // Normalize profileId — callers (VideoPlayer, etc.) pass '' and rely
+      // on the reducer to bind the entry to the active profile, which is
+      // also what every read-side helper queries by. Without this both
+      // sides used '' but the lookups in HomeScreen/VideoCard look up by
+      // activeProfile.id, so nothing ever matched.
+      const profileId = state.activeProfile?.id || action.payload.profileId || '';
+      const payload = { ...action.payload, profileId };
       const existing = state.watchHistory.findIndex(
-        w => w.videoId === action.payload.videoId && w.profileId === action.payload.profileId
+        w => w.videoId === payload.videoId && w.profileId === payload.profileId
       );
       if (existing >= 0) {
         const updated = [...state.watchHistory];
-        updated[existing] = action.payload;
+        updated[existing] = payload;
         return { ...state, watchHistory: updated };
       }
-      return { ...state, watchHistory: [...state.watchHistory, action.payload] };
+      return { ...state, watchHistory: [...state.watchHistory, payload] };
     }
     case 'ADD_TO_MY_LIST': {
       if (state.myList.some(m => m.videoId === action.payload && m.profileId === state.activeProfile?.id)) {
@@ -666,15 +677,20 @@ function reducer(state: State, action: Action): State {
     case 'SET_MY_LIST':
       return { ...state, myList: action.payload };
     case 'SET_RATING': {
+      // Same normalization as ADD_TO_WATCH_HISTORY — bind to the active
+      // profile so getRating() can find the row again. Without this the
+      // thumbs up/down buttons on VideoDetail had no visible effect.
+      const profileId = state.activeProfile?.id || action.payload.profileId || '';
+      const payload = { ...action.payload, profileId };
       const existingIdx = state.ratings.findIndex(
-        r => r.videoId === action.payload.videoId && r.profileId === action.payload.profileId
+        r => r.videoId === payload.videoId && r.profileId === payload.profileId
       );
       if (existingIdx >= 0) {
         const updated = [...state.ratings];
-        updated[existingIdx] = action.payload;
+        updated[existingIdx] = payload;
         return { ...state, ratings: updated };
       }
-      return { ...state, ratings: [...state.ratings, action.payload] };
+      return { ...state, ratings: [...state.ratings, payload] };
     }
     case 'ADD_BOOKMARK':
       return { ...state, bookmarks: [...state.bookmarks, action.payload] };
