@@ -80,15 +80,36 @@ export function AdminReelOfTheMonthScreen({ navigation }: any) {
 
   const [picker, setPicker] = useState<PickerState>({ open: false, month: thisMonth });
 
+  // Push the canonical schedule to /api/admin/global-settings so other
+  // devices and other members see the same reels-of-the-month. Local
+  // dispatch already happened by the time this is called; this is a
+  // best-effort sync. If it fails, the change still lives on this device
+  // until next page reload (which fetches /api/global-settings).
+  async function syncReelOfMonth(entries: ReelOfMonthEntry[]) {
+    if (!state.authToken) return;
+    try {
+      const apiBase = Platform.OS === 'web' ? '' : 'https://action-vault-blond.vercel.app';
+      await fetch(`${apiBase}/api/admin/global-settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.authToken}` },
+        body: JSON.stringify({ settings: { reelOfMonthEntries: entries } }),
+      });
+    } catch {
+      // network failure — local state still has the change
+    }
+  }
+
   function upsertEntry(entry: ReelOfMonthEntry) {
     const next = (state.settings.reelOfMonthEntries || []).filter(e => !(e.category === 'skill' && e.month === entry.month));
     next.push(entry);
     dispatch({ type: 'UPDATE_SETTINGS', payload: { reelOfMonthEntries: next } });
+    syncReelOfMonth(next);
   }
 
   function deleteEntry(id: string) {
     const next = (state.settings.reelOfMonthEntries || []).filter(e => e.id !== id);
     dispatch({ type: 'UPDATE_SETTINGS', payload: { reelOfMonthEntries: next } });
+    syncReelOfMonth(next);
   }
 
   function closeNow(entry: ReelOfMonthEntry) {

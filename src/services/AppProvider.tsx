@@ -47,6 +47,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadPersistedState();
   }, []);
 
+  // After local hydration, fetch admin-curated global settings from the
+  // server so admin changes (e.g. Reel-of-the-Month schedule) propagate
+  // across devices and across users. Best-effort — if the fetch fails,
+  // local cached settings stay in place.
+  useEffect(() => {
+    if (state.isLoading) return; // wait for local hydration first
+    let cancelled = false;
+    (async () => {
+      try {
+        const apiBase = Platform.OS === 'web' ? '' : 'https://action-vault-blond.vercel.app';
+        const r = await fetch(`${apiBase}/api/global-settings`);
+        if (!r.ok) return;
+        const j: any = await r.json();
+        const remoteSettings = j?.settings || {};
+        if (cancelled || !remoteSettings || Object.keys(remoteSettings).length === 0) return;
+        // Merge admin-set fields onto whatever's in state.settings. Server
+        // wins for any field it specifies (server is canonical).
+        dispatch({
+          type: 'UPDATE_SETTINGS',
+          payload: remoteSettings,
+        });
+      } catch {
+        // offline / network error — local state stays
+      }
+    })();
+    return () => { cancelled = true; };
+    // Run once after first hydration. Intentionally not re-running on
+    // every state.isLoading flip.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.isLoading === false]);
+
   // Handle post-Stripe redirect: verify payment server-side before unlocking
   useEffect(() => {
     if (Platform.OS === 'web') {
