@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-05T17:16:12.177Z",
+  "lastUpdatedAt": "2026-05-05T19:05:44.464Z",
   "votes": [
     {
       "userId": 33,
@@ -105,6 +105,19 @@
       "rating": 3,
       "createdAt": "2026-05-05T14:52:42.383Z",
       "updatedAt": "2026-05-05T17:16:12.177Z"
+    },
+    {
+      "userId": 33,
+      "userEmail": "james.northrup@gmail.com",
+      "userName": "Jamie Northrup",
+      "alias": "jamie",
+      "unionStatus": "[\"SAG-AFTRA\"]",
+      "roles": "admin",
+      "entryId": "rom-skill-2026-05-1777914182473",
+      "reelId": "skill-71544",
+      "rating": 4,
+      "createdAt": "2026-05-05T19:05:44.464Z",
+      "updatedAt": "2026-05-05T19:05:44.464Z"
     }
   ]
 }
