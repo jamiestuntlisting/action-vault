@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-05T14:52:42.383Z",
+  "lastUpdatedAt": "2026-05-05T14:52:44.316Z",
   "votes": [
     {
       "userId": 33,
@@ -79,6 +79,19 @@
       "rating": 8,
       "createdAt": "2026-05-05T14:52:42.383Z",
       "updatedAt": "2026-05-05T14:52:42.383Z"
+    },
+    {
+      "userId": 33,
+      "userEmail": "james.northrup@gmail.com",
+      "userName": "Jamie Northrup",
+      "alias": "jamie",
+      "unionStatus": "[\"SAG-AFTRA\"]",
+      "roles": "admin",
+      "entryId": "stunt-monthly",
+      "reelId": "OnXIka6UV1E",
+      "rating": 8,
+      "createdAt": "2026-05-05T14:52:44.316Z",
+      "updatedAt": "2026-05-05T14:52:44.316Z"
     }
   ]
 }
