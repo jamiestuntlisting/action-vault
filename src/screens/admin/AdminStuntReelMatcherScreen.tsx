@@ -53,6 +53,13 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
   const [inputs, setInputs] = useState<Record<string, { id: string }>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [excludingId, setExcludingId] = useState<string | null>(null);
+  // Per-row name-search state: query, results, isOpen.
+  const [nameSearch, setNameSearch] = useState<Record<string, {
+    q: string;
+    open: boolean;
+    loading: boolean;
+    results: Array<{ id: number; alias: string; firstName: string; lastName: string; instagram: string | null }>;
+  }>>({});
   const [cronHealth, setCronHealth] = useState<{
     lastCron: { date: string; added: number | null; candidates: number | null; filtered: number | null; sha: string } | null;
     cronCountInRecent: number;
@@ -104,6 +111,25 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
       setError(e.message);
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function searchNames(youtubeId: string, q: string) {
+    if (!state.authToken) return;
+    if (q.trim().length < 2) {
+      setNameSearch(s => ({ ...s, [youtubeId]: { ...(s[youtubeId] || { open: true, loading: false, results: [], q }), q, results: [], loading: false } }));
+      return;
+    }
+    setNameSearch(s => ({ ...s, [youtubeId]: { ...(s[youtubeId] || { open: true, results: [] }), q, loading: true, open: true } }));
+    try {
+      const r = await fetch(`${API_BASE}/api/admin/search-stuntlisting-users?q=${encodeURIComponent(q.trim())}`, {
+        headers: { Authorization: `Bearer ${state.authToken}` },
+      });
+      const j = await r.json();
+      const results = j.results || [];
+      setNameSearch(s => ({ ...s, [youtubeId]: { ...(s[youtubeId] || { open: true }), q, results, loading: false } }));
+    } catch (e: any) {
+      setNameSearch(s => ({ ...s, [youtubeId]: { ...(s[youtubeId] || { open: true, results: [] }), q, results: [], loading: false } }));
     }
   }
 
@@ -321,7 +347,7 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
                 </View>
               )}
 
-              {/* Manual override input */}
+              {/* Manual override — by ID, or search by name */}
               <View style={styles.overrideBlock}>
                 <Text style={styles.kLabel}>Manual override</Text>
                 <View style={styles.overrideInputs}>
@@ -341,7 +367,48 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
                     <Text style={styles.saveBtnText}>{savingId === row.youtubeId ? 'Saving…' : 'Save'}</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.hint}>Type a StuntListing user ID and Save to override the match. Save an empty value to clear the override.</Text>
+
+                {/* Name search affordance — type to look up by name in
+                    StuntListing's user table (fullTextSearch). Pick a
+                    result to populate the ID field above; then Save. */}
+                <View style={styles.searchBlock}>
+                  <View style={styles.searchInputRow}>
+                    <Ionicons name="search" size={14} color={Colors.textTertiary} />
+                    <TextInput
+                      placeholder="…or search by name (e.g. Devante Thomas)"
+                      placeholderTextColor={Colors.inputPlaceholder}
+                      value={(nameSearch[row.youtubeId]?.q) || ''}
+                      onChangeText={(t) => searchNames(row.youtubeId, t)}
+                      autoCapitalize="words"
+                      style={styles.searchInput}
+                    />
+                  </View>
+                  {nameSearch[row.youtubeId]?.loading && (
+                    <Text style={styles.searchLoading}>Searching…</Text>
+                  )}
+                  {nameSearch[row.youtubeId]?.results?.length > 0 && (
+                    <View style={styles.searchResults}>
+                      {nameSearch[row.youtubeId].results.map(r => (
+                        <TouchableOpacity
+                          key={r.id}
+                          style={styles.searchResult}
+                          onPress={() => {
+                            setInputs(s => ({ ...s, [row.youtubeId]: { id: String(r.id) } }));
+                            setNameSearch(s => ({ ...s, [row.youtubeId]: { ...s[row.youtubeId], results: [], q: `${r.firstName} ${r.lastName}` } }));
+                          }}
+                        >
+                          <Text style={styles.searchResultPrimary}>
+                            #{r.id} {r.firstName} {r.lastName}
+                          </Text>
+                          <Text style={styles.searchResultSub} numberOfLines={1}>
+                            {r.alias} {r.instagram ? `· ${r.instagram}` : ''}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.hint}>Type the ID directly or search by name and pick from the list, then Save. Save an empty ID to clear the override.</Text>
               </View>
             </View>
           );
@@ -404,6 +471,14 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: Colors.accent, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: BorderRadius.sm },
   saveBtnText: { color: '#fff', fontWeight: FontWeight.semibold },
   hint: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: Spacing.xs, fontStyle: 'italic' },
+  searchBlock: { marginTop: Spacing.sm },
+  searchInputRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.sm, backgroundColor: Colors.inputBackground, borderRadius: BorderRadius.sm, borderWidth: 1, borderColor: Colors.inputBorder },
+  searchInput: { flex: 1, color: Colors.textPrimary, fontSize: FontSize.sm, paddingVertical: Spacing.sm },
+  searchLoading: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 4, fontStyle: 'italic' },
+  searchResults: { marginTop: Spacing.xs, backgroundColor: Colors.background, borderRadius: BorderRadius.sm, borderWidth: 1, borderColor: Colors.surfaceHighlight, maxHeight: 240 },
+  searchResult: { padding: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.surfaceHighlight },
+  searchResultPrimary: { color: Colors.textPrimary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
+  searchResultSub: { color: Colors.textTertiary, fontSize: FontSize.xs, marginTop: 2 },
   empty: { color: Colors.textMuted, fontStyle: 'italic', textAlign: 'center', marginTop: Spacing.xl },
   btn: { marginTop: Spacing.lg, backgroundColor: Colors.accent, paddingHorizontal: Spacing.xxl, paddingVertical: Spacing.md, borderRadius: BorderRadius.md },
   btnText: { color: '#fff', fontWeight: FontWeight.bold },
