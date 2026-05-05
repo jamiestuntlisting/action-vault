@@ -7,12 +7,50 @@
 // (reel id + rating) underneath when expanded. The legacy reel-aggregate
 // data still comes back from the API for the optional secondary view.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 import { useAppState } from '../../services/AppState';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { skillReels } from '../../services/StuntListingService';
+import discoveredStuntReelsData from '../../data/stunt-reels.json';
+
+const STUNT_ENTRY_ID = 'stunt-monthly';
+
+// Reel-id → performer-name lookup. For stunt votes the reelId is a YouTube
+// id; we resolve to the channelName from the cron-discovered set. For skill
+// votes the reelId is a SkillReel internal id; we resolve to the StuntListing
+// performer's name. Falls back to the raw id if no match (e.g. a vote on a
+// reel that has since been removed).
+function buildReelLabelMap(): Record<string, string> {
+  const map: Record<string, string> = {};
+  const stunts = (discoveredStuntReelsData as any).reels || [];
+  for (const r of stunts) {
+    if (!r?.youtubeId) continue;
+    map[r.youtubeId] = r.channelName || r.title || r.youtubeId;
+  }
+  for (const r of skillReels) {
+    if (!r?.id) continue;
+    map[r.id] = r.name || r.skill || r.id;
+  }
+  return map;
+}
+
+// Friendly entry-header from a raw entryId. Stunt votes use the literal
+// `stunt-monthly`; skill votes use ids like `rom-skill-2026-05-1714947293000`
+// (see AdminReelOfTheMonthScreen). We map both to user-facing copy.
+function entryDisplayName(entryId: string, settingsEntries: any[]): string {
+  if (entryId === STUNT_ENTRY_ID) return 'Stunt Reel of the Month';
+  if (entryId.startsWith('rom-skill-')) {
+    const match = settingsEntries.find(e => e.id === entryId);
+    if (match) {
+      return `Skill Reel of the Month — ${match.skill} (${match.month})`;
+    }
+    return 'Skill Reel of the Month';
+  }
+  return entryId;
+}
 
 const API_BASE = Platform.OS === 'web' ? '' : 'https://action-vault-blond.vercel.app';
 
@@ -60,6 +98,35 @@ export function AdminVotingResultsScreen({ navigation }: any) {
 
   const userEmail = state.currentUser?.email?.toLowerCase() || '';
   const isAdmin = ADMIN_EMAILS.includes(userEmail);
+
+  // youtubeId / skill-reel-id → performer name. Built once per render.
+  const reelLabels = useMemo(() => buildReelLabelMap(), []);
+  const settingsEntries = state.settings.reelOfMonthEntries || [];
+
+  // Make sure both Stunt Reel of the Month and any live Skill Reel of the
+  // Month entries get a section, even when no votes have been cast yet —
+  // Jamie wants both surfaced ("There should be voting for skill reels and
+  // stunt reels"), not only the entries that already have data.
+  const displayEntries = useMemo(() => {
+    const fromApi = data?.entries || [];
+    const present = new Set(fromApi.map(e => e.entryId));
+    const filler: any[] = [];
+    if (!present.has(STUNT_ENTRY_ID)) {
+      filler.push({ entryId: STUNT_ENTRY_ID, totalVotes: 0, uniqueVoters: 0, reels: [], voters: [] });
+    }
+    for (const entry of settingsEntries) {
+      if (entry.category === 'skill' && entry.status === 'live' && !present.has(entry.id)) {
+        filler.push({ entryId: entry.id, totalVotes: 0, uniqueVoters: 0, reels: [], voters: [] });
+      }
+    }
+    // Stunt first, then skill entries.
+    return [
+      ...fromApi.filter(e => e.entryId === STUNT_ENTRY_ID),
+      ...filler.filter(e => e.entryId === STUNT_ENTRY_ID),
+      ...fromApi.filter(e => e.entryId !== STUNT_ENTRY_ID),
+      ...filler.filter(e => e.entryId !== STUNT_ENTRY_ID),
+    ];
+  }, [data, settingsEntries]);
 
   async function fetchResults() {
     if (!state.authToken) {
@@ -124,16 +191,16 @@ export function AdminVotingResultsScreen({ navigation }: any) {
           </View>
         )}
 
-        {data?.entries.map(entry => {
+        {displayEntries.map(entry => {
           // Per-entry reel-id → average map for the voter rows so they can
           // show "+X above avg" / "−Y below avg" context next to each rating.
           const reelAvg = new Map<string, number>();
           for (const r of entry.reels || []) reelAvg.set(r.reelId, r.average);
           return (
             <View key={entry.entryId} style={styles.entryBlock}>
-              <Text style={styles.entryTitle}>{entry.entryId}</Text>
+              <Text style={styles.entryTitle}>{entryDisplayName(entry.entryId, settingsEntries)}</Text>
               <Text style={styles.entryMeta}>
-                {entry.totalVotes} votes · {entry.uniqueVoters} unique voter{entry.uniqueVoters === 1 ? '' : 's'}
+                {entry.totalVotes} vote{entry.totalVotes === 1 ? '' : 's'} · {entry.uniqueVoters} unique voter{entry.uniqueVoters === 1 ? '' : 's'}
               </Text>
 
               {(!entry.voters || entry.voters.length === 0) ? (
@@ -168,9 +235,10 @@ export function AdminVotingResultsScreen({ navigation }: any) {
                           {voter.votes.map(v => {
                             const avg = reelAvg.get(v.reelId);
                             const delta = avg != null ? Math.round((v.rating - avg) * 10) / 10 : null;
+                            const performerLabel = reelLabels[v.reelId] || v.reelId;
                             return (
                               <View key={v.reelId} style={styles.voteRow}>
-                                <Text style={styles.voteReelId} numberOfLines={1}>{v.reelId}</Text>
+                                <Text style={styles.voteReelId} numberOfLines={1}>{performerLabel}</Text>
                                 {delta != null && delta !== 0 && (
                                   <Text style={[styles.voteDelta, { color: delta > 0 ? '#4ade80' : '#f87171' }]}>
                                     {delta > 0 ? '+' : ''}{delta.toFixed(1)} vs avg
@@ -190,7 +258,7 @@ export function AdminVotingResultsScreen({ navigation }: any) {
           );
         })}
 
-        {!loading && !error && (data?.entries.length === 0 || !data) && (
+        {!loading && !error && displayEntries.length === 0 && (
           <Text style={styles.empty}>No votes recorded yet. Once members rate reels, results will appear here.</Text>
         )}
       </View>

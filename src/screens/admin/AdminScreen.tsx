@@ -687,14 +687,35 @@ export function AdminScreen({ navigation }: any) {
   // `label` is for the narrow horizontal-tabs layout (more room).
   // `shortLabel` is for the 70px sidebar (must fit two short lines).
   const pageDefs: Array<{ key: string; label: string; shortLabel: string; icon: any; tabKey: AdminTab; route: string }> = [
-    { key: 'reelOfMonth',   label: 'Reel of the Month',    shortLabel: 'Reel of\nMonth', icon: 'trophy-outline',    tabKey: 'page-reelOfMonth',   route: 'AdminReelOfTheMonth' },
-    { key: 'votingResults', label: 'Voting Results',       shortLabel: 'Votes',          icon: 'bar-chart-outline', tabKey: 'page-votingResults', route: 'AdminVotingResults' },
-    { key: 'matcher',       label: 'Stunt ↔ StuntListing', shortLabel: 'Matcher',        icon: 'link-outline',      tabKey: 'page-matcher',       route: 'AdminStuntReelMatcher' },
-    { key: 'health',        label: 'Health Check',         shortLabel: 'Health',         icon: 'pulse-outline',     tabKey: 'page-health',        route: 'AdminHealthCheck' },
+    { key: 'reelOfMonth',   label: 'Reel of the Month',    shortLabel: 'Reel',    icon: 'trophy-outline',    tabKey: 'page-reelOfMonth',   route: 'AdminReelOfTheMonth' },
+    { key: 'votingResults', label: 'Voting Results',       shortLabel: 'Votes',   icon: 'bar-chart-outline', tabKey: 'page-votingResults', route: 'AdminVotingResults' },
+    { key: 'matcher',       label: 'Stunt ↔ StuntListing', shortLabel: 'Match',   icon: 'link-outline',      tabKey: 'page-matcher',       route: 'AdminStuntReelMatcher' },
+    { key: 'health',        label: 'Health Check',         shortLabel: 'Health',  icon: 'pulse-outline',     tabKey: 'page-health',        route: 'AdminHealthCheck' },
   ];
 
   // One unified row style — page links and tabs both use this so the
   // sidebar reads as a single nav, just with section headers between groups.
+  // Tab labels at this 64px rail need a short form too — multi-word
+  // labels like "By Production" / "Atlas Action" render as 3-line wraps
+  // otherwise. Map a few here; the rest reuse `tab.label`.
+  const TAB_SHORT_LABELS: Record<string, string> = {
+    submissions: 'Subs',
+    byproduction: 'Prod',
+    bytag: 'Tags',
+    categories: 'Cats',
+    atlas: 'Atlas',
+    podcasts: 'Pods',
+    reviews: 'Revs',
+    flags: 'Flags',
+    stats: 'Stats',
+  };
+  const tabShortLabel = (tab: TabDef) => {
+    const short = TAB_SHORT_LABELS[tab.key];
+    if (!short) return tab.label;
+    if (tab.key === 'submissions' && pendingSubmissions > 0) return `${short} (${pendingSubmissions})`;
+    return short;
+  };
+
   const renderSidebarTab = (tab: TabDef) => {
     const active = activeTab === tab.key;
     const submissionsHighlight = tab.key === 'submissions' && pendingSubmissions > 0 && !active;
@@ -706,14 +727,14 @@ export function AdminScreen({ navigation }: any) {
       >
         <Ionicons
           name={tab.icon}
-          size={20}
+          size={18}
           color={active ? '#fff' : submissionsHighlight ? '#f59e0b' : Colors.textSecondary}
         />
         <Text
           style={[styles.sidebarTabText, active && styles.sidebarTabTextActive, submissionsHighlight && { color: '#f59e0b' }]}
           numberOfLines={2}
         >
-          {tab.label}
+          {tabShortLabel(tab)}
         </Text>
       </TouchableOpacity>
     );
@@ -731,7 +752,7 @@ export function AdminScreen({ navigation }: any) {
           else navigation.navigate(p.route);
         }}
       >
-        <Ionicons name={p.icon} size={20} color={active ? '#fff' : Colors.textSecondary} />
+        <Ionicons name={p.icon} size={18} color={active ? '#fff' : Colors.textSecondary} />
         <Text style={[styles.sidebarTabText, active && styles.sidebarTabTextActive]} numberOfLines={2}>{p.shortLabel}</Text>
       </TouchableOpacity>
     );
@@ -778,16 +799,21 @@ export function AdminScreen({ navigation }: any) {
               section headers separate page-level destinations from tabs
               and group tabs by purpose. */}
           {useSidebar && (
-            <ScrollView style={styles.sidebar} contentContainerStyle={{ paddingBottom: Spacing.xxl }}>
-              <Text style={styles.sidebarSectionLabel}>Admin pages</Text>
-              {pageDefs.map(renderSidebarPageRow)}
-              {tabSections.map(s => (
-                <View key={s.section}>
-                  <Text style={styles.sidebarSectionLabel}>{s.section}</Text>
-                  {s.items.map(renderSidebarTab)}
-                </View>
-              ))}
-            </ScrollView>
+            // Wrap the ScrollView in a fixed-width View — RN-Web's ScrollView
+            // doesn't always respect a `width` style on itself in flex rows
+            // (it can stretch to content). The wrapper enforces 64px hard.
+            <View style={styles.sidebar}>
+              <ScrollView contentContainerStyle={{ paddingBottom: Spacing.xxl, paddingTop: 4 }}>
+                <Text style={styles.sidebarSectionLabel}>Admin</Text>
+                {pageDefs.map(renderSidebarPageRow)}
+                {tabSections.map(s => (
+                  <View key={s.section}>
+                    <Text style={styles.sidebarSectionLabel}>{s.section}</Text>
+                    {s.items.map(renderSidebarTab)}
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
           )}
 
           {/* Embedded admin page screens — render directly (NOT inside the
@@ -2564,15 +2590,20 @@ const styles = StyleSheet.create({
   // Sidebar layout, used on viewports ≥ 900px wide. Tightened to the
   // minimum width that comfortably fits "Stunt ↔ StuntListing" on one
   // line — Jamie wanted the content panel to get more room back.
-  bodyRow: { flex: 1, flexDirection: 'row' },
-  // Minimum-width sidebar (70px). Rows stack icon over a tiny 2-line label
-  // so the rail stays narrow while still being self-documenting.
+  bodyRow: { flex: 1, flexDirection: 'row', alignItems: 'stretch' },
+  // Hard-pinned 64px rail. flexShrink: 0 + flexGrow: 0 + flexBasis: 64
+  // covers RN-Web's flex defaults that previously let the ScrollView
+  // stretch to fit its content (≈ 400px in the wild).
   sidebar: {
-    width: 70,
-    paddingHorizontal: 2,
-    paddingTop: 4,
+    width: 64,
+    minWidth: 64,
+    maxWidth: 64,
+    flexBasis: 64,
+    flexGrow: 0,
+    flexShrink: 0,
     borderRightWidth: 1,
     borderRightColor: Colors.divider,
+    overflow: 'hidden',
   },
   sidebarSectionLabel: {
     color: Colors.textTertiary,
@@ -2584,7 +2615,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     textAlign: 'center',
   },
-  // Unified sidebar row — vertical stack so labels fit at 70px width.
+  // Unified sidebar row — vertical stack so labels fit at 64px width.
   sidebarTab: {
     flexDirection: 'column',
     alignItems: 'center',
@@ -2598,8 +2629,8 @@ const styles = StyleSheet.create({
   sidebarTabActive: { backgroundColor: Colors.primary },
   sidebarTabText: {
     color: Colors.textSecondary,
-    fontSize: 10,
-    lineHeight: 12,
+    fontSize: 9,
+    lineHeight: 11,
     fontWeight: FontWeight.medium,
     textAlign: 'center',
   },
