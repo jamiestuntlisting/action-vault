@@ -1,17 +1,11 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-05T16:28:50.483Z",
+  "lastUpdatedAt": "2026-05-05T16:29:02.656Z",
   "overrides": [
     {
       "youtubeId": "WpvuMhHqT5Q",
       "setBy": "james.northrup@gmail.com",
       "setAt": "2026-05-05T16:28:47.810Z",
-      "notOnStuntListing": true
-    },
-    {
-      "youtubeId": "lz4KiAJfZbY",
-      "setBy": "james.northrup@gmail.com",
-      "setAt": "2026-05-05T16:28:50.483Z",
       "notOnStuntListing": true
     }
   ]
