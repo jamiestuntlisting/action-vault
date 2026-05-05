@@ -1,5 +1,5 @@
-import React, { useRef, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, PanResponder, GestureResponderEvent } from 'react-native';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, PanResponder, GestureResponderEvent, Platform } from 'react-native';
 import { Colors, FontSize, FontWeight, BorderRadius } from '../theme';
 
 interface VerticalRatingSliderProps {
@@ -57,7 +57,10 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
   ).current;
 
   const pct = (value - MIN) / STEPS;
-  const thumbY = trackHeight - pct * trackHeight - THUMB_SIZE / 2;
+  // Thumb's CENTER aligns with the value tick; previously the formula put
+  // the thumb's TOP there, which made the value-10 thumb visually sit
+  // halfway below the "10" label (off the chart, per Jamie's feedback).
+  const thumbCenterY = trackHeight - pct * trackHeight;
   const fillHeight = pct * trackHeight;
 
   const ticks = [];
@@ -66,15 +69,60 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
     const tickY = trackHeight - tickPct * trackHeight;
     const isNoScore = i === 0;
     ticks.push(
-      <View key={i} style={[styles.tickRow, { top: tickY - 8, width: isNoScore ? 100 : 60 }]} pointerEvents="none">
-        <Text style={[styles.tickLabel, isNoScore && styles.tickLabelNoScore]}>{isNoScore ? 'No score' : i}</Text>
+      // Right-anchor the row so the tick MARK lands at the same x for every
+      // row regardless of label width (otherwise "No score" pushed its mark
+      // far to the right of the numeric ticks').
+      <View key={i} style={[styles.tickRow, { top: tickY - 8 }]} pointerEvents="none">
+        <Text
+          style={[styles.tickLabel, isNoScore && styles.tickLabelNoScore]}
+          numberOfLines={1}
+        >
+          {isNoScore ? 'No score' : i}
+        </Text>
         <View style={styles.tickMark} />
       </View>,
     );
   }
 
+  // Web keyboard support: arrow keys nudge the rating ±1.
+  // Up/Right increases, Down/Left decreases. Active when the slider has DOM focus.
+  const containerWebRef = useRef<any>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const node: any = containerWebRef.current;
+    if (!node) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (disabled) return;
+      // Only react when the slider (or a child) is focused.
+      if (!node.contains(document.activeElement) && document.activeElement !== node) return;
+      let next = value;
+      if (e.key === 'ArrowUp' || e.key === 'ArrowRight') next = Math.min(MAX, value + 1);
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') next = Math.max(MIN, value - 1);
+      else if (e.key === 'Home') next = MIN;
+      else if (e.key === 'End') next = MAX;
+      else return;
+      e.preventDefault();
+      if (next !== value) onChange(next);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [value, disabled, onChange]);
+
+  // Web-only props for keyboard focus + ARIA semantics.
+  const webProps: any = Platform.OS === 'web'
+    ? {
+        ref: containerWebRef,
+        tabIndex: disabled ? -1 : 0,
+        role: 'slider',
+        'aria-valuemin': MIN,
+        'aria-valuemax': MAX,
+        'aria-valuenow': value,
+        'aria-disabled': disabled,
+      }
+    : {};
+
   return (
-    <View style={styles.container}>
+    <View style={styles.container} {...webProps}>
       <Text style={[styles.readout, value === 0 && styles.readoutNoScore]}>
         {value === 0 ? 'No score' : value}
       </Text>
@@ -92,7 +140,12 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
           style={[
             styles.thumb,
             {
-              top: thumbY + THUMB_SIZE / 2,
+              // Thumb's center sits at the value's tick. Track has
+              // marginTop: THUMB_SIZE/2 within sliderArea, so a track-local
+              // y of thumbCenterY lands at sliderArea-local y of
+              // thumbCenterY + THUMB_SIZE/2; subtract THUMB_SIZE/2 to get
+              // the thumb's top → cancels to thumbCenterY.
+              top: thumbCenterY,
               transform: [{ scale: dragging ? 1.15 : 1 }],
               backgroundColor: disabled ? Colors.textMuted : Colors.accent,
             },
@@ -126,8 +179,6 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: FontSize.xs,
     fontStyle: 'italic',
-    width: 76,
-    textAlign: 'right',
   },
   sliderArea: {
     position: 'relative',
@@ -154,7 +205,6 @@ const styles = StyleSheet.create({
     height: THUMB_SIZE,
     borderRadius: THUMB_SIZE / 2,
     left: (170 - THUMB_SIZE) / 2,
-    marginTop: -THUMB_SIZE / 2,
     borderWidth: 3,
     borderColor: '#fff',
     shadowColor: '#000',
@@ -163,20 +213,19 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
+  // Right-anchor each tick row so the tickMark column sits at the same x
+  // for every tick, regardless of whether the label is "10" or "No score".
   tickRow: {
     position: 'absolute',
     flexDirection: 'row',
     alignItems: 'center',
+    right: (170 - TRACK_WIDTH) / 2 + TRACK_WIDTH + 6, // align mark to track's left edge + small gap
     gap: 6,
-    left: 20,
-    width: 60,
   },
   tickLabel: {
     color: Colors.textTertiary,
     fontSize: FontSize.sm,
     fontWeight: FontWeight.medium,
-    width: 16,
-    textAlign: 'right',
   },
   tickMark: {
     width: 8,

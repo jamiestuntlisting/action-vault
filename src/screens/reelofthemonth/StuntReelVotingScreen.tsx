@@ -14,6 +14,20 @@ const MAX_WIDTH = 960;
 // discriminates them. Same scheme used by the skill flow.
 const STUNT_ENTRY_ID = 'stunt-monthly';
 
+// Same allowlist as AdminScreen / AdminReelOfTheMonthScreen. Used here to
+// surface the "Remove video" admin action right on the voting page so the
+// admin can cull a junk reel mid-rating without bouncing to the matcher.
+const ADMIN_EMAILS = [
+  'james.northrup@gmail.com',
+  'warrenhullstunts@gmail.com',
+  'greg@stuntlisting.com',
+  'info@stuntlisting.com',
+  'jamie@stuntlisting.com',
+  'warren@stuntlisting.com',
+];
+
+const API_BASE = Platform.OS === 'web' ? '' : 'https://action-vault-blond.vercel.app';
+
 // Shape of each entry in src/data/stunt-reels.json — written by the daily
 // cron at api/cron/discover-stunt-reels (and seeded in this commit by the
 // initial backfill). Stays in sync with the cron's output schema.
@@ -76,8 +90,40 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
 
   const [rating, setRating] = useState<number>(existingVote?.rating ?? 0);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const sliderForRef = useRef<{ entryId: string; reelId: string } | null>(null);
   const hasInteractedRef = useRef(false);
+
+  const isAdmin = ADMIN_EMAILS.includes((state.currentUser?.email || '').toLowerCase());
+
+  // Admin-only: hide a reel from this voting list (and from the home
+  // montage). Calls the same exclude endpoint the admin matcher uses.
+  // Confirms first since this is destructive (visible to all users
+  // after the next deploy).
+  async function removeCurrentReel() {
+    if (!activeReel || !state.authToken) return;
+    const ok = Platform.OS === 'web'
+      ? typeof window !== 'undefined' && window.confirm
+        ? window.confirm(`Remove this reel from display and block it from showing again?\n\n${activeReel.title}`)
+        : true
+      : true;
+    if (!ok) return;
+    setRemovingId(activeReel.youtubeId);
+    try {
+      await fetch(`${API_BASE}/api/admin/exclude-stunt-reel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.authToken}` },
+        body: JSON.stringify({ youtubeId: activeReel.youtubeId, excluded: true }),
+      });
+      // Optimistic local skip — advance to the next reel; the bundled JSON
+      // catches up on next deploy.
+      setActiveReelIdx(i => Math.min(reels.length - 2, i));
+    } catch (e) {
+      // Non-fatal — admin can retry from the matcher screen.
+    } finally {
+      setRemovingId(null);
+    }
+  }
 
   useEffect(() => {
     if (!activeReel) return;
@@ -114,8 +160,7 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
       }
       // Fire-and-forget server-side vote sync (admin aggregator reads from here).
       if (state.authToken) {
-        const apiBase = Platform.OS === 'web' ? '' : 'https://action-vault-blond.vercel.app';
-        fetch(`${apiBase}/api/votes/submit`, {
+        fetch(`${API_BASE}/api/votes/submit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.authToken}` },
           body: JSON.stringify({ entryId: STUNT_ENTRY_ID, reelId: activeReel.youtubeId, rating }),
@@ -193,9 +238,9 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
   const embedUrl = activeReel.youtubeId ? `https://www.youtube.com/embed/${activeReel.youtubeId}` : null;
   const watchUrl = activeReel.youtubeId ? `https://www.youtube.com/watch?v=${activeReel.youtubeId}` : null;
   const goPrev = () => setActiveReelIdx(i => Math.max(0, i - 1));
-  const goNext = () => setActiveReelIdx(i => Math.min(reels.length - 1, i + 1));
+  const atEnd = activeReelIdx >= reels.length - 1;
+  const goNext = () => setActiveReelIdx(i => atEnd ? 0 : i + 1);
   const canGoPrev = activeReelIdx > 0;
-  const canGoNext = activeReelIdx < reels.length - 1;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
@@ -248,11 +293,9 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
                   <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
                   <Text style={styles.saveText}>{rating >= 1 ? 'Saved' : 'Score cleared'}</Text>
                 </>
-              ) : (
-                <Text style={styles.saveHint}>
-                  {rating >= 1 ? 'Auto-saves as you slide' : 'Slide up to score · stays at No score otherwise'}
-                </Text>
-              )}
+              ) : rating === 0 ? (
+                <Text style={styles.saveHint}>Slide up to score · stays at No score otherwise</Text>
+              ) : null}
             </View>
           </View>
         </View>
@@ -272,13 +315,12 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
             {Math.min(activeReelIdx + 1, reels.length)} of {reels.length}
           </Text>
           <TouchableOpacity
-            style={[styles.prevNextBtn, !canGoNext && styles.prevNextBtnDisabled]}
+            style={styles.prevNextBtn}
             onPress={goNext}
-            disabled={!canGoNext}
             activeOpacity={0.7}
           >
-            <Text style={[styles.prevNextText, !canGoNext && styles.prevNextTextDisabled]}>Next reel</Text>
-            <Ionicons name="chevron-forward" size={18} color={canGoNext ? Colors.textPrimary : Colors.textMuted} />
+            <Text style={styles.prevNextText}>{atEnd ? 'Return to first reel' : 'Next reel'}</Text>
+            <Ionicons name={atEnd ? 'refresh' : 'chevron-forward'} size={18} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -292,6 +334,19 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
             {activeReel.publishedAt.slice(0, 10)} · {Math.round(activeReel.durationSeconds)}s · {activeReel.viewCount.toLocaleString()} views
           </Text>
           {activeReel.title ? <Text style={styles.contextLine}>{activeReel.title}</Text> : null}
+          {isAdmin && (
+            <TouchableOpacity
+              onPress={removeCurrentReel}
+              disabled={removingId === activeReel.youtubeId}
+              style={styles.adminRemoveBtn}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="trash-outline" size={14} color={Colors.error} />
+              <Text style={styles.adminRemoveText}>
+                {removingId === activeReel.youtubeId ? 'Removing…' : 'Admin: remove this video'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <Text style={styles.chooserLabel}>All {reels.length} reels in this {scope === 'all' ? 'list' : 'month'}</Text>
@@ -453,6 +508,20 @@ const styles = StyleSheet.create({
   performerName: { color: Colors.textPrimary, fontSize: FontSize.lg, fontWeight: FontWeight.bold },
   performerRole: { color: Colors.textTertiary, fontSize: FontSize.sm, marginTop: 2 },
   contextLine: { color: Colors.textSecondary, fontSize: FontSize.sm, marginTop: Spacing.xs },
+  adminRemoveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: Spacing.md,
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: 'rgba(238,45,36,0.12)',
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(238,45,36,0.4)',
+  },
+  adminRemoveText: { color: Colors.error, fontSize: FontSize.xs, fontWeight: FontWeight.semibold },
   chooserLabel: { color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.semibold, marginTop: Spacing.lg, marginBottom: Spacing.sm },
   chooserWrap: { position: 'relative' },
   chooserRow: { gap: Spacing.sm, paddingVertical: 4 },

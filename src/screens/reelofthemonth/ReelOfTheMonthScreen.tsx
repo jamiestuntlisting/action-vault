@@ -184,9 +184,11 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
   const monthLabel = `${MONTH_NAMES[m - 1]} ${y}`;
   const nextRevealLabel = `${nextMonthLabel(liveEntry.month)} 1`;
   const goPrev = () => setActiveReelIdx(i => Math.max(0, i - 1));
-  const goNext = () => setActiveReelIdx(i => Math.min(reels.length - 1, i + 1));
+  // At the end of the list, "Next reel" loops back to the first instead of
+  // dead-ending the user.
+  const atEnd = activeReelIdx >= reels.length - 1;
+  const goNext = () => setActiveReelIdx(i => atEnd ? 0 : i + 1);
   const canGoPrev = activeReelIdx > 0;
-  const canGoNext = activeReelIdx < reels.length - 1;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
@@ -244,11 +246,9 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
                     {rating >= 1 ? 'Saved' : 'Score cleared'}
                   </Text>
                 </>
-              ) : (
-                <Text style={styles.saveHint}>
-                  {rating >= 1 ? 'Auto-saves as you slide' : 'Slide up to score · stays at No score otherwise'}
-                </Text>
-              )}
+              ) : rating === 0 ? (
+                <Text style={styles.saveHint}>Slide up to score · stays at No score otherwise</Text>
+              ) : null}
             </View>
           </View>
         </View>
@@ -268,13 +268,12 @@ export function ReelOfTheMonthScreen({ navigation }: any) {
             {Math.min(activeReelIdx + 1, reels.length)} of {reels.length}
           </Text>
           <TouchableOpacity
-            style={[styles.prevNextBtn, !canGoNext && styles.prevNextBtnDisabled]}
+            style={styles.prevNextBtn}
             onPress={goNext}
-            disabled={!canGoNext}
             activeOpacity={0.7}
           >
-            <Text style={[styles.prevNextText, !canGoNext && styles.prevNextTextDisabled]}>Next reel</Text>
-            <Ionicons name="chevron-forward" size={18} color={canGoNext ? Colors.textPrimary : Colors.textMuted} />
+            <Text style={styles.prevNextText}>{atEnd ? 'Return to first reel' : 'Next reel'}</Text>
+            <Ionicons name={atEnd ? 'refresh' : 'chevron-forward'} size={18} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
