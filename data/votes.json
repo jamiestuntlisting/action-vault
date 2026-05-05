@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-05T13:51:17.665Z",
+  "lastUpdatedAt": "2026-05-05T13:51:19.301Z",
   "votes": [
     {
       "userId": 33,
@@ -37,9 +37,9 @@
       "roles": "admin",
       "entryId": "stunt-monthly",
       "reelId": "q-UDAJC65uE",
-      "rating": 4,
+      "rating": 6,
       "createdAt": "2026-05-05T13:51:16.313Z",
-      "updatedAt": "2026-05-05T13:51:17.665Z"
+      "updatedAt": "2026-05-05T13:51:19.301Z"
     }
   ]
 }
