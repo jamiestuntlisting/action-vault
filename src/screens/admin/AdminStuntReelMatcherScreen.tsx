@@ -67,7 +67,9 @@ export function AdminStuntReelMatcherScreen({ navigation, route }: any) {
   } | null>(null);
 
   const userEmail = state.currentUser?.email?.toLowerCase() || '';
-  const isAdmin = ADMIN_EMAILS.includes(userEmail);
+  // Honor the "View as user" toggle so admin-preview mode locks this
+  // page out the same way it does for a real non-admin.
+  const isAdmin = ADMIN_EMAILS.includes(userEmail) && !state.settings.adminViewAsUser;
 
   async function fetchMatches(s: 'month' | 'all' = scope) {
     if (!state.authToken) {

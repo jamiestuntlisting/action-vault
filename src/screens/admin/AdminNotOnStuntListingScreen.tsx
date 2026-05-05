@@ -62,7 +62,7 @@ export function AdminNotOnStuntListingScreen({ navigation }: any) {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const userEmail = state.currentUser?.email?.toLowerCase() || '';
-  const isAdmin = ADMIN_EMAILS.includes(userEmail);
+  const isAdmin = ADMIN_EMAILS.includes(userEmail) && !state.settings.adminViewAsUser;
 
   // The matcher endpoint returns ALL reels with their match status. Anyone
   // without a match (no auto-hit AND no manual override) AND not excluded

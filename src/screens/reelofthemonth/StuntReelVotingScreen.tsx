@@ -132,7 +132,11 @@ export function StuntReelVotingScreen({ navigation, route }: any) {
     return () => { cancelled = true; };
   }, [activeReel?.youtubeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isAdmin = ADMIN_EMAILS.includes((state.currentUser?.email || '').toLowerCase());
+  // Real admin allowlist + the "View as user" toggle suppresses admin
+  // chrome (Jamie reported the Admin: remove this video button still
+  // showed in user preview mode).
+  const realIsAdmin = ADMIN_EMAILS.includes((state.currentUser?.email || '').toLowerCase());
+  const isAdmin = realIsAdmin && !state.settings.adminViewAsUser;
 
   // Per-reel "locally excluded" state — admin clicks Remove and we set the
   // server flag AND remember locally so this view can grey the reel out

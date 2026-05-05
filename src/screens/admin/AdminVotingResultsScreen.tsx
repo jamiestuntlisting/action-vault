@@ -97,7 +97,7 @@ export function AdminVotingResultsScreen({ navigation }: any) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const userEmail = state.currentUser?.email?.toLowerCase() || '';
-  const isAdmin = ADMIN_EMAILS.includes(userEmail);
+  const isAdmin = ADMIN_EMAILS.includes(userEmail) && !state.settings.adminViewAsUser;
 
   // youtubeId / skill-reel-id → performer name. Built once per render.
   const reelLabels = useMemo(() => buildReelLabelMap(), []);

@@ -155,9 +155,11 @@ export function AdminScreen({ navigation, route }: any) {
   usePageTitle('Admin Panel');
   const { state, dispatch } = useAppState();
 
-  // Admin email check
+  // Admin email check + honor the "View as user" toggle so the panel
+  // also locks out when an admin is previewing the user experience.
   const currentUserEmail = state.currentUser?.email;
-  if (!currentUserEmail || !ADMIN_EMAILS.includes(currentUserEmail.toLowerCase())) {
+  const isRealAdmin = !!currentUserEmail && ADMIN_EMAILS.includes(currentUserEmail.toLowerCase());
+  if (!isRealAdmin || state.settings.adminViewAsUser) {
     return (
       <View style={{ flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center', padding: Spacing.xl }}>
         <Ionicons name="lock-closed" size={64} color={Colors.textMuted} />

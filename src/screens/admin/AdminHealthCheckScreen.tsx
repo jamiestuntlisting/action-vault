@@ -41,7 +41,7 @@ export function AdminHealthCheckScreen({ navigation }: any) {
   const [data, setData] = useState<HealthResponse | null>(null);
 
   const userEmail = state.currentUser?.email?.toLowerCase() || '';
-  const isAdmin = ADMIN_EMAILS.includes(userEmail);
+  const isAdmin = ADMIN_EMAILS.includes(userEmail) && !state.settings.adminViewAsUser;
 
   async function run() {
     if (!state.authToken) {
