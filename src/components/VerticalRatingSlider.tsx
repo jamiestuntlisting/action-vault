@@ -69,7 +69,10 @@ export function VerticalRatingSlider({ value, onChange, height = 320, disabled =
     ticks.push(
       // Right-anchor the row so each tick MARK lands at the same x —
       // "No score" used to push its mark right of the numeric ticks'.
-      <View key={i} style={[styles.tickRow, { top: tickY - 8 }]} pointerEvents="none">
+      // Offset by THUMB_SIZE/2 so the label center aligns with the
+      // track's marginTop-shifted value position (the track is rendered
+      // 16px below sliderArea's top edge).
+      <View key={i} style={[styles.tickRow, { top: tickY - 8 + THUMB_SIZE / 2 }]} pointerEvents="none">
         <Text
           style={[styles.tickLabel, isNoScore && styles.tickLabelNoScore]}
           numberOfLines={1}

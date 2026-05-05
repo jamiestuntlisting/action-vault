@@ -2559,12 +2559,14 @@ const styles = StyleSheet.create({
   tabText: { color: Colors.textSecondary, fontSize: FontSize.md, fontWeight: FontWeight.medium },
   tabTextActive: { color: '#fff' },
   content: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
-  // Sidebar layout, used on viewports ≥ 900px wide.
+  // Sidebar layout, used on viewports ≥ 900px wide. Tightened to the
+  // minimum width that comfortably fits "Stunt ↔ StuntListing" on one
+  // line — Jamie wanted the content panel to get more room back.
   bodyRow: { flex: 1, flexDirection: 'row' },
   sidebar: {
-    width: 180,
-    paddingLeft: Spacing.md,
-    paddingRight: Spacing.sm,
+    width: 140,
+    paddingLeft: Spacing.sm,
+    paddingRight: 4,
     paddingTop: Spacing.sm,
     borderRightWidth: 1,
     borderRightColor: Colors.divider,
@@ -2576,21 +2578,20 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: Spacing.md,
-    marginBottom: Spacing.xs,
+    marginBottom: 2,
   },
-  // Unified sidebar row — used by both page links and tabs. Active state
-  // (only meaningful for tabs) flips background to the primary fill.
+  // Unified sidebar row — used by both page links and tabs.
   sidebarTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
     borderRadius: BorderRadius.sm,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   sidebarTabActive: { backgroundColor: Colors.primary },
-  sidebarTabText: { color: Colors.textSecondary, fontSize: FontSize.sm, fontWeight: FontWeight.medium, flex: 1 },
+  sidebarTabText: { color: Colors.textSecondary, fontSize: 13, fontWeight: FontWeight.medium, flex: 1 },
   sidebarTabTextActive: { color: '#fff', fontWeight: FontWeight.semibold },
   searchInput: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.md, marginBottom: Spacing.md },
   editInput: { backgroundColor: Colors.background, borderRadius: BorderRadius.sm, padding: Spacing.sm, color: Colors.textPrimary, fontSize: FontSize.sm, borderWidth: 1, borderColor: Colors.divider, marginTop: 4 },
