@@ -516,7 +516,7 @@ function reelThumb(r: { thumb: string | null; youtubeId: string | null }): strin
   return null;
 }
 
-function Montage({ thumbs, label, gridSize = 3 }: { thumbs: Array<string | null>; label: string; gridSize?: number }) {
+function Montage({ thumbs, label, title, gridSize = 3 }: { thumbs: Array<string | null>; label: string; title?: string; gridSize?: number }) {
   const total = gridSize * gridSize;
   const filled = thumbs.filter(Boolean) as string[];
   // Cycle through whatever unique thumbs we have — but only repeat if we
@@ -536,6 +536,13 @@ function Montage({ thumbs, label, gridSize = 3 }: { thumbs: Array<string | null>
         </View>
       ))}
       <View style={homeReelCardStyles.montageOverlay} pointerEvents="none" />
+      {/* Big top-anchored title (e.g. "SKILL REEL OF THE MONTH"). Centered,
+          all-caps, with a strong shadow so it reads on busy thumbnails. */}
+      {title ? (
+        <View style={homeReelCardStyles.montageTitleBlock} pointerEvents="none">
+          <Text style={homeReelCardStyles.montageTitle} numberOfLines={2}>{title}</Text>
+        </View>
+      ) : null}
       <View style={homeReelCardStyles.montageLabelBlock} pointerEvents="none">
         <Text style={homeReelCardStyles.montageLabel} numberOfLines={2}>{label}</Text>
       </View>
@@ -596,7 +603,7 @@ function ReelOfTheMonthEntry({ navigation }: { navigation: any }) {
           onPress={() => navigation.navigate(liveSkill ? 'ReelOfTheMonth' : 'ReelOfTheMonthArchive')}
         >
           {liveSkill ? (
-            <Montage thumbs={skillThumbs} label={liveSkill.skill} />
+            <Montage thumbs={skillThumbs} title="SKILL REEL OF THE MONTH" label={liveSkill.skill} />
           ) : (
             <View style={[homeReelCardStyles.montage, { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceHighlight }]}>
               <Ionicons name="trophy-outline" size={32} color={Colors.textMuted} />
@@ -614,7 +621,7 @@ function ReelOfTheMonthEntry({ navigation }: { navigation: any }) {
           activeOpacity={0.85}
           onPress={() => navigation.navigate('StuntReelVoting', { scope: 'month' })}
         >
-          <Montage thumbs={stuntThumbs} label="New this month" />
+          <Montage thumbs={stuntThumbs} title="STUNT REEL OF THE MONTH" label="New this month" />
           <View style={homeReelCardStyles.pillRow}>
             <Text style={homeReelCardStyles.pillLabel}>Stunt</Text>
             <Text style={homeReelCardStyles.cta}>Vote →</Text>
@@ -634,6 +641,18 @@ const homeReelCardStyles = StyleSheet.create({
   montageRow: { flex: 1, flexDirection: 'row' },
   montageCell: { flex: 1, margin: 1, backgroundColor: Colors.surfaceHighlight },
   montageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
+  montageTitleBlock: { position: 'absolute', left: 8, right: 8, top: 8, alignItems: 'center' },
+  montageTitle: {
+    color: '#fff',
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.heavy,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowRadius: 4,
+    textShadowOffset: { width: 0, height: 1 },
+  },
   montageLabelBlock: { position: 'absolute', left: 10, right: 10, bottom: 8 },
   montageLabel: { color: '#fff', fontSize: FontSize.md, fontWeight: FontWeight.bold, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 },
   pillRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingVertical: 6 },

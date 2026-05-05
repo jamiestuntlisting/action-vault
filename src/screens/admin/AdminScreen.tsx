@@ -684,11 +684,13 @@ export function AdminScreen({ navigation }: any) {
   // sidebar layout (so the sidebar persists). `tabKey` is the activeTab
   // state value; `route` is the fallback navigation target for the
   // narrow horizontal-tabs layout where embedding doesn't apply.
-  const pageDefs: Array<{ key: string; label: string; icon: any; tabKey: AdminTab; route: string }> = [
-    { key: 'reelOfMonth',   label: 'Reel of the Month',     icon: 'trophy-outline',    tabKey: 'page-reelOfMonth',   route: 'AdminReelOfTheMonth' },
-    { key: 'votingResults', label: 'Voting Results',        icon: 'bar-chart-outline', tabKey: 'page-votingResults', route: 'AdminVotingResults' },
-    { key: 'matcher',       label: 'Stunt ↔ StuntListing',  icon: 'link-outline',      tabKey: 'page-matcher',       route: 'AdminStuntReelMatcher' },
-    { key: 'health',        label: 'Health Check',          icon: 'pulse-outline',     tabKey: 'page-health',        route: 'AdminHealthCheck' },
+  // `label` is for the narrow horizontal-tabs layout (more room).
+  // `shortLabel` is for the 70px sidebar (must fit two short lines).
+  const pageDefs: Array<{ key: string; label: string; shortLabel: string; icon: any; tabKey: AdminTab; route: string }> = [
+    { key: 'reelOfMonth',   label: 'Reel of the Month',    shortLabel: 'Reel of\nMonth', icon: 'trophy-outline',    tabKey: 'page-reelOfMonth',   route: 'AdminReelOfTheMonth' },
+    { key: 'votingResults', label: 'Voting Results',       shortLabel: 'Votes',          icon: 'bar-chart-outline', tabKey: 'page-votingResults', route: 'AdminVotingResults' },
+    { key: 'matcher',       label: 'Stunt ↔ StuntListing', shortLabel: 'Matcher',        icon: 'link-outline',      tabKey: 'page-matcher',       route: 'AdminStuntReelMatcher' },
+    { key: 'health',        label: 'Health Check',         shortLabel: 'Health',         icon: 'pulse-outline',     tabKey: 'page-health',        route: 'AdminHealthCheck' },
   ];
 
   // One unified row style — page links and tabs both use this so the
@@ -704,12 +706,12 @@ export function AdminScreen({ navigation }: any) {
       >
         <Ionicons
           name={tab.icon}
-          size={16}
+          size={20}
           color={active ? '#fff' : submissionsHighlight ? '#f59e0b' : Colors.textSecondary}
         />
         <Text
           style={[styles.sidebarTabText, active && styles.sidebarTabTextActive, submissionsHighlight && { color: '#f59e0b' }]}
-          numberOfLines={1}
+          numberOfLines={2}
         >
           {tab.label}
         </Text>
@@ -729,8 +731,8 @@ export function AdminScreen({ navigation }: any) {
           else navigation.navigate(p.route);
         }}
       >
-        <Ionicons name={p.icon} size={16} color={active ? '#fff' : Colors.textSecondary} />
-        <Text style={[styles.sidebarTabText, active && styles.sidebarTabTextActive]} numberOfLines={1}>{p.label}</Text>
+        <Ionicons name={p.icon} size={20} color={active ? '#fff' : Colors.textSecondary} />
+        <Text style={[styles.sidebarTabText, active && styles.sidebarTabTextActive]} numberOfLines={2}>{p.shortLabel}</Text>
       </TouchableOpacity>
     );
   };
@@ -2563,35 +2565,44 @@ const styles = StyleSheet.create({
   // minimum width that comfortably fits "Stunt ↔ StuntListing" on one
   // line — Jamie wanted the content panel to get more room back.
   bodyRow: { flex: 1, flexDirection: 'row' },
+  // Minimum-width sidebar (70px). Rows stack icon over a tiny 2-line label
+  // so the rail stays narrow while still being self-documenting.
   sidebar: {
-    width: 140,
-    paddingLeft: Spacing.sm,
-    paddingRight: 4,
-    paddingTop: Spacing.sm,
+    width: 70,
+    paddingHorizontal: 2,
+    paddingTop: 4,
     borderRightWidth: 1,
     borderRightColor: Colors.divider,
   },
   sidebarSectionLabel: {
     color: Colors.textTertiary,
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: FontWeight.bold,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: Spacing.md,
+    letterSpacing: 0.3,
+    marginTop: 8,
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  // Unified sidebar row — vertical stack so labels fit at 70px width.
+  sidebarTab: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+    borderRadius: BorderRadius.sm,
     marginBottom: 2,
   },
-  // Unified sidebar row — used by both page links and tabs.
-  sidebarTab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 6,
-    borderRadius: BorderRadius.sm,
-    marginBottom: 1,
-  },
   sidebarTabActive: { backgroundColor: Colors.primary },
-  sidebarTabText: { color: Colors.textSecondary, fontSize: 13, fontWeight: FontWeight.medium, flex: 1 },
+  sidebarTabText: {
+    color: Colors.textSecondary,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: FontWeight.medium,
+    textAlign: 'center',
+  },
   sidebarTabTextActive: { color: '#fff', fontWeight: FontWeight.semibold },
   searchInput: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.md, marginBottom: Spacing.md },
   editInput: { backgroundColor: Colors.background, borderRadius: BorderRadius.sm, padding: Spacing.sm, color: Colors.textPrimary, fontSize: FontSize.sm, borderWidth: 1, borderColor: Colors.divider, marginTop: 4 },

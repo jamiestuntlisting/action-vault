@@ -118,7 +118,13 @@ async function withDb<T>(fn: (conn: any) => Promise<T>): Promise<T> {
 async function actionVotingResults(req: any, res: any, _profile: any, ghToken: string) {
   const { data } = await readJsonFromRepo(ghToken, VOTES_PATH);
   const votes = (data.votes || []) as any[];
+
+  // Pivot by entry → reel (kept for back-compat) AND by entry → voter
+  // (new primary view: Jamie wants to see voting results by person name,
+  // not by reel id).
   const byEntry: Record<string, Record<string, any>> = {};
+  const byEntryByVoter: Record<string, Record<string, any>> = {};
+
   for (const v of votes) {
     byEntry[v.entryId] = byEntry[v.entryId] || {};
     const bucket = (byEntry[v.entryId][v.reelId] = byEntry[v.entryId][v.reelId] || {
@@ -130,16 +136,48 @@ async function actionVotingResults(req: any, res: any, _profile: any, ghToken: s
       userId: v.userId, userName: v.userName, userEmail: v.userEmail,
       alias: v.alias, unionStatus: v.unionStatus, rating: v.rating, updatedAt: v.updatedAt,
     });
+
+    byEntryByVoter[v.entryId] = byEntryByVoter[v.entryId] || {};
+    const voterKey = String(v.userId ?? v.userEmail ?? v.userName);
+    const voter = (byEntryByVoter[v.entryId][voterKey] = byEntryByVoter[v.entryId][voterKey] || {
+      userId: v.userId,
+      userName: v.userName,
+      userEmail: v.userEmail,
+      alias: v.alias,
+      unionStatus: v.unionStatus,
+      votes: [],
+      sum: 0,
+      lastUpdatedAt: v.updatedAt,
+    });
+    voter.votes.push({ reelId: v.reelId, rating: v.rating, updatedAt: v.updatedAt });
+    voter.sum += v.rating;
+    if (!voter.lastUpdatedAt || (v.updatedAt && v.updatedAt > voter.lastUpdatedAt)) {
+      voter.lastUpdatedAt = v.updatedAt;
+    }
   }
+
   const entries = Object.entries(byEntry).map(([entryId, reels]) => {
     const reelList = Object.values(reels)
       .map((r: any) => ({ ...r, average: r.count > 0 ? Math.round((r.sum / r.count) * 100) / 100 : 0 }))
       .sort((a: any, b: any) => b.average - a.average || b.count - a.count);
+    const voters = Object.values(byEntryByVoter[entryId] || {})
+      .map((v: any) => ({
+        ...v,
+        averageRating: v.votes.length ? Math.round((v.sum / v.votes.length) * 100) / 100 : 0,
+        votes: v.votes
+          .slice()
+          .sort((a: any, b: any) => b.rating - a.rating || String(a.reelId).localeCompare(String(b.reelId))),
+      }))
+      // Sort voters alphabetically by name (the explicit ask: "by person name").
+      .sort((a: any, b: any) =>
+        String(a.userName || '').localeCompare(String(b.userName || ''), undefined, { sensitivity: 'base' })
+      );
     return {
       entryId,
       totalVotes: reelList.reduce((acc: number, r: any) => acc + r.count, 0),
       uniqueVoters: new Set(votes.filter(v => v.entryId === entryId).map(v => v.userId)).size,
       reels: reelList,
+      voters,
     };
   });
   return res.status(200).json({ lastUpdatedAt: data.lastUpdatedAt, totalVotes: votes.length, entries });

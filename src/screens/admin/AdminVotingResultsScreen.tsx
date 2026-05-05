@@ -1,8 +1,13 @@
 // Admin: aggregated voting results across all users for both Skill Reel of
 // the Month and Stunt Reels of the Month. Reads /api/admin/voting-results
 // (server-side aggregation; admin email allowlist enforced there too).
+//
+// View pivots BY PERSON NAME (Jamie's explicit request, May 2026): each
+// entry shows a list of voters alphabetically, with each voter's votes
+// (reel id + rating) underneath when expanded. The legacy reel-aggregate
+// data still comes back from the API for the optional secondary view.
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
@@ -20,26 +25,29 @@ const ADMIN_EMAILS = [
   'warren@stuntlisting.com',
 ];
 
-interface VoteSummary {
+interface ReelSummary {
   reelId: string;
   count: number;
   average: number;
-  voters: Array<{
-    userId: number;
-    userName: string;
-    userEmail: string;
-    alias: string | null;
-    unionStatus: string | null;
-    rating: number;
-    updatedAt: string;
-  }>;
+}
+
+interface VoterSummary {
+  userId: number;
+  userName: string;
+  userEmail: string;
+  alias: string | null;
+  unionStatus: string | null;
+  votes: Array<{ reelId: string; rating: number; updatedAt: string }>;
+  averageRating: number;
+  lastUpdatedAt: string;
 }
 
 interface EntrySummary {
   entryId: string;
   totalVotes: number;
   uniqueVoters: number;
-  reels: VoteSummary[];
+  reels: ReelSummary[];
+  voters: VoterSummary[];
 }
 
 export function AdminVotingResultsScreen({ navigation }: any) {
@@ -48,7 +56,7 @@ export function AdminVotingResultsScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<{ totalVotes: number; lastUpdatedAt: string; entries: EntrySummary[] } | null>(null);
-  const [showVoters, setShowVoters] = useState<Record<string, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const userEmail = state.currentUser?.email?.toLowerCase() || '';
   const isAdmin = ADMIN_EMAILS.includes(userEmail);
@@ -97,7 +105,7 @@ export function AdminVotingResultsScreen({ navigation }: any) {
             <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.eyebrow}>Admin</Text>
+            <Text style={styles.eyebrow}>Admin · By Voter</Text>
             <Text style={styles.title}>Voting Results</Text>
             {data?.lastUpdatedAt && (
               <Text style={styles.subtitle}>{data.totalVotes} total votes · last updated {new Date(data.lastUpdatedAt).toLocaleString()}</Text>
@@ -116,55 +124,71 @@ export function AdminVotingResultsScreen({ navigation }: any) {
           </View>
         )}
 
-        {data?.entries.map(entry => (
-          <View key={entry.entryId} style={styles.entryBlock}>
-            <Text style={styles.entryTitle}>{entry.entryId}</Text>
-            <Text style={styles.entryMeta}>
-              {entry.totalVotes} votes · {entry.uniqueVoters} unique voter{entry.uniqueVoters === 1 ? '' : 's'}
-            </Text>
+        {data?.entries.map(entry => {
+          // Per-entry reel-id → average map for the voter rows so they can
+          // show "+X above avg" / "−Y below avg" context next to each rating.
+          const reelAvg = new Map<string, number>();
+          for (const r of entry.reels || []) reelAvg.set(r.reelId, r.average);
+          return (
+            <View key={entry.entryId} style={styles.entryBlock}>
+              <Text style={styles.entryTitle}>{entry.entryId}</Text>
+              <Text style={styles.entryMeta}>
+                {entry.totalVotes} votes · {entry.uniqueVoters} unique voter{entry.uniqueVoters === 1 ? '' : 's'}
+              </Text>
 
-            {entry.reels.length === 0 ? (
-              <Text style={styles.empty}>No votes for this entry yet.</Text>
-            ) : (
-              entry.reels.map(reel => {
-                const open = showVoters[`${entry.entryId}/${reel.reelId}`];
-                return (
-                  <View key={reel.reelId} style={styles.reelRow}>
-                    <View style={styles.reelLeft}>
-                      <Text style={styles.reelId} numberOfLines={1}>{reel.reelId}</Text>
-                      <Text style={styles.reelMeta}>
-                        {reel.count} vote{reel.count === 1 ? '' : 's'}
-                      </Text>
-                    </View>
-                    <View style={styles.reelRight}>
-                      <Text style={styles.average}>{reel.average.toFixed(2)}</Text>
+              {(!entry.voters || entry.voters.length === 0) ? (
+                <Text style={styles.empty}>No votes for this entry yet.</Text>
+              ) : (
+                entry.voters.map(voter => {
+                  const key = `${entry.entryId}/${voter.userId}`;
+                  const open = !!expanded[key];
+                  return (
+                    <View key={key} style={styles.voterBlock}>
                       <TouchableOpacity
-                        onPress={() => setShowVoters(s => ({ ...s, [`${entry.entryId}/${reel.reelId}`]: !s[`${entry.entryId}/${reel.reelId}`] }))}
+                        style={styles.voterHeader}
+                        onPress={() => setExpanded(s => ({ ...s, [key]: !s[key] }))}
                       >
-                        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textTertiary} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.voterName} numberOfLines={1}>
+                            {voter.userName || '(unnamed)'}
+                            {voter.unionStatus ? <Text style={styles.voterUnion}> · {voter.unionStatus}</Text> : null}
+                          </Text>
+                          <Text style={styles.voterMeta} numberOfLines={1}>
+                            {voter.votes.length} rating{voter.votes.length === 1 ? '' : 's'}
+                            {voter.alias ? ` · @${voter.alias}` : ''}
+                          </Text>
+                        </View>
+                        <View style={styles.voterRight}>
+                          <Text style={styles.voterAvg}>{voter.averageRating.toFixed(2)}</Text>
+                          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textTertiary} />
+                        </View>
                       </TouchableOpacity>
+                      {open && (
+                        <View style={styles.votesList}>
+                          {voter.votes.map(v => {
+                            const avg = reelAvg.get(v.reelId);
+                            const delta = avg != null ? Math.round((v.rating - avg) * 10) / 10 : null;
+                            return (
+                              <View key={v.reelId} style={styles.voteRow}>
+                                <Text style={styles.voteReelId} numberOfLines={1}>{v.reelId}</Text>
+                                {delta != null && delta !== 0 && (
+                                  <Text style={[styles.voteDelta, { color: delta > 0 ? '#4ade80' : '#f87171' }]}>
+                                    {delta > 0 ? '+' : ''}{delta.toFixed(1)} vs avg
+                                  </Text>
+                                )}
+                                <Text style={styles.voteRating}>{v.rating}</Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
                     </View>
-                    {open && (
-                      <View style={styles.votersList}>
-                        {reel.voters
-                          .slice()
-                          .sort((a, b) => b.rating - a.rating)
-                          .map(v => (
-                            <View key={v.userId} style={styles.voterRow}>
-                              <Text style={styles.voterName} numberOfLines={1}>
-                                {v.userName} {v.unionStatus ? `· ${v.unionStatus}` : ''}
-                              </Text>
-                              <Text style={styles.voterRating}>{v.rating}</Text>
-                            </View>
-                          ))}
-                      </View>
-                    )}
-                  </View>
-                );
-              })
-            )}
-          </View>
-        ))}
+                  );
+                })
+              )}
+            </View>
+          );
+        })}
 
         {!loading && !error && (data?.entries.length === 0 || !data) && (
           <Text style={styles.empty}>No votes recorded yet. Once members rate reels, results will appear here.</Text>
@@ -192,14 +216,16 @@ const styles = StyleSheet.create({
   entryTitle: { color: Colors.textPrimary, fontSize: FontSize.lg, fontWeight: FontWeight.bold },
   entryMeta: { color: Colors.textTertiary, fontSize: FontSize.sm, marginTop: 2, marginBottom: Spacing.md },
   empty: { color: Colors.textMuted, fontStyle: 'italic', textAlign: 'center', marginTop: Spacing.lg },
-  reelRow: { paddingVertical: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.surfaceHighlight },
-  reelLeft: { flexDirection: 'row', justifyContent: 'space-between' },
-  reelId: { color: Colors.textPrimary, fontSize: FontSize.sm, flex: 1 },
-  reelMeta: { color: Colors.textTertiary, fontSize: FontSize.xs },
-  reelRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 },
-  average: { color: Colors.accent, fontSize: FontSize.lg, fontWeight: FontWeight.bold, flex: 1 },
-  votersList: { marginTop: Spacing.sm, paddingLeft: Spacing.md },
-  voterRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  voterName: { color: Colors.textSecondary, fontSize: FontSize.sm, flex: 1 },
-  voterRating: { color: Colors.textPrimary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold, marginLeft: Spacing.md },
+  voterBlock: { paddingVertical: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.surfaceHighlight },
+  voterHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  voterName: { color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.semibold },
+  voterUnion: { color: Colors.textTertiary, fontSize: FontSize.sm, fontWeight: FontWeight.regular },
+  voterMeta: { color: Colors.textMuted, fontSize: FontSize.xs, marginTop: 2 },
+  voterRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  voterAvg: { color: Colors.accent, fontSize: FontSize.lg, fontWeight: FontWeight.bold, minWidth: 44, textAlign: 'right' },
+  votesList: { marginTop: Spacing.sm, paddingLeft: Spacing.md, gap: 2 },
+  voteRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
+  voteReelId: { color: Colors.textSecondary, fontSize: FontSize.sm, flex: 1 },
+  voteDelta: { fontSize: FontSize.xs, fontWeight: FontWeight.medium },
+  voteRating: { color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.semibold, minWidth: 24, textAlign: 'right' },
 });
