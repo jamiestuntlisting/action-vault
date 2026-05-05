@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-05T13:52:13.704Z",
+  "lastUpdatedAt": "2026-05-05T13:52:15.030Z",
   "votes": [
     {
       "userId": 33,
@@ -50,9 +50,9 @@
       "roles": "admin",
       "entryId": "stunt-monthly",
       "reelId": "LuaR-cDX-8M",
-      "rating": 4,
+      "rating": 3,
       "createdAt": "2026-05-05T13:52:13.704Z",
-      "updatedAt": "2026-05-05T13:52:13.704Z"
+      "updatedAt": "2026-05-05T13:52:15.030Z"
     }
   ]
 }
