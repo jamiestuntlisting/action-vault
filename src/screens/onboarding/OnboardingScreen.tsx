@@ -20,14 +20,25 @@ export function OnboardingScreen({ navigation }: any) {
   const [step, setStep] = useState(0);
 
   // Guard: if this user already finished onboarding, never show it again.
-  // Uses the helper that checks BOTH the dedicated key AND the user's
-  // profile flag — either source positive means skip. Survives URL refresh
-  // on /Onboarding and any race with the per-user hydration.
+  // Reads currentUser from STORAGE (not state) because the most common
+  // failure mode is a hard refresh on the /Onboarding URL — React Nav's
+  // linking restores us here before AppProvider has finished hydrating
+  // state.currentUser. If the user has the flag in storage, redirect to
+  // MainTabs; if there's no logged-in user at all, redirect to Auth so
+  // we never strand someone on the onboarding URL.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const userId = state.currentUser?.id;
-      if (!userId) return;
+      let userId = state.currentUser?.id;
+      if (!userId) {
+        const storedUser = await StorageService.get<{ id: string }>(StorageService.KEYS.USER);
+        userId = storedUser?.id;
+      }
+      if (cancelled) return;
+      if (!userId) {
+        navigation.replace('Auth');
+        return;
+      }
       const stored = await StorageService.isOnboardedFromStorage(userId);
       if (cancelled) return;
       if (stored || state.onboardingComplete) {
@@ -35,7 +46,7 @@ export function OnboardingScreen({ navigation }: any) {
       }
     })();
     return () => { cancelled = true; };
-  }, [state.currentUser?.id, state.onboardingComplete]);
+  }, [state.currentUser?.id, state.onboardingComplete, state.isLoading]);
   const [selectedSkills, setSelectedSkills] = useState<SkillTag[]>([]);
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>('fan');
   const [profileName, setProfileName] = useState(state.profiles[0]?.name || '');

@@ -47,25 +47,27 @@ export function SettingsScreen({ navigation }: any) {
     dispatch({ type: 'UPDATE_SETTINGS', payload: { [key]: value } });
   }
 
+  // Sign-out: only clear the GLOBAL session keys (USER, AUTH_TOKEN). Per-user
+  // keys (profiles, onboarding flag, watch history, ratings, …) are SCOPED
+  // by user.id so they don't leak between accounts on the same browser.
+  // Wiping them here was causing Jamie to re-trigger onboarding on every
+  // re-login after a sign-out — clearAll() torched the flag.
+  async function performSignOut() {
+    await StorageService.remove(StorageService.KEYS.USER);
+    await StorageService.remove(StorageService.KEYS.AUTH_TOKEN);
+    dispatch({ type: 'LOGOUT' });
+    navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
+  }
+
   function handleSignOut() {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       if (window.confirm('Are you sure you want to sign out?')) {
-        StorageService.clearAll().then(() => {
-          dispatch({ type: 'LOGOUT' });
-          navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
-        });
+        performSignOut();
       }
     } else {
       Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out', style: 'destructive',
-          onPress: async () => {
-            await StorageService.clearAll();
-            dispatch({ type: 'LOGOUT' });
-            navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
-          },
-        },
+        { text: 'Sign Out', style: 'destructive', onPress: performSignOut },
       ]);
     }
   }
