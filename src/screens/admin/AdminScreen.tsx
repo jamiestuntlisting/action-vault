@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   ScrollView, View, Text, StyleSheet, TouchableOpacity, TextInput,
-  Switch, Alert, FlatList, Dimensions,
+  Switch, Alert, FlatList, Dimensions, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, FontSize, FontWeight } from '../../theme';
@@ -166,6 +166,16 @@ export function AdminScreen({ navigation }: any) {
 
   const [activeTab, setActiveTab] = useState<AdminTab>('videos');
   const [searchQuery, setSearchQuery] = useState('');
+  // Viewport width for sidebar/horizontal-tabs branching. Threshold matches
+  // other admin/voting screens so behavior is consistent.
+  const [winW, setWinW] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1024));
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const h = () => setWinW(window.innerWidth);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  const useSidebar = winW >= 900;
   const [newCatTitle, setNewCatTitle] = useState('');
   const [newCatFilter, setNewCatFilter] = useState('');
   const [newCatType, setNewCatType] = useState<'tag' | 'title' | 'location' | 'custom'>('title');
@@ -616,6 +626,66 @@ export function AdminScreen({ navigation }: any) {
     );
   }
 
+  // Tabs + page-nav definitions used by both the wide-sidebar layout and
+  // the narrow horizontal-tabs layout. Single source of truth so a tab
+  // added here shows up in both places.
+  const pendingSubmissions = (state.settings.vaultSubmissions || []).filter(s => !s.status || s.status === 'pending').length;
+  const tabDefs: Array<{ key: AdminTab; label: string; icon: any }> = [
+    { key: 'videos', label: 'Videos', icon: 'videocam-outline' },
+    { key: 'submissions', label: `Submissions${pendingSubmissions > 0 ? ` (${pendingSubmissions})` : ''}`, icon: 'cloud-upload-outline' },
+    { key: 'byproduction', label: 'By Production', icon: 'film-outline' },
+    { key: 'bytag', label: 'By Tag', icon: 'pricetag-outline' },
+    { key: 'lists', label: 'Lists', icon: 'list-outline' },
+    { key: 'categories', label: 'Categories', icon: 'grid-outline' },
+    { key: 'atlas', label: 'Atlas Action', icon: 'globe-outline' },
+    { key: 'books', label: 'Books', icon: 'book-outline' },
+    { key: 'podcasts', label: 'Podcasts', icon: 'mic-outline' },
+    { key: 'reviews', label: 'Reviews', icon: 'chatbubbles-outline' },
+    { key: 'stats', label: 'Stats', icon: 'stats-chart-outline' },
+    { key: 'flags', label: 'Flags', icon: 'flag-outline' },
+  ];
+
+  // Page-level admin destinations rendered in the sidebar header.
+  const pageDefs: Array<{ key: string; label: string; icon: any; route: string; sub?: string }> = [
+    { key: 'reelOfMonth', label: 'Reel of the Month', icon: 'trophy-outline', route: 'AdminReelOfTheMonth', sub: 'Schedule · voter participation' },
+    { key: 'votingResults', label: 'Voting Results', icon: 'bar-chart-outline', route: 'AdminVotingResults', sub: 'Aggregate ratings' },
+    { key: 'matcher', label: 'Stunt ↔ StuntListing', icon: 'link-outline', route: 'AdminStuntReelMatcher', sub: 'Match reels to performers' },
+    { key: 'health', label: 'Health Check', icon: 'pulse-outline', route: 'AdminHealthCheck', sub: 'Test all backing services' },
+  ];
+
+  // Sidebar tab-button renderer (vertical, full-width rows).
+  const renderSidebarTab = (tab: typeof tabDefs[number]) => {
+    const active = activeTab === tab.key;
+    const submissionsHighlight = tab.key === 'submissions' && pendingSubmissions > 0 && !active;
+    return (
+      <TouchableOpacity
+        key={tab.key}
+        style={[
+          styles.sidebarTab,
+          active && styles.sidebarTabActive,
+          submissionsHighlight && { borderColor: '#f59e0b' },
+        ]}
+        onPress={() => setActiveTab(tab.key)}
+      >
+        <Ionicons
+          name={tab.icon}
+          size={16}
+          color={active ? '#fff' : submissionsHighlight ? '#f59e0b' : Colors.textSecondary}
+        />
+        <Text
+          style={[
+            styles.sidebarTabText,
+            active && styles.sidebarTabTextActive,
+            submissionsHighlight && { color: '#f59e0b' },
+          ]}
+          numberOfLines={1}
+        >
+          {tab.label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.maxWidth}>
@@ -628,110 +698,78 @@ export function AdminScreen({ navigation }: any) {
           <View style={{ width: 40 }} />
         </View>
 
-        {/* Tabs */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
-          {(() => {
-            const pendingCount = (state.settings.vaultSubmissions || []).filter(s => !s.status || s.status === 'pending').length;
-            return ([
-              { key: 'videos' as AdminTab, label: 'Videos', icon: 'videocam-outline' as const },
-              { key: 'submissions' as AdminTab, label: `Submissions${pendingCount > 0 ? ` (${pendingCount})` : ''}`, icon: 'cloud-upload-outline' as const },
-              { key: 'byproduction' as AdminTab, label: 'By Production', icon: 'film-outline' as const },
-              { key: 'bytag' as AdminTab, label: 'By Tag', icon: 'pricetag-outline' as const },
-              { key: 'lists' as AdminTab, label: 'Lists', icon: 'list-outline' as const },
-              { key: 'categories' as AdminTab, label: 'Categories', icon: 'grid-outline' as const },
-              { key: 'atlas' as AdminTab, label: 'Atlas Action', icon: 'globe-outline' as const },
-              { key: 'books' as AdminTab, label: 'Books', icon: 'book-outline' as const },
-              { key: 'podcasts' as AdminTab, label: 'Podcasts', icon: 'mic-outline' as const },
-              { key: 'reviews' as AdminTab, label: 'Reviews', icon: 'chatbubbles-outline' as const },
-              { key: 'stats' as AdminTab, label: 'Stats', icon: 'stats-chart-outline' as const },
-              { key: 'flags' as AdminTab, label: 'Flags', icon: 'flag-outline' as const },
-            ]).map(tab => (
-              <TouchableOpacity
-                key={tab.key}
-                style={[styles.tab, activeTab === tab.key && styles.tabActive,
-                  tab.key === 'submissions' && pendingCount > 0 && activeTab !== tab.key && { borderColor: '#f59e0b', borderWidth: 1 }]}
-                onPress={() => setActiveTab(tab.key)}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name={tab.icon} size={14} color={activeTab === tab.key ? '#fff' : tab.key === 'submissions' && pendingCount > 0 ? '#f59e0b' : Colors.textSecondary} />
-                  <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive,
-                    tab.key === 'submissions' && pendingCount > 0 && activeTab !== tab.key && { color: '#f59e0b' }]}>
-                    {tab.label}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ));
-          })()}
-        </ScrollView>
+        {/* Narrow viewports keep the original horizontal tabs row. */}
+        {!useSidebar && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
+            {tabDefs.map(tab => {
+              const active = activeTab === tab.key;
+              const submissionsHighlight = tab.key === 'submissions' && pendingSubmissions > 0 && !active;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[styles.tab, active && styles.tabActive, submissionsHighlight && { borderColor: '#f59e0b', borderWidth: 1 }]}
+                  onPress={() => setActiveTab(tab.key)}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name={tab.icon} size={14} color={active ? '#fff' : submissionsHighlight ? '#f59e0b' : Colors.textSecondary} />
+                    <Text style={[styles.tabText, active && styles.tabTextActive, submissionsHighlight && { color: '#f59e0b' }]}>
+                      {tab.label}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-              padding: Spacing.md, marginBottom: Spacing.md,
-              backgroundColor: Colors.accent + '1A', borderRadius: BorderRadius.md,
-              borderWidth: 1, borderColor: Colors.accent + '55',
-            }}
-            onPress={() => navigation.navigate('AdminReelOfTheMonth')}
-          >
-            <Ionicons name="trophy-outline" size={22} color={Colors.accent} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.bold }}>Reel of the Month</Text>
-              <Text style={{ color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 }}>Schedule monthly featured reels · view voter participation · browse archive</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
-          </TouchableOpacity>
+        <View style={useSidebar ? styles.bodyRow : undefined}>
+          {/* Wide viewports get a left sidebar with page-level navigation
+              cards on top and the tab list below. */}
+          {useSidebar && (
+            <ScrollView style={styles.sidebar} contentContainerStyle={{ paddingBottom: Spacing.xxl }}>
+              <Text style={styles.sidebarSectionLabel}>Admin pages</Text>
+              {pageDefs.map(p => (
+                <TouchableOpacity
+                  key={p.key}
+                  style={styles.sidebarPageRow}
+                  onPress={() => navigation.navigate(p.route)}
+                >
+                  <Ionicons name={p.icon} size={18} color={Colors.accent} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sidebarPageLabel}>{p.label}</Text>
+                    {p.sub && <Text style={styles.sidebarPageSub} numberOfLines={1}>{p.sub}</Text>}
+                  </View>
+                  <Ionicons name="chevron-forward" size={14} color={Colors.accent} />
+                </TouchableOpacity>
+              ))}
+              <View style={styles.sidebarDivider} />
+              <Text style={styles.sidebarSectionLabel}>Tabs</Text>
+              {tabDefs.map(renderSidebarTab)}
+            </ScrollView>
+          )}
 
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-              padding: Spacing.md, marginBottom: Spacing.md,
-              backgroundColor: Colors.accent + '1A', borderRadius: BorderRadius.md,
-              borderWidth: 1, borderColor: Colors.accent + '55',
-            }}
-            onPress={() => navigation.navigate('AdminVotingResults')}
-          >
-            <Ionicons name="bar-chart-outline" size={22} color={Colors.accent} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.bold }}>Voting Results</Text>
-              <Text style={{ color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 }}>Aggregate ratings across all members · skill + stunt reels of the month</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-              padding: Spacing.md, marginBottom: Spacing.md,
-              backgroundColor: Colors.accent + '1A', borderRadius: BorderRadius.md,
-              borderWidth: 1, borderColor: Colors.accent + '55',
-            }}
-            onPress={() => navigation.navigate('AdminStuntReelMatcher')}
-          >
-            <Ionicons name="link-outline" size={22} color={Colors.accent} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.bold }}>Stunt Reel ↔ StuntListing Matcher</Text>
-              <Text style={{ color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 }}>Match YouTube-discovered reels to StuntListing performers · IDs · Instagram · manual overrides</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-              padding: Spacing.md, marginBottom: Spacing.md,
-              backgroundColor: Colors.accent + '1A', borderRadius: BorderRadius.md,
-              borderWidth: 1, borderColor: Colors.accent + '55',
-            }}
-            onPress={() => navigation.navigate('AdminHealthCheck')}
-          >
-            <Ionicons name="pulse-outline" size={22} color={Colors.accent} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.bold }}>App Health Check</Text>
-              <Text style={{ color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 }}>End-to-end test of every backing service · auth · YouTube · StuntListing GraphQL + DB · GitHub · cron</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
-          </TouchableOpacity>
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Inline page-nav cards — narrow only. On wide viewports the
+              same destinations live in the left sidebar. */}
+          {!useSidebar && pageDefs.map(p => (
+            <TouchableOpacity
+              key={p.key}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+                padding: Spacing.md, marginBottom: Spacing.md,
+                backgroundColor: Colors.accent + '1A', borderRadius: BorderRadius.md,
+                borderWidth: 1, borderColor: Colors.accent + '55',
+              }}
+              onPress={() => navigation.navigate(p.route)}
+            >
+              <Ionicons name={p.icon} size={22} color={Colors.accent} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: Colors.textPrimary, fontSize: FontSize.md, fontWeight: FontWeight.bold }}>{p.label}</Text>
+                {p.sub && <Text style={{ color: Colors.textSecondary, fontSize: FontSize.xs, marginTop: 2 }}>{p.sub}</Text>}
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
+            </TouchableOpacity>
+          ))}
           {activeTab === 'videos' && (
             <View>
               {/* Removal Requests */}
@@ -2432,6 +2470,7 @@ export function AdminScreen({ navigation }: any) {
 
           <View style={{ height: 100 }} />
         </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -2450,6 +2489,51 @@ const styles = StyleSheet.create({
   tabText: { color: Colors.textSecondary, fontSize: FontSize.md, fontWeight: FontWeight.medium },
   tabTextActive: { color: '#fff' },
   content: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
+  // Sidebar layout, used on viewports ≥ 900px wide.
+  bodyRow: { flex: 1, flexDirection: 'row' },
+  sidebar: {
+    width: 240,
+    paddingLeft: Spacing.lg,
+    paddingRight: Spacing.md,
+    paddingTop: Spacing.md,
+    borderRightWidth: 1,
+    borderRightColor: Colors.divider,
+  },
+  sidebarSectionLabel: {
+    color: Colors.textTertiary,
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  sidebarPageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    padding: Spacing.sm,
+    marginBottom: 4,
+    backgroundColor: Colors.accent + '14',
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.accent + '40',
+  },
+  sidebarPageLabel: { color: Colors.textPrimary, fontSize: FontSize.sm, fontWeight: FontWeight.semibold },
+  sidebarPageSub: { color: Colors.textTertiary, fontSize: 10, marginTop: 1 },
+  sidebarDivider: { height: 1, backgroundColor: Colors.divider, marginVertical: Spacing.md },
+  sidebarTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginBottom: 2,
+  },
+  sidebarTabActive: { backgroundColor: Colors.primary },
+  sidebarTabText: { color: Colors.textSecondary, fontSize: FontSize.sm, fontWeight: FontWeight.medium, flex: 1 },
+  sidebarTabTextActive: { color: '#fff', fontWeight: FontWeight.semibold },
   searchInput: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, color: Colors.textPrimary, fontSize: FontSize.md, marginBottom: Spacing.md },
   editInput: { backgroundColor: Colors.background, borderRadius: BorderRadius.sm, padding: Spacing.sm, color: Colors.textPrimary, fontSize: FontSize.sm, borderWidth: 1, borderColor: Colors.divider, marginTop: 4 },
   countText: { color: Colors.textMuted, fontSize: FontSize.sm, marginBottom: Spacing.md },
