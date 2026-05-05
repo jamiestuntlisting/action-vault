@@ -20,15 +20,15 @@ export function OnboardingScreen({ navigation }: any) {
   const [step, setStep] = useState(0);
 
   // Guard: if this user already finished onboarding, never show it again.
-  // Reads the user-scoped storage flag directly so it survives URL refresh
-  // on /Onboarding and any race where state.onboardingComplete hasn't yet
-  // been hydrated from the per-user slice.
+  // Uses the helper that checks BOTH the dedicated key AND the user's
+  // profile flag — either source positive means skip. Survives URL refresh
+  // on /Onboarding and any race with the per-user hydration.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const userId = state.currentUser?.id;
       if (!userId) return;
-      const stored = await StorageService.get<boolean>(StorageService.userKey(StorageService.KEYS.ONBOARDING_COMPLETE, userId));
+      const stored = await StorageService.isOnboardedFromStorage(userId);
       if (cancelled) return;
       if (stored || state.onboardingComplete) {
         navigation.replace('MainTabs');
@@ -59,27 +59,27 @@ export function OnboardingScreen({ navigation }: any) {
 
   async function finishOnboarding() {
     const profile = state.profiles[0];
-    if (profile) {
-      dispatch({
-        type: 'UPDATE_PROFILE',
-        payload: {
-          ...profile,
-          name: profileName || profile.name,
-          avatarKey: selectedAvatar,
-          experienceLevel,
-          onboardingComplete: true,
-          interests: selectedSkills,
-        },
-      });
-      dispatch({ type: 'SET_ACTIVE_PROFILE', payload: { ...profile, name: profileName || profile.name, avatarKey: selectedAvatar, experienceLevel, onboardingComplete: true, interests: selectedSkills } });
+    const updatedProfile = profile ? {
+      ...profile,
+      name: profileName || profile.name,
+      avatarKey: selectedAvatar,
+      experienceLevel,
+      onboardingComplete: true,
+      interests: selectedSkills,
+    } : null;
+
+    if (updatedProfile) {
+      dispatch({ type: 'UPDATE_PROFILE', payload: updatedProfile });
+      dispatch({ type: 'SET_ACTIVE_PROFILE', payload: updatedProfile });
     }
     dispatch({ type: 'SET_ONBOARDING_COMPLETE', payload: true });
 
-    // Belt-and-suspenders: write the user-scoped flag synchronously before
-    // navigating. The persist effect would catch this too, but it's async
-    // and has previously been racy on slow loads — Jamie reported seeing
-    // onboarding more than once. SplashScreen + AuthScreen both read THIS
-    // exact key, so writing it here guarantees they skip onboarding next time.
+    // Belt-and-suspenders: write all three "completed onboarding" signals
+    // synchronously before navigating. The persist effect would catch
+    // these too, but it's async and has historically raced — Jamie kept
+    // seeing onboarding on subsequent visits. The SplashScreen / AuthScreen
+    // helper checks the dedicated key AND the profile flag, so writing
+    // both here guarantees the next visit reads "done" from at least one.
     const userId = state.currentUser?.id;
     if (userId) {
       try {
@@ -87,6 +87,19 @@ export function OnboardingScreen({ navigation }: any) {
           StorageService.userKey(StorageService.KEYS.ONBOARDING_COMPLETE, userId),
           true
         );
+        if (updatedProfile) {
+          const updatedProfiles = state.profiles.length > 0
+            ? state.profiles.map(p => p.id === updatedProfile.id ? updatedProfile : p)
+            : [updatedProfile];
+          await StorageService.set(
+            StorageService.userKey(StorageService.KEYS.PROFILES, userId),
+            updatedProfiles
+          );
+          await StorageService.set(
+            StorageService.userKey(StorageService.KEYS.ACTIVE_PROFILE, userId),
+            updatedProfile
+          );
+        }
       } catch {}
     }
 

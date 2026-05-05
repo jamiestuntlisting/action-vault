@@ -40,12 +40,31 @@ async function remove(key: string): Promise<void> {
   await AsyncStorage.removeItem(key);
 }
 
+// True if this user has completed onboarding before. Checks two sources
+// because the two have historically been allowed to diverge:
+//   1) the dedicated ONBOARDING_COMPLETE key
+//   2) the user's first profile in the PROFILES array — finishOnboarding
+//      flips its onboardingComplete to true at the same time
+// Either source returning true means we should NOT show onboarding again.
+async function isOnboardedFromStorage(userId: string): Promise<boolean> {
+  try {
+    const flag = await get<boolean>(userKey(KEYS.ONBOARDING_COMPLETE, userId));
+    if (flag === true) return true;
+    const profiles = await get<any[]>(userKey(KEYS.PROFILES, userId));
+    if (Array.isArray(profiles) && profiles.some(p => p?.onboardingComplete === true)) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export const StorageService = {
   KEYS,
   userKey,
   get,
   set,
   remove,
+  isOnboardedFromStorage,
 
   async clearAll() {
     await AsyncStorage.clear();

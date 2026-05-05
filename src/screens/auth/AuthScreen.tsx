@@ -75,10 +75,11 @@ export function AuthScreen({ navigation }: any) {
       }
 
       // Onboarding is per-user. state.onboardingComplete here reflects the
-      // pre-login (anonymous) state, so we can't trust it — read this user's
-      // scoped flag directly from storage to decide whether to skip onboarding.
-      const onboardingKey = StorageService.userKey(StorageService.KEYS.ONBOARDING_COMPLETE, userId);
-      const userOnboardingDone = await StorageService.get<boolean>(onboardingKey);
+      // pre-login (anonymous) state, so we can't trust it. The helper
+      // checks both the dedicated ONBOARDING_COMPLETE key AND the user's
+      // first profile's onboardingComplete flag — either source returning
+      // true means skip onboarding.
+      const userOnboardingDone = await StorageService.isOnboardedFromStorage(userId);
 
       dispatch({
         type: 'LOGIN',

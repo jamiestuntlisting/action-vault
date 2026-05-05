@@ -31,13 +31,11 @@ export function SplashScreen({ navigation }: any) {
       }
 
       // state.onboardingComplete reflects the in-memory slice, which may
-      // race with the async per-user hydration on slow loads. Read the
-      // user-scoped storage flag directly so we never bounce a returning
-      // user back into onboarding.
+      // race with the async per-user hydration on slow loads. Use the
+      // helper that checks BOTH the dedicated key AND the profile's flag,
+      // so we never bounce a returning user back into onboarding.
       const userId = state.currentUser?.id;
-      const onboardingDone = userId
-        ? await StorageService.get<boolean>(StorageService.userKey(StorageService.KEYS.ONBOARDING_COMPLETE, userId))
-        : false;
+      const onboardingDone = userId ? await StorageService.isOnboardedFromStorage(userId) : false;
       if (onboardingDone || state.onboardingComplete) {
         navigation.replace('MainTabs');
       } else {
