@@ -1,5 +1,56 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-05T00:00:00Z",
-  "events": []
+  "lastUpdatedAt": "2026-05-05T20:27:51.468Z",
+  "events": [
+    {
+      "userId": "James.northrup@gmail.com",
+      "userEmail": "James.northrup@gmail.com",
+      "eventType": "session_start",
+      "eventData": {
+        "platform": "web"
+      },
+      "sessionId": "sess-1778012860559-ap9m9ax3t",
+      "timestamp": "2026-05-05T20:27:40.613Z"
+    },
+    {
+      "userId": "James.northrup@gmail.com",
+      "userEmail": "James.northrup@gmail.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "Home"
+      },
+      "sessionId": "sess-1778012860559-ap9m9ax3t",
+      "timestamp": "2026-05-05T20:27:42.718Z"
+    },
+    {
+      "userId": "James.northrup@gmail.com",
+      "userEmail": "James.northrup@gmail.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "Home"
+      },
+      "sessionId": "sess-1778012860559-ap9m9ax3t",
+      "timestamp": "2026-05-05T20:27:42.719Z"
+    },
+    {
+      "userId": "James.northrup@gmail.com",
+      "userEmail": "James.northrup@gmail.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "Admin"
+      },
+      "sessionId": "sess-1778012860559-ap9m9ax3t",
+      "timestamp": "2026-05-05T20:27:47.257Z"
+    },
+    {
+      "userId": "James.northrup@gmail.com",
+      "userEmail": "James.northrup@gmail.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "AdminActivity"
+      },
+      "sessionId": "sess-1778012860559-ap9m9ax3t",
+      "timestamp": "2026-05-05T20:27:49.342Z"
+    }
+  ]
 }
