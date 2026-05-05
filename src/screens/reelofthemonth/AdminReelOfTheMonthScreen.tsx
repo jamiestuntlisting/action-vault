@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxl, backgroundColor: Colors.background },
   maxWidth: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: Spacing.screen },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.lg, paddingTop: Platform.OS === 'web' ? Spacing.lg : 50 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Platform.OS === 'web' ? Spacing.xs : 50, paddingBottom: Spacing.sm },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
   headerTitle: { color: Colors.textPrimary, fontSize: FontSize.xl, fontWeight: FontWeight.bold, flex: 1, textAlign: 'center' },
   noteText: { color: Colors.textSecondary, fontSize: FontSize.sm, lineHeight: 18, marginBottom: Spacing.lg, paddingHorizontal: 2 },

@@ -25,7 +25,7 @@ const MAX_WIDTH = 960;
 // content area can swap to the embedded page when one is selected.
 // Page keys are prefixed `page-` to avoid colliding with real tabs.
 type AdminTab =
-  | 'videos' | 'categories' | 'bytag' | 'byproduction' | 'lists' | 'atlas'
+  | 'videos' | 'categories' | 'byproduction' | 'lists' | 'atlas'
   | 'books' | 'podcasts' | 'submissions' | 'reviews' | 'stats' | 'flags'
   | 'page-reelOfMonth' | 'page-votingResults' | 'page-matcher' | 'page-health';
 
@@ -192,8 +192,12 @@ export function AdminScreen({ navigation }: any) {
   const [newCatFilter, setNewCatFilter] = useState('');
   const [newCatType, setNewCatType] = useState<'tag' | 'title' | 'location' | 'custom'>('title');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [selectedList, setSelectedList] = useState<string>('featured');
+  // Default the auto-lists view to "Trending Now" — that's the typical
+  // landing card so it should be highlighted out of the gate.
+  const [selectedList, setSelectedList] = useState<string>('trending');
   const [selectedProduction, setSelectedProduction] = useState<string | null>(null);
+  // Sub-mode for the merged "By Production / Tag" tab.
+  const [groupMode, setGroupMode] = useState<'production' | 'tag'>('production');
 
   // Reviews tab state
   const [reviewSearch, setReviewSearch] = useState('');
@@ -647,10 +651,12 @@ export function AdminScreen({ navigation }: any) {
     {
       section: 'Content',
       items: [
-        { key: 'videos', label: 'Videos', icon: 'videocam-outline' },
+        { key: 'videos', label: 'All Videos', icon: 'videocam-outline' },
         { key: 'submissions', label: `Submissions${pendingSubmissions > 0 ? ` (${pendingSubmissions})` : ''}`, icon: 'cloud-upload-outline' },
-        { key: 'byproduction', label: 'By Production', icon: 'film-outline' },
-        { key: 'bytag', label: 'By Tag', icon: 'pricetag-outline' },
+        // Productions + skill tags merged into a single tab. The activeTab
+        // key stays `byproduction` to preserve existing in-flight state;
+        // the sub-mode toggle picks which axis to group by.
+        { key: 'byproduction', label: 'By Production / Tag', icon: 'film-outline' },
       ],
     },
     {
@@ -699,9 +705,9 @@ export function AdminScreen({ navigation }: any) {
   // labels like "By Production" / "Atlas Action" render as 3-line wraps
   // otherwise. Map a few here; the rest reuse `tab.label`.
   const TAB_SHORT_LABELS: Record<string, string> = {
+    videos: 'All',
     submissions: 'Subs',
-    byproduction: 'Prod',
-    bytag: 'Tags',
+    byproduction: 'Group',
     categories: 'Cats',
     atlas: 'Atlas',
     podcasts: 'Pods',
@@ -924,6 +930,25 @@ export function AdminScreen({ navigation }: any) {
 
           {activeTab === 'byproduction' && (
             <View>
+              {/* Mode toggle: Production vs Tag (Jamie merged the two tabs). */}
+              <View style={styles.filterTypeRow}>
+                {[
+                  { key: 'production' as const, label: 'By Production' },
+                  { key: 'tag' as const, label: 'By Skill Tag' },
+                ].map(m => (
+                  <TouchableOpacity
+                    key={m.key}
+                    style={[styles.filterTypeBtn, groupMode === m.key && styles.filterTypeBtnActive]}
+                    onPress={() => setGroupMode(m.key)}
+                  >
+                    <Text style={[styles.filterTypeText, groupMode === m.key && styles.filterTypeTextActive]}>
+                      {m.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {groupMode === 'production' && (<>
               <Text style={styles.sectionTitle}>Videos by Movie / Production</Text>
               <Text style={styles.hint}>
                 {productionGroups.length} productions. Tap a production to see its videos.
@@ -1025,6 +1050,88 @@ export function AdminScreen({ navigation }: any) {
                   </View>
                 );
               })()}
+              </>)}
+
+              {groupMode === 'tag' && (<>
+                <Text style={styles.sectionTitle}>Videos by Skill Tag</Text>
+                <Text style={styles.hint}>Select a tag to see and manage which videos are assigned to it.</Text>
+
+                {/* Tag selector */}
+                <View style={styles.tagGrid}>
+                  {skillTags.map(tag => {
+                    const count = getVideosByTag(tag.displayName).length;
+                    const isSelected = selectedTag === tag.displayName;
+                    return (
+                      <TouchableOpacity
+                        key={tag.id}
+                        style={[styles.readOnlyTag, isSelected && { backgroundColor: Colors.primary + '33', borderWidth: 1, borderColor: Colors.primary }]}
+                        onPress={() => setSelectedTag(isSelected ? null : tag.displayName)}
+                      >
+                        <Text style={[styles.readOnlyTagText, isSelected && { color: Colors.primary }]}>{tag.displayName}</Text>
+                        <Text style={styles.readOnlyTagCategory}>{count} videos</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Videos for selected tag */}
+                {selectedTag && (
+                  <View style={{ marginTop: Spacing.xl }}>
+                    <Text style={styles.sectionTitle}>{selectedTag}</Text>
+                    <Text style={styles.hint}>{getVideosByTag(selectedTag).length} videos have this tag. Tap ✕ to remove the tag from a video.</Text>
+                    {getVideosByTag(selectedTag).map(video => {
+                      const override = getOverride(video.id);
+                      const currentTags = override?.tagOverrides || video.skillTags.map(t => t.displayName);
+                      return (
+                        <View key={video.id} style={styles.byTagVideoRow}>
+                          <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
+                          <TouchableOpacity
+                            onPress={() => {
+                              const newTags = currentTags.filter(t => t !== selectedTag);
+                              updateVideoTags(video.id, newTags);
+                            }}
+                          >
+                            <Ionicons name="close-circle" size={20} color="#f44" />
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
+
+                    {/* Add video to this tag */}
+                    <Text style={[styles.hint, { marginTop: Spacing.lg }]}>Add a video to "{selectedTag}":</Text>
+                    <View>
+                      {allVideos
+                        .filter(v => !getVideosByTag(selectedTag!).some(vt => vt.id === v.id))
+                        .filter(v => searchQuery ? v.title.toLowerCase().includes(searchQuery.toLowerCase()) : false)
+                        .slice(0, 10)
+                        .map(video => (
+                          <TouchableOpacity
+                            key={video.id}
+                            style={styles.byTagAddRow}
+                            onPress={() => {
+                              const override = getOverride(video.id);
+                              const currentTags = override?.tagOverrides || video.skillTags.map(t => t.displayName);
+                              if (!currentTags.includes(selectedTag!)) {
+                                updateVideoTags(video.id, [...currentTags, selectedTag!]);
+                              }
+                            }}
+                          >
+                            <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                            <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
+                          </TouchableOpacity>
+                        ))
+                      }
+                    </View>
+                    <TextInput
+                      style={[styles.searchInput, { marginTop: Spacing.sm }]}
+                      placeholder="Search videos to add..."
+                      placeholderTextColor={Colors.textMuted}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                    />
+                  </View>
+                )}
+              </>)}
             </View>
           )}
 
@@ -1195,107 +1302,31 @@ export function AdminScreen({ navigation }: any) {
             </View>
           )}
 
-          {activeTab === 'bytag' && (
-            <View>
-              <Text style={styles.sectionTitle}>Videos by Skill Tag</Text>
-              <Text style={styles.hint}>Select a tag to see and manage which videos are assigned to it.</Text>
-
-              {/* Tag selector */}
-              <View style={styles.tagGrid}>
-                {skillTags.map(tag => {
-                  const count = getVideosByTag(tag.displayName).length;
-                  const isSelected = selectedTag === tag.displayName;
-                  return (
-                    <TouchableOpacity
-                      key={tag.id}
-                      style={[styles.readOnlyTag, isSelected && { backgroundColor: Colors.primary + '33', borderWidth: 1, borderColor: Colors.primary }]}
-                      onPress={() => setSelectedTag(isSelected ? null : tag.displayName)}
-                    >
-                      <Text style={[styles.readOnlyTagText, isSelected && { color: Colors.primary }]}>{tag.displayName}</Text>
-                      <Text style={styles.readOnlyTagCategory}>{count} videos</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Videos for selected tag */}
-              {selectedTag && (
-                <View style={{ marginTop: Spacing.xl }}>
-                  <Text style={styles.sectionTitle}>{selectedTag}</Text>
-                  <Text style={styles.hint}>{getVideosByTag(selectedTag).length} videos have this tag. Tap ✕ to remove the tag from a video.</Text>
-                  {getVideosByTag(selectedTag).map(video => {
-                    const override = getOverride(video.id);
-                    const currentTags = override?.tagOverrides || video.skillTags.map(t => t.displayName);
-                    return (
-                      <View key={video.id} style={styles.byTagVideoRow}>
-                        <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
-                        <TouchableOpacity
-                          onPress={() => {
-                            const newTags = currentTags.filter(t => t !== selectedTag);
-                            updateVideoTags(video.id, newTags);
-                          }}
-                        >
-                          <Ionicons name="close-circle" size={20} color="#f44" />
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })}
-
-                  {/* Add video to this tag */}
-                  <Text style={[styles.hint, { marginTop: Spacing.lg }]}>Add a video to "{selectedTag}":</Text>
-                  <View>
-                    {allVideos
-                      .filter(v => !getVideosByTag(selectedTag!).some(vt => vt.id === v.id))
-                      .filter(v => searchQuery ? v.title.toLowerCase().includes(searchQuery.toLowerCase()) : false)
-                      .slice(0, 10)
-                      .map(video => (
-                        <TouchableOpacity
-                          key={video.id}
-                          style={styles.byTagAddRow}
-                          onPress={() => {
-                            const override = getOverride(video.id);
-                            const currentTags = override?.tagOverrides || video.skillTags.map(t => t.displayName);
-                            if (!currentTags.includes(selectedTag!)) {
-                              updateVideoTags(video.id, [...currentTags, selectedTag!]);
-                            }
-                          }}
-                        >
-                          <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
-                          <Text style={styles.videoTitle} numberOfLines={1}>{video.title}</Text>
-                        </TouchableOpacity>
-                      ))
-                    }
-                  </View>
-                  <TextInput
-                    style={[styles.searchInput, { marginTop: Spacing.sm }]}
-                    placeholder="Search videos to add..."
-                    placeholderTextColor={Colors.textMuted}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                  />
-                </View>
-              )}
-            </View>
-          )}
-
           {activeTab === 'lists' && (() => {
             const visibleVideos = allVideos.filter(v => {
               const ov = overrides.find(o => o.videoId === v.id);
               return !ov?.hidden;
             });
 
+            // StLG.tv plays per videoId — pulled from analytics_events on the
+            // backend once the StuntListing RDS env var is fixed. Until then
+            // this is an empty map and trending/top10 just fall back to the
+            // recency order.
+            const stlgPlays: Record<string, number> = (state as any).stlgPlaysByVideoId || {};
+            const playsFor = (id: string) => stlgPlays[id] || 0;
+
             const autoLists = [
               {
                 key: 'trending',
                 label: 'Trending Now',
-                description: 'Auto-generated: Top 10 videos sorted by view count.',
-                videos: [...visibleVideos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10),
+                description: 'Auto-generated: Top 10 videos sorted by StLG.tv plays.',
+                videos: [...visibleVideos].sort((a, b) => playsFor(b.id) - playsFor(a.id) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10),
               },
               {
                 key: 'top10',
                 label: 'Top 10 This Week',
-                description: 'Auto-generated: Top 10 videos sorted by view count.',
-                videos: [...visibleVideos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10),
+                description: 'Auto-generated: Top 10 videos by StLG.tv plays this week.',
+                videos: [...visibleVideos].sort((a, b) => playsFor(b.id) - playsFor(a.id) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10),
               },
               {
                 key: 'new_this_week',
@@ -1352,13 +1383,16 @@ export function AdminScreen({ navigation }: any) {
                       {currentList.videos.length === 0 ? (
                         <Text style={styles.hint}>No videos match the criteria for this list.</Text>
                       ) : (
-                        currentList.videos.map((video, idx) => (
-                          <View key={video.id} style={styles.byTagVideoRow}>
-                            <Text style={{ color: Colors.textMuted, fontSize: FontSize.sm, width: 28 }}>{idx + 1}.</Text>
-                            <Text style={[styles.videoTitle, { flex: 1 }]} numberOfLines={1}>{video.title}</Text>
-                            <Text style={styles.videoMeta}>{video.viewCount.toLocaleString()} views</Text>
-                          </View>
-                        ))
+                        currentList.videos.map((video, idx) => {
+                          const plays = playsFor(video.id);
+                          return (
+                            <View key={video.id} style={styles.byTagVideoRow}>
+                              <Text style={{ color: Colors.textMuted, fontSize: FontSize.sm, width: 28 }}>{idx + 1}.</Text>
+                              <Text style={[styles.videoTitle, { flex: 1 }]} numberOfLines={1}>{video.title}</Text>
+                              <Text style={styles.videoMeta}>{plays.toLocaleString()} plays on StLG.tv</Text>
+                            </View>
+                          );
+                        })
                       )}
                     </View>
                   );
@@ -1766,8 +1800,14 @@ export function AdminScreen({ navigation }: any) {
             const atlasVideos = state.settings.atlasActionVideos || [];
             const atlasCourses = state.settings.atlasActionCourses || [];
 
-            // Most watched (by viewCount from static data)
-            const topWatched = [...allVideos].sort((a, b) => b.viewCount - a.viewCount).slice(0, 5);
+            // Most watched on StLG.tv (by analytics-tracked plays). Until
+            // the StuntListing RDS env is wired up, this map will be empty
+            // and the list shows the most-recently-added titles.
+            const stlgPlaysByVideoId: Record<string, number> = (state as any).stlgPlaysByVideoId || {};
+            const playsForStat = (id: string) => stlgPlaysByVideoId[id] || 0;
+            const topWatched = [...allVideos]
+              .sort((a, b) => playsForStat(b.id) - playsForStat(a.id) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .slice(0, 5);
 
             // Most rated
             const ratingCountMap: Record<string, number> = {};
@@ -1811,11 +1851,11 @@ export function AdminScreen({ navigation }: any) {
 
                 {/* Top watched */}
                 <View style={styles.statSection}>
-                  <Text style={styles.statSectionTitle}>Most Watched (by View Count)</Text>
+                  <Text style={styles.statSectionTitle}>Most Watched on StLG.tv</Text>
                   {topWatched.map((v, i) => (
                     <View key={v.id} style={styles.statRow}>
                       <Text style={styles.statLabel} numberOfLines={1}>{i + 1}. {v.title}</Text>
-                      <Text style={styles.statValue}>{v.viewCount.toLocaleString()}</Text>
+                      <Text style={styles.statValue}>{playsForStat(v.id).toLocaleString()}</Text>
                     </View>
                   ))}
                 </View>
@@ -2577,7 +2617,16 @@ export function AdminScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   maxWidth: { flex: 1, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.lg, paddingTop: 60 },
+  // Tighten the top padding on web — 60px was a native safe-area inset
+  // that left a huge empty band above the title in browsers.
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Platform.OS === 'web' ? Spacing.sm : 60,
+    paddingBottom: Spacing.sm,
+  },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
   headerTitle: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
   tabs: { marginBottom: Spacing.md, maxHeight: 44 },
@@ -2586,7 +2635,7 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: Colors.primary },
   tabText: { color: Colors.textSecondary, fontSize: FontSize.md, fontWeight: FontWeight.medium },
   tabTextActive: { color: '#fff' },
-  content: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
+  content: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
   // Sidebar layout, used on viewports ≥ 900px wide. Tightened to the
   // minimum width that comfortably fits "Stunt ↔ StuntListing" on one
   // line — Jamie wanted the content panel to get more room back.
