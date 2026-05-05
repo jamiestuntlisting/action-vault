@@ -23,6 +23,22 @@ const ADMIN_EMAILS = [
   'warren@stuntlisting.com',
 ];
 
+// Pre-fills the user's mail client with a short outreach message inviting
+// the performer to join the Stunt Reel of the Month contest. We pop in
+// the YouTube link so the recipient knows which reel we're referring to.
+function buildInviteMailto(toEmail: string, performerName: string | null, youtubeUrl: string): string {
+  const greeting = performerName ? `Hey ${performerName.split(/\s+/)[0]},` : 'Hey there,';
+  const subject = 'Stunt Reel of the Month — invitation from StuntListing';
+  const body = [
+    greeting,
+    '',
+    `We'd like to include your stunt reel (${youtubeUrl}) in our Stunt Reel of the Month contest. Are you interested?`,
+    '',
+    '— StuntListing',
+  ].join('\n');
+  return `mailto:${encodeURIComponent(toEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
 interface MatchRow {
   youtubeId: string;
   title: string;
@@ -230,6 +246,18 @@ export function AdminNotOnStuntListingScreen({ navigation }: any) {
                     <Text style={styles.saveBtnText}>{savingId === p.youtubeId ? 'Saving…' : 'Save'}</Text>
                   </TouchableOpacity>
                 </View>
+                {/* Once an email is saved, surface a one-click invite link
+                    that pre-fills the admin's mail client with a short
+                    outreach message + the reel URL. Hidden while the field
+                    is dirty so the link always reflects the saved value. */}
+                {!!p.email && !dirty && (
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL(buildInviteMailto(p.email!, p.channelName, youtubeUrl))}
+                    style={{ marginTop: 6, alignSelf: 'flex-start' }}
+                  >
+                    <Text style={styles.linkSmall}>✉ Send invite to {p.email} ↗</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           );
