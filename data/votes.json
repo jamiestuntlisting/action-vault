@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-05T19:05:47.942Z",
+  "lastUpdatedAt": "2026-05-06T01:08:43.947Z",
   "votes": [
     {
       "userId": 33,
@@ -118,6 +118,19 @@
       "rating": 6,
       "createdAt": "2026-05-05T19:05:44.464Z",
       "updatedAt": "2026-05-05T19:05:47.942Z"
+    },
+    {
+      "userId": 2012,
+      "userEmail": "scotthoffmanstunts@gmail.com",
+      "userName": "Scott Hoffman",
+      "alias": "scotthoffman",
+      "unionStatus": "[\"SAG-AFTRA\"]",
+      "roles": "performer,coordinator",
+      "entryId": "stunt-monthly",
+      "reelId": "UMrOflQb1f0",
+      "rating": 1,
+      "createdAt": "2026-05-06T01:08:43.947Z",
+      "updatedAt": "2026-05-06T01:08:43.947Z"
     }
   ]
 }
