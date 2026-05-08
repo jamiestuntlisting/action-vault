@@ -1,5 +1,20 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-05T00:00:00Z",
-  "settings": {}
+  "lastUpdatedAt": "2026-05-08T00:36:40.482Z",
+  "settings": {
+    "reelOfMonthEntries": [
+      {
+        "id": "rom-skill-2026-05-1778200600183",
+        "category": "skill",
+        "month": "2026-05",
+        "skill": "Driving-Stunt Driving",
+        "theme": "Driving-Stunt Driving",
+        "status": "live",
+        "finalAverage": null,
+        "finalVoteCount": null,
+        "createdAt": "2026-05-08T00:36:40.183Z",
+        "updatedAt": "2026-05-08T00:36:40.183Z"
+      }
+    ]
+  }
 }
