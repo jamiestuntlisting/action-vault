@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-07T06:35:28.875Z",
+  "lastUpdatedAt": "2026-05-08T00:36:02.218Z",
   "reels": [
     {
       "youtubeId": "WpvuMhHqT5Q",
@@ -353,7 +353,9 @@
       "description": "Get ready for a burst of adrenaline! These moments are what gaming is all about. What's your favorite highlight? 👇",
       "viewCount": 0,
       "discoveredAt": "2026-05-06T06:26:46.738Z",
-      "excluded": false
+      "excluded": true,
+      "excludedBy": "james.northrup@gmail.com",
+      "excludedAt": "2026-05-08T00:36:02.218Z"
     },
     {
       "youtubeId": "neMsE2aAozw",
