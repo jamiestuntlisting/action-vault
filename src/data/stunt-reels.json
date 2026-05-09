@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-08T06:08:46.009Z",
+  "lastUpdatedAt": "2026-05-09T06:18:22.833Z",
   "reels": [
     {
       "youtubeId": "WpvuMhHqT5Q",
@@ -550,6 +550,71 @@
       "description": "",
       "viewCount": 1,
       "discoveredAt": "2026-05-08T06:08:46.009Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "XBQlW_TByk4",
+      "title": "Greg Robbins acting/stunt reel 1 26",
+      "channelName": "Greg Robbins",
+      "channelId": "UCNgDPHTo2lr93FvRkTH69wQ",
+      "publishedAt": "2026-05-08T13:55:05Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/XBQlW_TByk4/hqdefault.jpg",
+      "durationSeconds": 178,
+      "description": "",
+      "viewCount": 23,
+      "discoveredAt": "2026-05-09T06:18:22.833Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "QNPIXTRb-Z0",
+      "title": "Activity Classification using Motion History Images: A Computer Vision Demo Reel",
+      "channelName": "BizziB AI",
+      "channelId": "UCWyDU-j5G4F8jLtVS19X2iQ",
+      "publishedAt": "2026-05-08T04:45:23Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/QNPIXTRb-Z0/hqdefault.jpg",
+      "durationSeconds": 62,
+      "description": "A demo reel from an end-to-end classical computer vision project: classifying six human actions (walking, jogging, running, boxing, handwaving, handclapping) on the KTH dataset using Motion History Images and a random forest classifier.\n\nThe reel shows each action twice in succession: first the original video clip, then the same motion compressed into a Motion History Image where bright pixels represent recent motion and dim pixels represent older motion. The right pane is what the model actually sees.\n\nThe final two segments show the model's failure modes: a jogging clip predicted as walking (cadence-adjacent locomotion confusion), and a boxing clip predicted as handclapping (arm-action duality). Both are honest uncertainty at class boundaries rather than confident mistakes.\n\nProject deta",
+      "viewCount": 2,
+      "discoveredAt": "2026-05-09T06:18:22.833Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "mkeeNVQuFAQ",
+      "title": "Eyas Younis Sword Fight Reel 4K",
+      "channelName": "Eyas Younis",
+      "channelId": "UCURkdgz4zQFEb3ihZ4sQrEQ",
+      "publishedAt": "2026-05-09T02:31:12Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mkeeNVQuFAQ/hqdefault.jpg",
+      "durationSeconds": 81,
+      "description": "#unbrokensword",
+      "viewCount": 57,
+      "discoveredAt": "2026-05-09T06:18:22.833Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "5A6SFSFldSc",
+      "title": "Kwoka Fight Reel 2026",
+      "channelName": "Danielle Kwoka",
+      "channelId": "UCMHqa9zfoloh-_B1BpU4y3Q",
+      "publishedAt": "2026-05-08T22:14:30Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/5A6SFSFldSc/hqdefault.jpg",
+      "durationSeconds": 96,
+      "description": "",
+      "viewCount": 11,
+      "discoveredAt": "2026-05-09T06:18:22.833Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "9_TpSpOLnlE",
+      "title": "Fight Reel",
+      "channelName": "Toya P",
+      "channelId": "UC65E0hnD7ub9tedWWZlqsGw",
+      "publishedAt": "2026-05-08T19:16:16Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/9_TpSpOLnlE/hqdefault.jpg",
+      "durationSeconds": 118,
+      "description": "https://www.instagram.com/tennbige?igsh=ejFldjNhZXJ3YWsy\n\nhttps://www.instagram.com/toyapre?igsh=ZnVwamNud25vYml2&utm_source=qr",
+      "viewCount": 8,
+      "discoveredAt": "2026-05-09T06:18:22.833Z",
       "excluded": false
     }
   ]
