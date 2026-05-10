@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { SignIn, SignedIn, SignedOut, UserButton, useAuth } from "@clerk/clerk-react";
+import { api } from "./api.js";
 
 // ─── ATLAS ACTION VAULT DATA ───
 const ATLAS_COURSE = {
@@ -146,7 +148,90 @@ const DECADES = ["All","2020s","2010s","2000s","1990s","1980s & Earlier"];
 const CATS = ["All","Behind The Scenes","React & Breakdown","How It Works","Coordinator Breakdown","Performer Profile","Analysis & Education","Podcast & Interview","Documentary"];
 const INTENSITIES = ["All","Beginner Friendly","Intermediate","Advanced"];
 
+// User-applied section tags (separate from cat/sub which are content-baked)
+// Any video can be tagged into one or more of these "shelves" surfaced in the nav.
+const SECTIONS = [
+  { id: "action-shorts", label: "Action Shorts", color: "#ff4081", desc: "Short independent action films and choreographed sequences." },
+  { id: "previz", label: "Previz", color: "#7c4dff", desc: "Pre-visualization, animatics and stunt-vis breakdowns." },
+  { id: "movie-trailers", label: "Movie Trailers", color: "#ffb300", desc: "Trailers for stunt-heavy releases." },
+  { id: "free-courses", label: "Free Courses", color: "#00c853", desc: "Free training playlists and tutorial series." },
+  { id: "skill-demos", label: "Skill Demonstrations", color: "#26c6da", desc: "Stunt skill demos — falls, fights, fire, wire, driving." },
+  { id: "stunt-reels", label: "Stunt Reels", color: "#ef6c00", desc: "Performer demo reels and showcase compilations." },
+];
+const getSectionLabel = id => SECTIONS.find(s => s.id === id)?.label || id;
+const getSectionColor = id => SECTIONS.find(s => s.id === id)?.color || "#e50914";
+
+// Course/list status workflow (frontend mock — real approval needs a backend)
+const COURSE_STATUS = {
+  draft:    { label: "Draft",            color: "#888"    },
+  pending:  { label: "Pending Review",   color: "#ffb300" },
+  approved: { label: "Approved",         color: "#46d369" },
+  rejected: { label: "Changes Requested",color: "#e50914" },
+};
+
+// Generic item types a list/course can hold
+const ITEM_TYPES = [
+  { id: "video",   label: "StuntFlix Video", icon: "🎬" },
+  { id: "youtube", label: "YouTube Video",   icon: "▶"  },
+  { id: "podcast", label: "Podcast Episode", icon: "🎧" },
+  { id: "book",    label: "Book",            icon: "📕" },
+  { id: "pdf",     label: "PDF / Document",  icon: "📄" },
+  { id: "link",    label: "Link / Other",    icon: "🔗" },
+];
+const getItemTypeIcon = t => ITEM_TYPES.find(i => i.id === t)?.icon || "🔗";
+
 const getDecade = y => { if(y>=2020) return "2020s"; if(y>=2010) return "2010s"; if(y>=2000) return "2000s"; if(y>=1990) return "1990s"; return "1980s & Earlier"; };
+
+// localStorage helpers — single layer so Supabase swap is one-file change later
+const lsKey = k => `stuntflix:${k}`;
+const lsLoad = (k, fallback) => {
+  try { const v = localStorage.getItem(lsKey(k)); return v ? JSON.parse(v) : fallback; }
+  catch { return fallback; }
+};
+const lsSave = (k, v) => {
+  try { localStorage.setItem(lsKey(k), JSON.stringify(v)); } catch {}
+};
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+// ─── URL obfuscation (NOT encryption — keeps private URLs out of view-source/grep) ───
+// XOR + base64. Anyone running the JS can recover URLs in DevTools; real protection needs a backend.
+const VAULT_KEY = "av-2026-rotate-when-backend-lands";
+const obfuscateURL = (url) => {
+  if (!url) return "";
+  try {
+    let x = "";
+    for (let i = 0; i < url.length; i++) {
+      x += String.fromCharCode(url.charCodeAt(i) ^ VAULT_KEY.charCodeAt(i % VAULT_KEY.length));
+    }
+    return "v1:" + btoa(unescape(encodeURIComponent(x)));
+  } catch { return url; }
+};
+const deobfuscateURL = (obf) => {
+  if (!obf) return "";
+  if (!obf.startsWith("v1:")) return obf; // legacy plaintext
+  try {
+    const x = decodeURIComponent(escape(atob(obf.slice(3))));
+    let u = "";
+    for (let i = 0; i < x.length; i++) {
+      u += String.fromCharCode(x.charCodeAt(i) ^ VAULT_KEY.charCodeAt(i % VAULT_KEY.length));
+    }
+    return u;
+  } catch { return ""; }
+};
+// Open a private URL via decode-on-click so it never lives in href attributes
+const openPrivateURL = (obf) => {
+  const u = deobfuscateURL(obf);
+  if (u) window.open(u, "_blank", "noopener,noreferrer");
+};
+
+// ─── Pricing math (StuntListing platform fee) ───
+// First $100 of course revenue: creator keeps 100%. Above $100: platform takes 20%.
+const PLATFORM_FEE_RATE = 0.20;
+const PLATFORM_FEE_THRESHOLD = 100;
+const computeCreatorEarnings = (gross) => {
+  if (gross <= PLATFORM_FEE_THRESHOLD) return gross;
+  return PLATFORM_FEE_THRESHOLD + (gross - PLATFORM_FEE_THRESHOLD) * (1 - PLATFORM_FEE_RATE);
+};
 
 const catColors = {
   "Behind The Scenes":"#e50914","React & Breakdown":"#f5c518","How It Works":"#46d369",
@@ -170,11 +255,14 @@ const ROW_DEFS = [
 ];
 
 // ─── ACTION VAULT COMPONENT ───
-function ActionVault() {
+function ActionVault({ userCourses = [], lists = [], onSelectVideo, watched = new Set(), favorites = new Set(), toggleFav, ownsPurchase, onBuy }) {
   const [activeVideo, setActiveVideo] = useState(null);
   const [expandedWeek, setExpandedWeek] = useState(1);
+  const [activeCourseId, setActiveCourseId] = useState("atlas-101");
   const course = ATLAS_COURSE;
   const weeks = [1,2,3,4];
+  const ownsFullCourse = ownsPurchase ? ownsPurchase(`vault-course:${course.id}`) : false;
+  const ownsVideo = (num) => ownsPurchase ? ownsPurchase(`vault-video:${course.id}:${num}`) : false;
 
   return (
     <div style={{ padding:"76px 48px 60px", minHeight:"100vh" }}>
@@ -249,15 +337,25 @@ function ActionVault() {
               }}>
                 {course.videos.length} videos · Save {Math.round((1 - course.coursePrice / (course.videos.length * course.videoCost)) * 100)}%
               </div>
-              <button style={{
-                width:"100%",padding:"12px 24px",background:"#ff6b00",border:"none",
-                borderRadius:6,color:"#fff",fontFamily:"'Bebas Neue',sans-serif",
-                fontSize:18,letterSpacing:"1px",cursor:"pointer",
-                transition:"background 0.2s",
-              }}
-                onMouseEnter={e=>e.currentTarget.style.background="#ff8533"}
-                onMouseLeave={e=>e.currentTarget.style.background="#ff6b00"}
-              >Buy Full Course</button>
+              <button
+                disabled={ownsFullCourse}
+                onClick={()=>onBuy?.({
+                  kind:"vault-course",
+                  key:`vault-course:${course.id}`,
+                  title: course.title,
+                  price: course.coursePrice,
+                })}
+                style={{
+                  width:"100%",padding:"12px 24px",
+                  background: ownsFullCourse ? "#46d369" : "#ff6b00",
+                  border:"none",borderRadius:6,color:"#fff",fontFamily:"'Bebas Neue',sans-serif",
+                  fontSize:18,letterSpacing:"1px",
+                  cursor: ownsFullCourse ? "default" : "pointer",
+                  transition:"background 0.2s",
+                }}
+                onMouseEnter={e=>{if(!ownsFullCourse) e.currentTarget.style.background="#ff8533"}}
+                onMouseLeave={e=>{if(!ownsFullCourse) e.currentTarget.style.background="#ff6b00"}}
+              >{ownsFullCourse ? "✓ Owned" : "Buy Full Course"}</button>
               <div style={{
                 fontFamily:"Barlow, sans-serif",fontSize:11,color:"#555",marginTop:8,
               }}>or buy individual videos for ${course.videoCost.toFixed(2)} each</div>
@@ -294,15 +392,29 @@ function ActionVault() {
                 <div style={{fontFamily:"Barlow, sans-serif",fontSize:12,color:"#666"}}>Week {activeVideo.week}</div>
               </div>
               <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:"#ff6b00"}}>${course.videoCost.toFixed(2)}</span>
-                <button style={{
-                  padding:"8px 20px",background:"#ff6b00",border:"none",borderRadius:4,
-                  color:"#fff",fontFamily:"'Bebas Neue',sans-serif",fontSize:14,
-                  letterSpacing:"1px",cursor:"pointer",
-                }}
-                  onMouseEnter={e=>e.currentTarget.style.background="#ff8533"}
-                  onMouseLeave={e=>e.currentTarget.style.background="#ff6b00"}
-                >Buy Video</button>
+                {(ownsFullCourse || ownsVideo(activeVideo.num)) ? (
+                  <span style={{
+                    padding:"8px 20px",background:"rgba(70,211,105,0.2)",border:"1px solid #46d36955",borderRadius:4,
+                    color:"#46d369",fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:"1px",
+                  }}>✓ Owned</span>
+                ) : (
+                  <>
+                    <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:"#ff6b00"}}>${course.videoCost.toFixed(2)}</span>
+                    <button onClick={()=>onBuy?.({
+                      kind:"vault-video",
+                      key:`vault-video:${course.id}:${activeVideo.num}`,
+                      title:`Lesson ${activeVideo.num}: ${activeVideo.title}`,
+                      price: course.videoCost,
+                    })} style={{
+                      padding:"8px 20px",background:"#ff6b00",border:"none",borderRadius:4,
+                      color:"#fff",fontFamily:"'Bebas Neue',sans-serif",fontSize:14,
+                      letterSpacing:"1px",cursor:"pointer",
+                    }}
+                      onMouseEnter={e=>e.currentTarget.style.background="#ff8533"}
+                      onMouseLeave={e=>e.currentTarget.style.background="#ff6b00"}
+                    >Buy Video</button>
+                  </>
+                )}
                 <button onClick={()=>setActiveVideo(null)} style={{
                   width:36,height:36,borderRadius:"50%",background:"rgba(255,255,255,0.1)",
                   border:"none",color:"#fff",fontSize:18,cursor:"pointer",
@@ -404,19 +516,38 @@ function ActionVault() {
 
                     {/* Price */}
                     <div style={{ display:"flex",alignItems:"center",gap:10,flexShrink:0 }}>
-                      <span style={{
-                        fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:"#ff6b00",
-                      }}>${course.videoCost.toFixed(2)}</span>
-                      <button onClick={e=>{e.stopPropagation();}} style={{
-                        padding:"6px 14px",background:"rgba(255,107,0,0.15)",
-                        border:"1px solid #ff6b0044",borderRadius:4,
-                        color:"#ff6b00",fontFamily:"Barlow, sans-serif",fontSize:11,
-                        fontWeight:600,cursor:"pointer",letterSpacing:"0.5px",
-                        transition:"background 0.2s",
-                      }}
-                        onMouseEnter={e=>e.currentTarget.style.background="rgba(255,107,0,0.3)"}
-                        onMouseLeave={e=>e.currentTarget.style.background="rgba(255,107,0,0.15)"}
-                      >Buy</button>
+                      {(ownsFullCourse || ownsVideo(v.num)) ? (
+                        <span style={{
+                          padding:"6px 14px",background:"rgba(70,211,105,0.15)",
+                          border:"1px solid #46d36955",borderRadius:4,
+                          color:"#46d369",fontFamily:"Barlow, sans-serif",fontSize:11,
+                          fontWeight:600,letterSpacing:"0.5px",
+                        }}>✓ Owned</span>
+                      ) : (
+                        <>
+                          <span style={{
+                            fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:"#ff6b00",
+                          }}>${course.videoCost.toFixed(2)}</span>
+                          <button onClick={e=>{
+                            e.stopPropagation();
+                            onBuy?.({
+                              kind:"vault-video",
+                              key:`vault-video:${course.id}:${v.num}`,
+                              title:`Lesson ${v.num}: ${v.title}`,
+                              price: course.videoCost,
+                            });
+                          }} style={{
+                            padding:"6px 14px",background:"rgba(255,107,0,0.15)",
+                            border:"1px solid #ff6b0044",borderRadius:4,
+                            color:"#ff6b00",fontFamily:"Barlow, sans-serif",fontSize:11,
+                            fontWeight:600,cursor:"pointer",letterSpacing:"0.5px",
+                            transition:"background 0.2s",
+                          }}
+                            onMouseEnter={e=>e.currentTarget.style.background="rgba(255,107,0,0.3)"}
+                            onMouseLeave={e=>e.currentTarget.style.background="rgba(255,107,0,0.15)"}
+                          >Buy</button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -425,6 +556,74 @@ function ActionVault() {
           </div>
         );
       })}
+
+      {/* User-submitted courses (approved by Action Vault admin) */}
+      {userCourses.length > 0 && (
+        <div style={{marginTop:50}}>
+          <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:18}}>
+            <h2 style={{
+              fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:"#e5e5e5",
+              letterSpacing:"1px",margin:0,
+            }}>Community Courses</h2>
+            <span style={{color:"#666",fontSize:12,fontFamily:"Barlow, sans-serif"}}>
+              {userCourses.length} approved
+            </span>
+          </div>
+          <div style={{
+            display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(320px, 1fr))",gap:14,
+          }}>
+            {userCourses.map(c => {
+              const ownsKey = `course:${c.id}`;
+              const owns = ownsPurchase ? ownsPurchase(ownsKey) : false;
+              return (
+                <div key={c.id} style={{
+                  background:"linear-gradient(135deg, #ff6b0011 0%, #181818 50%, #0a0a0a 100%)",
+                  border:"1px solid #ff6b0033",borderRadius:8,padding:"20px 24px",
+                }}>
+                  <div style={{
+                    fontFamily:"Barlow, sans-serif",fontSize:10,color:"#46d369",
+                    letterSpacing:"2px",textTransform:"uppercase",marginBottom:6,fontWeight:700,
+                  }}>● Approved · Community</div>
+                  <h3 style={{
+                    fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:"#fff",
+                    margin:"0 0 6px",letterSpacing:"0.5px",
+                  }}>{c.name}</h3>
+                  <p style={{
+                    fontFamily:"Barlow, sans-serif",fontSize:13,color:"#999",
+                    lineHeight:1.5,margin:"0 0 14px",minHeight:38,
+                  }}>{c.course.desc || "No description provided."}</p>
+                  <div style={{
+                    fontSize:12,color:"#666",fontFamily:"Barlow, sans-serif",marginBottom:14,
+                  }}>{c.items.length} item{c.items.length!==1?"s":""}</div>
+                  {owns ? (
+                    <div style={{
+                      padding:"10px 16px",borderRadius:4,
+                      background:"rgba(70,211,105,0.15)",border:"1px solid #46d36955",
+                      color:"#46d369",fontFamily:"'Bebas Neue',sans-serif",fontSize:14,
+                      letterSpacing:"1px",textAlign:"center",
+                    }}>✓ Owned</div>
+                  ) : c.course.isPaid ? (
+                    <button onClick={()=>onBuy?.({
+                      kind:"course", key: ownsKey, title: c.name, price: c.course.price,
+                    })} style={{
+                      width:"100%",padding:"10px 16px",background:"#ff6b00",border:"none",borderRadius:4,
+                      color:"#fff",fontFamily:"'Bebas Neue',sans-serif",fontSize:15,
+                      letterSpacing:"1px",cursor:"pointer",
+                    }}>Buy · ${c.course.price.toFixed(2)}</button>
+                  ) : (
+                    <div style={{
+                      padding:"10px 16px",borderRadius:4,
+                      background:"rgba(70,211,105,0.1)",border:"1px solid #46d36944",
+                      color:"#46d369",fontFamily:"'Bebas Neue',sans-serif",fontSize:14,
+                      letterSpacing:"1px",textAlign:"center",
+                    }}>Free</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -577,8 +776,10 @@ function VideoCard({ v, onSelect, watched, isFav, onToggleFav }) {
   );
 }
 
-function DetailModal({ v, onClose, watched, onToggleWatched, isFav, onToggleFav }) {
+function DetailModal({ v, onClose, watched, onToggleWatched, isFav, onToggleFav, lists, toggleVideoInList, sectionTags, toggleSectionTag }) {
+  const [listPickerOpen, setListPickerOpen] = useState(false);
   if (!v) return null;
+  const inLists = (lists || []).filter(l => l.items.some(i => i.type === "video" && i.videoId === v.id));
   return (
     <div onClick={onClose} style={{
       position:"fixed",inset:0,zIndex:1000,
@@ -622,11 +823,46 @@ function DetailModal({ v, onClose, watched, onToggleWatched, isFav, onToggleFav 
               background:"#fff",borderRadius:4,color:"#000",fontFamily:"'Bebas Neue','Barlow Condensed',sans-serif",
               fontSize:16,fontWeight:700,textDecoration:"none",letterSpacing:"1px",
             }}>▶ Watch Now</a>
-            <button onClick={()=>onToggleFav(v.id)} style={{
-              padding:"10px 20px",background:"rgba(109,109,110,0.7)",border:"none",borderRadius:4,
-              color:"#fff",fontFamily:"'Bebas Neue','Barlow Condensed',sans-serif",fontSize:14,fontWeight:600,
-              cursor:"pointer",letterSpacing:"1px",display:"flex",alignItems:"center",gap:6,
-            }}>{isFav ? "✓ In My List" : "+ My List"}</button>
+            {/* Add-to-list with picker */}
+            <div style={{ position:"relative" }}>
+              <button onClick={()=>setListPickerOpen(o=>!o)} style={{
+                padding:"10px 20px",background: inLists.length ? "rgba(70,211,105,0.25)" : "rgba(109,109,110,0.7)",
+                border:"none",borderRadius:4,color:"#fff",
+                fontFamily:"'Bebas Neue','Barlow Condensed',sans-serif",fontSize:14,fontWeight:600,
+                cursor:"pointer",letterSpacing:"1px",display:"flex",alignItems:"center",gap:6,
+              }}>
+                {inLists.length ? `✓ In ${inLists.length} List${inLists.length>1?"s":""}` : "+ Add to List"}
+                <span style={{fontSize:9}}>▼</span>
+              </button>
+              {listPickerOpen && lists && (
+                <div style={{
+                  position:"absolute",top:"calc(100% + 6px)",left:0,zIndex:20,
+                  background:"rgba(20,20,20,0.98)",border:"1px solid #333",borderRadius:6,
+                  minWidth:240,padding:"6px 0",
+                  boxShadow:"0 12px 24px rgba(0,0,0,0.6)",
+                }}>
+                  {lists.map(l => {
+                    const inThis = l.items.some(i => i.type === "video" && i.videoId === v.id);
+                    return (
+                      <button key={l.id} onClick={()=>toggleVideoInList(v.id, l.id)} style={{
+                        display:"flex",alignItems:"center",gap:10,
+                        width:"100%",padding:"8px 14px",background:"none",border:"none",
+                        color: inThis ? "#46d369" : "#ddd",
+                        fontFamily:"Barlow, sans-serif",fontSize:13,
+                        cursor:"pointer",textAlign:"left",
+                      }}
+                        onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.06)"}
+                        onMouseLeave={e=>e.currentTarget.style.background="none"}
+                      >
+                        <span style={{width:14,textAlign:"center"}}>{inThis ? "✓" : ""}</span>
+                        <span style={{flex:1}}>{l.name}</span>
+                        {l.course?.isCourse && <span style={{fontSize:10,color:COURSE_STATUS[l.course.status]?.color || "#888"}}>● course</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             <button onClick={()=>onToggleWatched(v.id)} style={{
               padding:"10px 20px",background: watched ? "#46d369" : "rgba(109,109,110,0.7)",
               border:"none",borderRadius:4,color: watched ? "#000" : "#fff",
@@ -688,28 +924,987 @@ function DetailModal({ v, onClose, watched, onToggleWatched, isFav, onToggleFav 
               </div>
             </div>
           )}
+
+          {/* Section Tags — user labels for Browse shelves */}
+          {toggleSectionTag && (
+            <div style={{ marginTop: 24, paddingTop:20, borderTop:"1px solid #2a2a2a" }}>
+              <span style={{color:"#777",fontSize:12,fontFamily:"Barlow, sans-serif",textTransform:"uppercase",letterSpacing:"1px"}}>Tag in Sections</span>
+              <div style={{fontSize:11,color:"#555",fontFamily:"Barlow, sans-serif",marginTop:3}}>
+                Toggle which Browse shelves this video appears in.
+              </div>
+              <div style={{ display:"flex",gap:8,flexWrap:"wrap",marginTop:10 }}>
+                {SECTIONS.map(s => {
+                  const on = (sectionTags || []).includes(s.id);
+                  return (
+                    <button key={s.id} onClick={()=>toggleSectionTag(v.id, s.id)} style={{
+                      padding:"6px 14px",borderRadius:20,fontSize:12,
+                      fontFamily:"Barlow, sans-serif",fontWeight:600,
+                      cursor:"pointer",letterSpacing:"0.3px",
+                      background: on ? `${s.color}33` : "rgba(255,255,255,0.04)",
+                      border: on ? `1px solid ${s.color}` : "1px solid #333",
+                      color: on ? s.color : "#999",
+                      display:"flex",alignItems:"center",gap:6,
+                    }}>
+                      <span style={{width:6,height:6,borderRadius:"50%",background:s.color,opacity: on ? 1 : 0.4}}/>
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── MAIN APP ───
+// ─── NEW LIST MODAL ───
+function NewListModal({ onClose, onCreate }) {
+  const [name, setName] = useState("");
+  return (
+    <div onClick={onClose} style={{
+      position:"fixed",inset:0,zIndex:1100,background:"rgba(0,0,0,0.8)",backdropFilter:"blur(8px)",
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20,animation:"fadeIn 0.2s ease",
+    }}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:"100%",maxWidth:420,background:"#181818",borderRadius:8,padding:"28px 32px",
+      }}>
+        <h2 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:"1px",margin:"0 0 6px"}}>New List</h2>
+        <p style={{color:"#888",fontFamily:"Barlow, sans-serif",fontSize:13,margin:"0 0 20px"}}>
+          Lists organize what you save. They can be turned into public courses later.
+        </p>
+        <input
+          autoFocus
+          placeholder="List name (e.g. High Fall Reference)"
+          value={name}
+          onChange={e=>setName(e.target.value)}
+          onKeyDown={e=>{ if(e.key==="Enter" && name.trim()) onCreate(name.trim()); }}
+          style={{
+            width:"100%",padding:"12px 14px",background:"#0e0e0e",
+            border:"1px solid #333",borderRadius:4,color:"#fff",
+            fontFamily:"Barlow, sans-serif",fontSize:14,outline:"none",boxSizing:"border-box",
+          }}
+        />
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:18}}>
+          <button onClick={onClose} style={{
+            padding:"8px 18px",background:"none",border:"1px solid #333",borderRadius:4,
+            color:"#aaa",fontFamily:"Barlow, sans-serif",fontSize:13,cursor:"pointer",
+          }}>Cancel</button>
+          <button onClick={()=>name.trim() && onCreate(name.trim())} disabled={!name.trim()} style={{
+            padding:"8px 22px",background: name.trim() ? "#e50914" : "#333",border:"none",borderRadius:4,
+            color:"#fff",fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:"1px",
+            cursor: name.trim() ? "pointer" : "not-allowed",
+          }}>Create</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ADD CUSTOM ITEM MODAL ───
+function AddItemModal({ list, onClose, onAdd }) {
+  const [mode, setMode] = useState("single"); // "single" | "bulk"
+  const [type, setType] = useState("youtube");
+  const [title, setTitle] = useState("");
+  const [url, setUrl] = useState("");
+  const [author, setAuthor] = useState("");
+  const [notes, setNotes] = useState("");
+  const [isPrivate, setIsPrivate] = useState(true); // default ON
+  const [bulkText, setBulkText] = useState("");
+
+  // Parse bulk paste — one URL per line, optional "Title | URL" syntax
+  const bulkParsed = bulkText
+    .split("\n")
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(line => {
+      let title = "", url = line;
+      if (line.includes(" | ")) {
+        const [t, u] = line.split(" | ").map(s => s.trim());
+        title = t; url = u;
+      } else if (line.includes(" - http")) {
+        const idx = line.indexOf(" - http");
+        title = line.slice(0, idx).trim();
+        url = line.slice(idx + 3).trim();
+      }
+      // Try to fetch a sensible default title from URL
+      if (!title) {
+        try {
+          const u = new URL(url);
+          if (u.hostname.includes("youtu")) {
+            title = "YouTube · " + (u.searchParams.get("v") || u.pathname.slice(1)).slice(0, 24);
+          } else {
+            title = u.hostname.replace(/^www\./, "") + u.pathname.slice(0, 32);
+          }
+        } catch { title = url.slice(0, 40); }
+      }
+      return { title, url };
+    });
+
+  const detectType = (url) => {
+    if (!url) return "link";
+    if (/youtu\.?be/i.test(url)) return "youtube";
+    if (/\.pdf(\?|$)/i.test(url)) return "pdf";
+    if (/(spotify|apple\.com\/.*podcast|podcasts\.|simplecast|libsyn)/i.test(url)) return "podcast";
+    return "link";
+  };
+
+  const submit = () => {
+    if (mode === "bulk") {
+      if (bulkParsed.length === 0) return;
+      const items = bulkParsed.map(p => ({
+        type: detectType(p.url),
+        title: p.title,
+        url: p.url,
+        author: "",
+        notes: "",
+        isPrivate, // private by default
+      }));
+      onAdd(items);
+    } else {
+      if (!title.trim()) return;
+      onAdd({ type, title: title.trim(), url: url.trim(), author: author.trim(), notes: notes.trim(), isPrivate });
+    }
+  };
+
+  const canSubmit = mode === "bulk" ? bulkParsed.length > 0 : title.trim();
+
+  return (
+    <div onClick={onClose} style={{
+      position:"fixed",inset:0,zIndex:1100,background:"rgba(0,0,0,0.8)",backdropFilter:"blur(8px)",
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20,animation:"fadeIn 0.2s ease",
+    }}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",
+        background:"#181818",borderRadius:8,padding:"28px 32px",
+      }}>
+        <h2 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:"1px",margin:"0 0 6px"}}>
+          Add to "{list.name}"
+        </h2>
+        <p style={{color:"#888",fontFamily:"Barlow, sans-serif",fontSize:13,margin:"0 0 18px"}}>
+          Add anything — videos, podcast episodes, books, PDFs, links. Or paste a list of URLs in bulk.
+        </p>
+
+        {/* Mode toggle */}
+        <div style={{display:"flex",gap:6,marginBottom:18,padding:4,background:"rgba(0,0,0,0.4)",borderRadius:6}}>
+          <button onClick={()=>setMode("single")} style={{
+            flex:1,padding:"8px 12px",border:"none",borderRadius:4,
+            background: mode==="single" ? "#e50914" : "transparent",
+            color: mode==="single" ? "#fff" : "#888",
+            fontFamily:"Barlow, sans-serif",fontSize:13,fontWeight:600,cursor:"pointer",
+          }}>One Item</button>
+          <button onClick={()=>setMode("bulk")} style={{
+            flex:1,padding:"8px 12px",border:"none",borderRadius:4,
+            background: mode==="bulk" ? "#e50914" : "transparent",
+            color: mode==="bulk" ? "#fff" : "#888",
+            fontFamily:"Barlow, sans-serif",fontSize:13,fontWeight:600,cursor:"pointer",
+          }}>Paste Multiple URLs</button>
+        </div>
+
+        {mode === "single" ? (
+          <>
+            <label style={{color:"#777",fontSize:11,fontFamily:"Barlow, sans-serif",textTransform:"uppercase",letterSpacing:"1px"}}>Type</label>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,margin:"8px 0 18px"}}>
+              {ITEM_TYPES.map(t => (
+                <button key={t.id} onClick={()=>setType(t.id)} style={{
+                  padding:"8px 14px",borderRadius:4,fontSize:12,
+                  fontFamily:"Barlow, sans-serif",fontWeight:600,cursor:"pointer",
+                  background: type===t.id ? "#e50914" : "rgba(255,255,255,0.05)",
+                  border: type===t.id ? "1px solid #e50914" : "1px solid #333",
+                  color: type===t.id ? "#fff" : "#aaa",
+                  display:"flex",alignItems:"center",gap:6,
+                }}>
+                  <span>{t.icon}</span> {t.label}
+                </button>
+              ))}
+            </div>
+
+            <FormField label="Title">
+              <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. High Fall Reference Reel" style={inputStyle}/>
+            </FormField>
+            {type !== "book" && (
+              <FormField label={type === "pdf" ? "PDF URL or file reference" : "URL or embed link"}>
+                <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://..." style={inputStyle}/>
+              </FormField>
+            )}
+            <FormField label={type === "book" ? "Author" : type === "podcast" ? "Show / Host" : type === "pdf" ? "Source" : "Author / Channel (optional)"}>
+              <input value={author} onChange={e=>setAuthor(e.target.value)} placeholder="" style={inputStyle}/>
+            </FormField>
+            <FormField label="Notes (optional)">
+              <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Why it belongs here…" rows={3} style={{...inputStyle, resize:"vertical", fontFamily:"Barlow, sans-serif"}}/>
+            </FormField>
+          </>
+        ) : (
+          <>
+            <FormField label="Paste URLs (one per line)">
+              <textarea
+                value={bulkText}
+                onChange={e=>setBulkText(e.target.value)}
+                placeholder={`https://youtube.com/watch?v=...\nhttps://youtube.com/watch?v=...\nMy Title | https://youtube.com/watch?v=...`}
+                rows={8}
+                style={{...inputStyle, resize:"vertical", fontFamily:"monospace", fontSize:12}}
+              />
+            </FormField>
+            <div style={{
+              fontSize:11,color:"#666",fontFamily:"Barlow, sans-serif",marginBottom:14,
+            }}>
+              Optional title syntax: <code style={{background:"#0a0a0a",padding:"2px 5px",borderRadius:2}}>Title | URL</code> per line.
+              Type is auto-detected (YouTube, PDF, podcast, link).
+            </div>
+            {bulkParsed.length > 0 && (
+              <div style={{
+                marginBottom:18,padding:"10px 14px",background:"rgba(70,211,105,0.05)",
+                border:"1px solid #46d36933",borderRadius:4,maxHeight:140,overflowY:"auto",
+              }}>
+                <div style={{color:"#46d369",fontSize:11,fontFamily:"Barlow, sans-serif",fontWeight:700,letterSpacing:"1px",marginBottom:8}}>
+                  WILL ADD {bulkParsed.length} ITEM{bulkParsed.length!==1?"S":""}
+                </div>
+                {bulkParsed.slice(0,8).map((p,i) => (
+                  <div key={i} style={{fontSize:11,color:"#aaa",fontFamily:"Barlow, sans-serif",marginBottom:3,display:"flex",gap:8}}>
+                    <span style={{color:"#666"}}>{getItemTypeIcon(detectType(p.url))}</span>
+                    <span style={{flex:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.title}</span>
+                  </div>
+                ))}
+                {bulkParsed.length > 8 && <div style={{fontSize:11,color:"#555",fontFamily:"Barlow, sans-serif",marginTop:4}}>+ {bulkParsed.length - 8} more</div>}
+              </div>
+            )}
+          </>
+        )}
+
+        <label style={{display:"flex",alignItems:"flex-start",gap:8,marginTop:6,marginBottom:14,cursor:"pointer"}}>
+          <input type="checkbox" checked={isPrivate} onChange={e=>setIsPrivate(e.target.checked)} style={{accentColor:"#e50914",marginTop:3}}/>
+          <span style={{color:"#aaa",fontFamily:"Barlow, sans-serif",fontSize:13,lineHeight:1.5}}>
+            <strong style={{color:"#ddd"}}>Private</strong> — URL stored obfuscated, hidden from view-source.
+            <span style={{display:"block",fontSize:11,color:"#666",marginTop:2}}>
+              Default ON for any URL. Real protection requires a backend; this only deters casual snooping.
+            </span>
+          </span>
+        </label>
+
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+          <button onClick={onClose} style={{
+            padding:"8px 18px",background:"none",border:"1px solid #333",borderRadius:4,
+            color:"#aaa",fontFamily:"Barlow, sans-serif",fontSize:13,cursor:"pointer",
+          }}>Cancel</button>
+          <button onClick={submit} disabled={!canSubmit} style={{
+            padding:"8px 22px",background: canSubmit ? "#e50914" : "#333",border:"none",borderRadius:4,
+            color:"#fff",fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:"1px",
+            cursor: canSubmit ? "pointer" : "not-allowed",
+          }}>{mode === "bulk" ? `Add ${bulkParsed.length || ""} Items` : "Add Item"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const inputStyle = {
+  width:"100%",padding:"10px 12px",background:"#0e0e0e",
+  border:"1px solid #333",borderRadius:4,color:"#fff",
+  fontFamily:"Barlow, sans-serif",fontSize:13,outline:"none",boxSizing:"border-box",
+};
+
+function FormField({ label, children }) {
+  return (
+    <div style={{marginBottom:14}}>
+      <label style={{
+        display:"block",color:"#777",fontSize:11,fontFamily:"Barlow, sans-serif",
+        textTransform:"uppercase",letterSpacing:"1px",marginBottom:6,
+      }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function PricingBreakdown({ price }) {
+  if (!price || price <= 0) return null;
+  const salesToHit100 = Math.ceil(PLATFORM_FEE_THRESHOLD / price);
+  const grossAt100Sales = price * 100;
+  const earningsAt100 = computeCreatorEarnings(grossAt100Sales);
+  const platformAt100 = grossAt100Sales - earningsAt100;
+  const row = (label, val, hint) => (
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontFamily:"Barlow, sans-serif",padding:"4px 0",alignItems:"baseline"}}>
+      <span style={{color:"#888"}}>{label}{hint && <span style={{color:"#555",marginLeft:6,fontSize:10}}>{hint}</span>}</span>
+      <span style={{color:"#fff",fontWeight:600,fontFamily:"Barlow Condensed, sans-serif"}}>{val}</span>
+    </div>
+  );
+  return (
+    <div style={{borderTop:"1px solid #2a2a2a",paddingTop:10}}>
+      {row("First sale", `You get $${price.toFixed(2)}`, "(under $100 cap)")}
+      {row(`Sales 1 → ${salesToHit100}`, `100% to you`, `(up to $${PLATFORM_FEE_THRESHOLD})`)}
+      {row("After $100 earned", `You: 80% · StuntListing: 20%`)}
+      <div style={{borderTop:"1px dashed #2a2a2a",marginTop:8,paddingTop:8}}>
+        {row("If you sell 100 copies", `$${earningsAt100.toFixed(2)} to you`, `· $${platformAt100.toFixed(2)} fee`)}
+      </div>
+    </div>
+  );
+}
+
+// ─── CONVERT TO COURSE MODAL ───
+function ConvertCourseModal({ list, adminMode, onClose, onSave }) {
+  const c = list.course || {};
+  const [isCourse, setIsCourse] = useState(c.isCourse || false);
+  const [isPaid, setIsPaid] = useState(c.isPaid || false);
+  const [price, setPrice] = useState(c.price || 9.99);
+  const [desc, setDesc] = useState(c.desc || "");
+  const status = c.status;
+
+  const submit = () => {
+    onSave({
+      isCourse, isPaid, price: Number(price) || 0, desc,
+      status: isCourse ? (status === "approved" ? "approved" : "pending") : null,
+    });
+  };
+  const setApproval = (newStatus) => onSave({ ...c, isCourse, isPaid, price: Number(price) || 0, desc, status: newStatus });
+
+  return (
+    <div onClick={onClose} style={{
+      position:"fixed",inset:0,zIndex:1100,background:"rgba(0,0,0,0.8)",backdropFilter:"blur(8px)",
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20,animation:"fadeIn 0.2s ease",
+    }}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",
+        background:"#181818",borderRadius:8,padding:"28px 32px",
+      }}>
+        <h2 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:"1px",margin:"0 0 6px"}}>
+          Submit "{list.name}" to the Action Vault
+        </h2>
+        <p style={{color:"#888",fontFamily:"Barlow, sans-serif",fontSize:13,margin:"0 0 20px"}}>
+          The Action Vault is where StuntListing publishes approved courses. Submit this list and an Action Vault admin will review it.
+        </p>
+
+        {status && (
+          <div style={{
+            padding:"10px 14px",borderRadius:4,marginBottom:18,
+            background:`${COURSE_STATUS[status]?.color}22`,
+            border:`1px solid ${COURSE_STATUS[status]?.color}55`,
+            color: COURSE_STATUS[status]?.color,
+            fontFamily:"Barlow, sans-serif",fontSize:13,fontWeight:600,
+            display:"flex",alignItems:"center",gap:10,
+          }}>
+            <span style={{width:8,height:8,borderRadius:"50%",background:COURSE_STATUS[status]?.color}}/>
+            Status: {COURSE_STATUS[status]?.label}
+          </div>
+        )}
+
+        <label style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,cursor:"pointer"}}>
+          <input type="checkbox" checked={isCourse} onChange={e=>setIsCourse(e.target.checked)} style={{accentColor:"#e50914"}}/>
+          <span style={{color:"#ddd",fontFamily:"Barlow, sans-serif",fontSize:14}}>Make this list a course</span>
+        </label>
+
+        {isCourse && (
+          <>
+            <FormField label="Course description">
+              <textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={3}
+                placeholder="What learners will get from this course"
+                style={{...inputStyle, resize:"vertical"}}/>
+            </FormField>
+
+            <div style={{display:"flex",gap:14,marginBottom:14}}>
+              <button onClick={()=>setIsPaid(false)} style={{
+                flex:1,padding:"12px",borderRadius:4,
+                background: !isPaid ? "rgba(70,211,105,0.2)" : "rgba(255,255,255,0.04)",
+                border: !isPaid ? "1px solid #46d369" : "1px solid #333",
+                color: !isPaid ? "#46d369" : "#888",
+                fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:"1px",cursor:"pointer",
+              }}>Free</button>
+              <button onClick={()=>setIsPaid(true)} style={{
+                flex:1,padding:"12px",borderRadius:4,
+                background: isPaid ? "rgba(255,107,0,0.2)" : "rgba(255,255,255,0.04)",
+                border: isPaid ? "1px solid #ff6b00" : "1px solid #333",
+                color: isPaid ? "#ff6b00" : "#888",
+                fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:"1px",cursor:"pointer",
+              }}>Paid</button>
+            </div>
+
+            {isPaid && (
+              <>
+                <FormField label="Price (USD)">
+                  <input type="number" min="0" step="0.01" value={price} onChange={e=>setPrice(e.target.value)} style={inputStyle}/>
+                </FormField>
+
+                {/* Pricing breakdown */}
+                <div style={{
+                  marginBottom:16,padding:"14px 16px",
+                  background:"rgba(70,211,105,0.04)",border:"1px solid #46d36933",borderRadius:6,
+                }}>
+                  <div style={{
+                    fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:"#46d369",
+                    letterSpacing:"1px",marginBottom:8,
+                  }}>
+                    HOW REVENUE WORKS
+                  </div>
+                  <div style={{fontSize:12,color:"#bbb",fontFamily:"Barlow, sans-serif",lineHeight:1.6,marginBottom:12}}>
+                    StuntListing's fee is <strong style={{color:"#fff"}}>$0 until you've earned $100</strong> from this course.
+                    After $100, StuntListing keeps <strong style={{color:"#fff"}}>20%</strong> of additional sales.
+                    You keep the rest.
+                  </div>
+                  <PricingBreakdown price={Number(price) || 0} />
+                </div>
+              </>
+            )}
+
+            <div style={{
+              fontSize:11,color:"#666",fontFamily:"Barlow, sans-serif",
+              padding:"10px 12px",background:"rgba(255,179,0,0.05)",border:"1px solid #ffb30033",
+              borderRadius:4,marginBottom:18,lineHeight:1.5,
+            }}>
+              <strong style={{color:"#ffb300"}}>Heads up:</strong> Real approval, payment processing,
+              and access control require a backend. Right now this is a UI mock — private URLs are
+              obfuscated but not truly secured.
+            </div>
+          </>
+        )}
+
+        {adminMode && isCourse && (
+          <div style={{
+            padding:14,marginBottom:18,borderRadius:4,
+            background:"rgba(70,211,105,0.05)",border:"1px solid #46d36944",
+          }}>
+            <div style={{color:"#46d369",fontSize:11,fontFamily:"Barlow, sans-serif",fontWeight:700,letterSpacing:"1px",marginBottom:8}}>
+              ACTION VAULT ADMIN
+            </div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {Object.entries(COURSE_STATUS).map(([k, v]) => (
+                <button key={k} onClick={()=>setApproval(k)} style={{
+                  padding:"6px 14px",borderRadius:4,fontSize:11,
+                  fontFamily:"Barlow, sans-serif",fontWeight:600,cursor:"pointer",
+                  background: status===k ? `${v.color}33` : "rgba(255,255,255,0.03)",
+                  border: status===k ? `1px solid ${v.color}` : "1px solid #333",
+                  color: status===k ? v.color : "#aaa",
+                }}>{v.label}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+          <button onClick={onClose} style={{
+            padding:"8px 18px",background:"none",border:"1px solid #333",borderRadius:4,
+            color:"#aaa",fontFamily:"Barlow, sans-serif",fontSize:13,cursor:"pointer",
+          }}>Cancel</button>
+          <button onClick={submit} style={{
+            padding:"8px 22px",background:"#e50914",border:"none",borderRadius:4,
+            color:"#fff",fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:"1px",cursor:"pointer",
+          }}>{isCourse ? "Submit to Action Vault" : "Save"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── MY LISTS VIEW ───
+function MyListsView({
+  lists, activeListId, setActiveListId, createList, renameList, deleteList,
+  removeItemFromList, updateListCourse,
+  onSelectVideo, watched, favorites, toggleFav,
+  onAddItem, onConvertCourse, onNewList, adminMode,
+}) {
+  const [renaming, setRenaming] = useState(null);
+  const [renameVal, setRenameVal] = useState("");
+  const list = lists.find(l => l.id === activeListId) || lists[0];
+
+  const startRename = (l) => { setRenaming(l.id); setRenameVal(l.name); };
+  const commitRename = () => {
+    if (renameVal.trim()) renameList(renaming, renameVal.trim());
+    setRenaming(null);
+  };
+
+  const status = list?.course?.status;
+  const isCourse = list?.course?.isCourse;
+
+  return (
+    <div style={{padding:"0 48px"}}>
+      <div style={{display:"flex",alignItems:"baseline",gap:14,marginBottom:6,flexWrap:"wrap"}}>
+        <h2 style={{
+          fontFamily:"'Bebas Neue',sans-serif",fontSize:28,fontWeight:400,
+          letterSpacing:"1px",margin:0,
+        }}>My Lists</h2>
+        <span style={{color:"#666",fontSize:13,fontFamily:"Barlow, sans-serif"}}>
+          {lists.length} list{lists.length!==1?"s":""}
+        </span>
+      </div>
+      <p style={{color:"#777",fontSize:13,fontFamily:"Barlow, sans-serif",margin:"0 0 18px"}}>
+        Build your own collections. Add anything — videos, podcasts, books, PDFs. Convert any list into a public course.
+      </p>
+
+      {/* List tabs */}
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:24,alignItems:"center"}}>
+        {lists.map(l => (
+          <div key={l.id} style={{position:"relative"}}>
+            {renaming === l.id ? (
+              <input
+                autoFocus
+                value={renameVal}
+                onChange={e=>setRenameVal(e.target.value)}
+                onBlur={commitRename}
+                onKeyDown={e=>{ if(e.key==="Enter") commitRename(); if(e.key==="Escape") setRenaming(null); }}
+                style={{
+                  padding:"7px 14px",background:"#0e0e0e",border:"1px solid #e50914",borderRadius:20,
+                  color:"#fff",fontFamily:"Barlow, sans-serif",fontSize:13,outline:"none",
+                  width:160,
+                }}
+              />
+            ) : (
+              <button onClick={()=>setActiveListId(l.id)} onDoubleClick={()=>startRename(l)} style={{
+                padding:"7px 16px",borderRadius:20,
+                background: l.id===activeListId ? "#fff" : "rgba(255,255,255,0.06)",
+                color: l.id===activeListId ? "#000" : "#ccc",
+                border: l.id===activeListId ? "none" : "1px solid #333",
+                fontFamily:"Barlow, sans-serif",fontSize:13,fontWeight:600,cursor:"pointer",
+                display:"flex",alignItems:"center",gap:6,
+              }}>
+                {l.name}
+                <span style={{
+                  fontSize:11,opacity:0.6,
+                  color: l.id===activeListId ? "#444" : "#888",
+                }}>· {l.items.length}</span>
+                {l.course?.isCourse && (
+                  <span style={{
+                    width:6,height:6,borderRadius:"50%",
+                    background: COURSE_STATUS[l.course.status]?.color || "#888",
+                  }}/>
+                )}
+              </button>
+            )}
+          </div>
+        ))}
+        <button onClick={onNewList} style={{
+          padding:"7px 14px",borderRadius:20,background:"none",border:"1px dashed #555",
+          color:"#888",fontFamily:"Barlow, sans-serif",fontSize:13,cursor:"pointer",
+        }}>+ New List</button>
+      </div>
+
+      {!list ? null : (
+        <>
+          {/* List actions */}
+          <div style={{
+            display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap",
+            padding:"14px 18px",background:"rgba(255,255,255,0.02)",border:"1px solid #222",borderRadius:6,
+          }}>
+            <div style={{flex:1,minWidth:200}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:"#fff",letterSpacing:"0.5px"}}>
+                {list.name}
+              </div>
+              {isCourse && status && (
+                <div style={{
+                  display:"inline-flex",alignItems:"center",gap:6,marginTop:4,
+                  fontSize:11,fontFamily:"Barlow, sans-serif",fontWeight:600,
+                  color: COURSE_STATUS[status]?.color || "#888",letterSpacing:"1px",textTransform:"uppercase",
+                }}>
+                  <span style={{width:6,height:6,borderRadius:"50%",background:COURSE_STATUS[status]?.color}}/>
+                  {COURSE_STATUS[status]?.label} · {list.course.isPaid ? `$${list.course.price.toFixed(2)}` : "Free"}
+                </div>
+              )}
+            </div>
+            <button onClick={onAddItem} style={{
+              padding:"8px 16px",background:"#e50914",border:"none",borderRadius:4,
+              color:"#fff",fontFamily:"'Bebas Neue',sans-serif",fontSize:13,letterSpacing:"1px",cursor:"pointer",
+            }}>+ Add Item</button>
+            <button onClick={onConvertCourse} style={{
+              padding:"8px 16px",background:isCourse ? "rgba(70,211,105,0.15)" : "rgba(255,255,255,0.06)",
+              border: isCourse ? "1px solid #46d36955" : "1px solid #333",
+              borderRadius:4,color:isCourse ? "#46d369" : "#ccc",
+              fontFamily:"'Bebas Neue',sans-serif",fontSize:13,letterSpacing:"1px",cursor:"pointer",
+            }}>{isCourse ? "Edit Course Settings" : "Convert to Course"}</button>
+            <button onClick={()=>startRename(list)} style={{
+              padding:"8px 14px",background:"none",border:"1px solid #333",borderRadius:4,
+              color:"#aaa",fontFamily:"Barlow, sans-serif",fontSize:12,cursor:"pointer",
+            }}>Rename</button>
+            {!list.isDefault && (
+              <button onClick={()=>{ if(confirm(`Delete list "${list.name}"?`)) deleteList(list.id); }} style={{
+                padding:"8px 14px",background:"none",border:"1px solid #3a1f1f",borderRadius:4,
+                color:"#a55",fontFamily:"Barlow, sans-serif",fontSize:12,cursor:"pointer",
+              }}>Delete</button>
+            )}
+          </div>
+
+          {/* Items */}
+          {list.items.length === 0 ? (
+            <div style={{textAlign:"center",padding:"80px 20px",color:"#555"}}>
+              <div style={{fontSize:48,marginBottom:12}}>🎬</div>
+              <div style={{fontSize:16,fontFamily:"Barlow, sans-serif",marginBottom:14}}>
+                This list is empty.
+              </div>
+              <button onClick={onAddItem} style={{
+                padding:"8px 18px",background:"#e50914",border:"none",borderRadius:4,
+                color:"#fff",fontFamily:"'Bebas Neue',sans-serif",fontSize:13,letterSpacing:"1px",cursor:"pointer",
+              }}>+ Add First Item</button>
+            </div>
+          ) : (
+            <>
+              {/* Video items grid */}
+              {list.items.filter(i=>i.type==="video").length > 0 && (
+                <div style={{marginBottom:30}}>
+                  <h3 style={{
+                    fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:"1px",
+                    color:"#aaa",margin:"0 0 12px",textTransform:"uppercase",
+                  }}>StuntFlix Videos</h3>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(240px, 1fr))",gap:8}}>
+                    {list.items.filter(i=>i.type==="video").map(item => {
+                      const v = VIDEOS.find(x => x.id === item.videoId);
+                      if (!v) return null;
+                      return (
+                        <div key={item.id} style={{position:"relative"}}>
+                          <VideoCard v={v} onSelect={onSelectVideo} watched={watched.has(v.id)} isFav={favorites.has(v.id)} onToggleFav={toggleFav}/>
+                          <button onClick={(e)=>{e.stopPropagation();removeItemFromList(list.id, item.id);}} style={{
+                            position:"absolute",top:6,right:6,zIndex:10,
+                            width:22,height:22,borderRadius:"50%",
+                            background:"rgba(0,0,0,0.8)",border:"none",color:"#fff",
+                            fontSize:11,cursor:"pointer",
+                          }} title="Remove from list">✕</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Custom items list */}
+              {list.items.filter(i=>i.type!=="video").length > 0 && (
+                <div>
+                  <h3 style={{
+                    fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:"1px",
+                    color:"#aaa",margin:"0 0 12px",textTransform:"uppercase",
+                  }}>Other Items</h3>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {list.items.filter(i=>i.type!=="video").map(item => (
+                      <div key={item.id} style={{
+                        display:"flex",alignItems:"center",gap:14,
+                        padding:"12px 16px",background:"rgba(255,255,255,0.03)",
+                        border:"1px solid #222",borderRadius:6,
+                      }}>
+                        <span style={{fontSize:22,width:32,textAlign:"center"}}>{getItemTypeIcon(item.type)}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontFamily:"Barlow, sans-serif",fontSize:14,color:"#fff",fontWeight:600}}>
+                            {item.title}
+                            {item.isPrivate && <span style={{
+                              marginLeft:8,fontSize:10,padding:"2px 6px",borderRadius:3,
+                              background:"rgba(255,107,0,0.15)",color:"#ff6b00",letterSpacing:"1px",
+                            }}>PRIVATE</span>}
+                          </div>
+                          <div style={{fontFamily:"Barlow, sans-serif",fontSize:12,color:"#777",marginTop:2}}>
+                            {ITEM_TYPES.find(t=>t.id===item.type)?.label}
+                            {item.author ? ` · ${item.author}` : ""}
+                          </div>
+                          {item.notes && (
+                            <div style={{fontFamily:"Barlow, sans-serif",fontSize:12,color:"#888",marginTop:4,fontStyle:"italic"}}>
+                              {item.notes}
+                            </div>
+                          )}
+                        </div>
+                        {item.url && (
+                          item.isPrivate ? (
+                            <button onClick={()=>openPrivateURL(item.url)} style={{
+                              color:"#46d369",fontFamily:"Barlow, sans-serif",fontSize:12,
+                              padding:"6px 12px",border:"1px solid #46d36944",borderRadius:3,
+                              background:"none",cursor:"pointer",
+                            }}>Open ↗</button>
+                          ) : (
+                            <a href={item.url} target="_blank" rel="noopener noreferrer" style={{
+                              color:"#46d369",fontFamily:"Barlow, sans-serif",fontSize:12,textDecoration:"none",
+                              padding:"6px 12px",border:"1px solid #46d36944",borderRadius:3,
+                            }}>Open ↗</a>
+                          )
+                        )}
+                        <button onClick={()=>removeItemFromList(list.id, item.id)} style={{
+                          width:28,height:28,borderRadius:"50%",
+                          background:"rgba(255,255,255,0.04)",border:"none",color:"#888",
+                          fontSize:13,cursor:"pointer",
+                        }} title="Remove">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── SECTION VIEW (Action Shorts, Previz, etc.) ───
+function SectionView({ section, videos, onSelectVideo, watched, favorites, toggleFav, onBrowse }) {
+  if (!section) return null;
+  return (
+    <div style={{padding:"0 48px"}}>
+      <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:6,flexWrap:"wrap"}}>
+        <span style={{
+          width:10,height:10,borderRadius:2,background:section.color,display:"inline-block",
+        }}/>
+        <h2 style={{
+          fontFamily:"'Bebas Neue',sans-serif",fontSize:28,fontWeight:400,
+          letterSpacing:"1px",margin:0,color:"#fff",
+        }}>{section.label}</h2>
+        <span style={{color:"#666",fontSize:13,fontFamily:"Barlow, sans-serif"}}>
+          {videos.length} title{videos.length!==1?"s":""}
+        </span>
+      </div>
+      <p style={{color:"#888",fontSize:13,fontFamily:"Barlow, sans-serif",margin:"0 0 22px",maxWidth:680}}>
+        {section.desc}
+      </p>
+
+      {videos.length === 0 ? (
+        <div style={{
+          textAlign:"center",padding:"80px 20px",color:"#555",
+          border:"1px dashed #2a2a2a",borderRadius:8,
+        }}>
+          <div style={{fontSize:48,marginBottom:12}}>📭</div>
+          <div style={{fontSize:16,fontFamily:"Barlow, sans-serif",marginBottom:6,color:"#888"}}>
+            Nothing tagged for {section.label} yet.
+          </div>
+          <div style={{fontSize:13,fontFamily:"Barlow, sans-serif",color:"#666",marginBottom:18}}>
+            Open any video and use the "Tag in Sections" buttons at the bottom to label it for this shelf.
+          </div>
+          <button onClick={onBrowse} style={{
+            padding:"8px 18px",background: section.color,border:"none",borderRadius:4,
+            color:"#fff",fontFamily:"'Bebas Neue',sans-serif",fontSize:13,letterSpacing:"1px",cursor:"pointer",
+          }}>Browse Catalog</button>
+        </div>
+      ) : (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(240px, 1fr))",gap:8}}>
+          {videos.map((v,i) => (
+            <div key={v.id} style={{animation:`slideUp 0.4s ease ${Math.min(i*40,400)}ms both`}}>
+              <VideoCard v={v} onSelect={onSelectVideo} watched={watched.has(v.id)} isFav={favorites.has(v.id)} onToggleFav={toggleFav}/>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SIGN-IN GATE + AUTH WRAPPER ───
 export default function App() {
+  return (
+    <>
+      <SignedOut>
+        <SignInScreen />
+      </SignedOut>
+      <SignedIn>
+        <AppInner />
+      </SignedIn>
+    </>
+  );
+}
+
+function SignInScreen() {
+  return (
+    <div style={{
+      minHeight:"100vh",background:"#141414",color:"#fff",
+      fontFamily:"'Barlow','Helvetica Neue',sans-serif",
+      display:"flex",alignItems:"center",justifyContent:"center",padding:24,
+    }}>
+      <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet" />
+      <div style={{textAlign:"center",maxWidth:480,width:"100%"}}>
+        <div style={{
+          fontFamily:"'Bebas Neue',sans-serif",fontSize:48,color:"#e50914",
+          letterSpacing:"3px",marginBottom:8,
+        }}>STUNTFLIX</div>
+        <div style={{
+          fontFamily:"Barlow, sans-serif",fontSize:13,color:"#888",letterSpacing:"2px",
+          textTransform:"uppercase",marginBottom:32,
+        }}>Action Vault · Sign in to continue</div>
+        <SignIn routing="hash" />
+      </div>
+    </div>
+  );
+}
+
+// One-time migration: pull anything in localStorage into the cloud the first time you sign in
+async function migrateLocalStorageToCloud(getToken) {
+  if (lsLoad("migrated", false)) return;
+  try {
+    const legacyLists = lsLoad("lists", []);
+    const legacyWatched = lsLoad("watched", []);
+    const legacyTags = lsLoad("sectionTags", {});
+    const legacyPurchased = lsLoad("purchased", []);
+
+    const cloudLists = (await api.listsGet(getToken)).lists;
+    const defaultList = cloudLists.find(l => l.isDefault);
+
+    if (defaultList && legacyLists.length > 0) {
+      // Find any local list with items and migrate them into cloud lists by name
+      for (const ll of legacyLists) {
+        let cloudList = cloudLists.find(c => c.name === ll.name);
+        if (!cloudList) {
+          const created = await api.listsCreate(getToken, ll.name);
+          cloudList = { id: created.id, items: [] };
+          if (ll.course?.isCourse) {
+            await api.listsPatch(getToken, created.id, { course: ll.course });
+          }
+        }
+        if (ll.items?.length) {
+          await api.itemsAdd(getToken, cloudList.id, ll.items.map(i => ({
+            type: i.type,
+            videoId: i.videoId,
+            title: i.title || "",
+            url: i.url || "",
+            author: i.author || "",
+            notes: i.notes || "",
+            isPrivate: !!i.isPrivate,
+          })));
+        }
+      }
+    }
+    for (const vid of legacyWatched) {
+      await api.watchedToggle(getToken, vid).catch(()=>{});
+    }
+    for (const [vid, sectionIds] of Object.entries(legacyTags)) {
+      for (const sid of sectionIds) {
+        await api.tagToggle(getToken, Number(vid), sid).catch(()=>{});
+      }
+    }
+    for (const key of legacyPurchased) {
+      await api.purchaseTest(getToken, key, 0).catch(()=>{});
+    }
+    lsSave("migrated", true);
+  } catch (e) {
+    console.warn("[migrate] failed, will retry on next load", e);
+  }
+}
+
+function AppInner() {
   const [search, setSearch] = useState("");
   const [decade, setDecade] = useState("All");
   const [cat, setCat] = useState("All");
   const [intensity, setIntensity] = useState("All");
-  const [watched, setWatched] = useState(new Set());
-  const [favorites, setFavorites] = useState(new Set());
+  const { getToken, isLoaded: authLoaded } = useAuth();
+  const [hydrated, setHydrated] = useState(false);
+  const [watched, setWatched] = useState(() => new Set());
+  const [purchased, setPurchased] = useState(() => new Set());
+  const [pendingPurchase, setPendingPurchase] = useState(null);
+  const [purchaseSuccess, setPurchaseSuccess] = useState(null);
+  const [lists, setLists] = useState([]);
+  const [activeListId, setActiveListId] = useState(null);
+  const [sectionTags, setSectionTags] = useState({});
+  const [adminMode, setAdminMode] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [view, setView] = useState("home"); // home, search, mylist, watched
+  const [view, setView] = useState("home");
   const [heroIdx, setHeroIdx] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [showConvertCourse, setShowConvertCourse] = useState(false);
+  const [showNewList, setShowNewList] = useState(false);
   const searchRef = useRef(null);
 
   useEffect(() => { setTimeout(() => setLoaded(true), 100); }, []);
+
+  // ─── Hydrate from cloud on sign-in (and migrate any leftover localStorage on first load) ───
+  useEffect(() => {
+    if (!authLoaded) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await migrateLocalStorageToCloud(getToken);
+        const [listsRes, watchedRes, tagsRes, purchasesRes] = await Promise.all([
+          api.listsGet(getToken),
+          api.watchedGet(getToken),
+          api.tagsGet(getToken),
+          api.purchasesGet(getToken),
+        ]);
+        if (cancelled) return;
+        setLists(listsRes.lists);
+        setActiveListId(listsRes.lists[0]?.id || null);
+        setWatched(new Set(watchedRes.watched));
+        setSectionTags(tagsRes.tags);
+        setPurchased(new Set(purchasesRes.purchased));
+        setHydrated(true);
+      } catch (e) {
+        console.error("[hydrate] failed", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authLoaded]);
+
+  // Purchase chokepoint — Stripe webhook later calls into confirmPurchase
+  const confirmPurchase = async (key, price) => {
+    setPurchased(p => { const n = new Set(p); n.add(key); return n; });
+    setPurchaseSuccess(key);
+    setTimeout(() => setPurchaseSuccess(null), 3500);
+    try { await api.purchaseTest(getToken, key, price || 0); } catch (e) { console.error(e); }
+  };
+  const ownsPurchase = (key) => purchased.has(key);
+  const resetAllData = () => {
+    ["watched","lists","activeListId","sectionTags","purchased","favorites","migrated"].forEach(k =>
+      localStorage.removeItem(lsKey(k))
+    );
+    location.reload();
+  };
+
+  // Convenience: a Set of all videoIds across all lists (for the heart/star UI)
+  const favorites = new Set(lists.flatMap(l => l.items.filter(i => i.type === "video").map(i => i.videoId)));
+  const activeList = lists.find(l => l.id === activeListId) || lists[0];
+
+  // List operations — optimistic UI then API call. Reload list ids from server response on create.
+  const createList = async (name) => {
+    try {
+      const res = await api.listsCreate(getToken, name);
+      const newList = {
+        id: res.id, name, items: [],
+        course: { isCourse: false, isPaid: false, price: 0, desc: "", status: null },
+        isDefault: false,
+      };
+      setLists(prev => [...prev, newList]);
+      setActiveListId(res.id);
+    } catch (e) { console.error(e); }
+  };
+  const renameList = async (id, name) => {
+    setLists(prev => prev.map(l => l.id === id ? { ...l, name } : l));
+    try { await api.listsPatch(getToken, id, { name }); } catch (e) { console.error(e); }
+  };
+  const deleteList = async (id) => {
+    setLists(prev => prev.filter(l => l.id !== id));
+    try { await api.listsDelete(getToken, id); } catch (e) { console.error(e); }
+  };
+  const updateListCourse = async (id, patch) => {
+    setLists(prev => prev.map(l => l.id === id ? { ...l, course: { ...l.course, ...patch } } : l));
+    try { await api.listsPatch(getToken, id, { course: patch }); } catch (e) { console.error(e); }
+  };
+  // addItemToList — accepts single or array
+  const addItemToList = async (listId, itemOrItems) => {
+    const items = Array.isArray(itemOrItems) ? itemOrItems : [itemOrItems];
+    const prepared = items.map(item => {
+      const isPrivate = item.isPrivate ?? !!item.url;
+      const url = item.url && isPrivate ? obfuscateURL(item.url) : item.url;
+      return { id: uid(), ...item, url, isPrivate };
+    });
+    setLists(prev => prev.map(l =>
+      l.id === listId ? { ...l, items: [...l.items, ...prepared] } : l
+    ));
+    try { await api.itemsAdd(getToken, listId, prepared); } catch (e) { console.error(e); }
+  };
+  const removeItemFromList = async (listId, itemId) => {
+    setLists(prev => prev.map(l =>
+      l.id === listId ? { ...l, items: l.items.filter(i => i.id !== itemId) } : l
+    ));
+    try { await api.itemsRemove(getToken, listId, itemId); } catch (e) { console.error(e); }
+  };
+  const toggleVideoInList = async (videoId, listId = activeListId) => {
+    if (!listId) return;
+    setLists(prev => prev.map(l => {
+      if (l.id !== listId) return l;
+      const existing = l.items.find(i => i.type === "video" && i.videoId === videoId);
+      if (existing) return { ...l, items: l.items.filter(i => i.id !== existing.id) };
+      return { ...l, items: [...l.items, { id: uid(), type: "video", videoId }] };
+    }));
+    try { await api.toggleVideoInList(getToken, listId, videoId); } catch (e) { console.error(e); }
+  };
+
+  const toggleSectionTag = async (videoId, sectionId) => {
+    setSectionTags(prev => {
+      const cur = new Set(prev[videoId] || []);
+      if (cur.has(sectionId)) cur.delete(sectionId); else cur.add(sectionId);
+      return { ...prev, [videoId]: [...cur] };
+    });
+    try { await api.tagToggle(getToken, videoId, sectionId); } catch (e) { console.error(e); }
+  };
+  const videoHasSection = (videoId, sectionId) => (sectionTags[videoId] || []).includes(sectionId);
+  const videosInSection = (sectionId) => VIDEOS.filter(v => videoHasSection(v.id, sectionId));
 
   // Hero rotation
   const heroVideos = VIDEOS.filter(v => v.year >= 2022 && v.desc.length > 80);
@@ -720,8 +1915,11 @@ export default function App() {
 
   const heroVideo = heroVideos[heroIdx] || VIDEOS[0];
 
-  const toggleWatched = id => setWatched(p => { const n = new Set(p); n.has(id)?n.delete(id):n.add(id); return n; });
-  const toggleFav = id => setFavorites(p => { const n = new Set(p); n.has(id)?n.delete(id):n.add(id); return n; });
+  const toggleWatched = async (id) => {
+    setWatched(p => { const n = new Set(p); n.has(id)?n.delete(id):n.add(id); return n; });
+    try { await api.watchedToggle(getToken, id); } catch (e) { console.error(e); }
+  };
+  const toggleFav = id => toggleVideoInList(id, activeListId);
 
   const applyFilters = (list) => list.filter(v => {
     if (decade !== "All" && getDecade(v.year) !== decade) return false;
@@ -742,6 +1940,22 @@ export default function App() {
   const watchedVideos = VIDEOS.filter(v => watched.has(v.id));
 
   const showSearchResults = search.length > 0 || cat !== "All" || decade !== "All" || intensity !== "All";
+
+  if (!hydrated) {
+    return (
+      <div style={{
+        minHeight:"100vh",background:"#141414",color:"#fff",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontFamily:"'Barlow','Helvetica Neue',sans-serif",
+      }}>
+        <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+        <div style={{textAlign:"center"}}>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:36,color:"#e50914",letterSpacing:"3px"}}>STUNTFLIX</div>
+          <div style={{fontSize:12,color:"#666",fontFamily:"Barlow, sans-serif",letterSpacing:"2px",marginTop:6}}>Loading your vault…</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -776,11 +1990,11 @@ export default function App() {
         </div>
 
         {/* Nav links */}
-        <div style={{ display:"flex",gap:18,flexShrink:0 }}>
+        <div style={{ display:"flex",gap:18,flexShrink:0,alignItems:"center" }}>
           {[
             {label:"Home",val:"home"},
             {label:"Action Vault",val:"vault"},
-            {label:"My List",val:"mylist"},
+            {label:"My Lists",val:"mylist"},
             {label:`Watched (${watched.size})`,val:"watched"},
           ].map(n => (
             <button key={n.val} onClick={()=>{setView(n.val);if(n.val!=="home"){setSearch("");setCat("All");setDecade("All");setIntensity("All");}}}
@@ -793,6 +2007,44 @@ export default function App() {
               onMouseLeave={e=>{if(view!==n.val)e.currentTarget.style.color="#b3b3b3"}}
             >{n.label}</button>
           ))}
+
+          {/* Browse dropdown */}
+          <div style={{ position:"relative" }}
+            onMouseEnter={()=>setBrowseOpen(true)}
+            onMouseLeave={()=>setBrowseOpen(false)}
+          >
+            <button style={{
+              background:"none",border:"none",
+              color: SECTIONS.some(s=>view===`section:${s.id}`) ? "#fff" : "#b3b3b3",
+              fontFamily:"Barlow, sans-serif",fontSize:13,
+              cursor:"pointer",padding:"4px 0",display:"flex",alignItems:"center",gap:4,
+            }}>Browse <span style={{fontSize:9}}>▼</span></button>
+            {browseOpen && (
+              <div style={{
+                position:"absolute",top:"100%",left:-12,
+                background:"rgba(20,20,20,0.98)",border:"1px solid #333",
+                padding:"6px 0",minWidth:200,borderRadius:4,
+                boxShadow:"0 8px 20px rgba(0,0,0,0.6)",
+              }}>
+                {SECTIONS.map(s => (
+                  <button key={s.id} onClick={()=>{setView(`section:${s.id}`);setBrowseOpen(false);setSearch("");setCat("All");setDecade("All");setIntensity("All");}}
+                    style={{
+                      display:"flex",alignItems:"center",gap:10,
+                      width:"100%",padding:"8px 16px",background:"none",border:"none",
+                      color:"#ddd",fontFamily:"Barlow, sans-serif",fontSize:13,
+                      cursor:"pointer",textAlign:"left",
+                    }}
+                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.color="#fff";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#ddd";}}
+                  >
+                    <span style={{width:8,height:8,borderRadius:2,background:s.color,flexShrink:0}} />
+                    {s.label}
+                    <span style={{marginLeft:"auto",color:"#555",fontSize:11}}>{videosInSection(s.id).length}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{flex:1}} />
@@ -839,6 +2091,10 @@ export default function App() {
             {CATS.map(c=><option key={c} value={c}>{c==="All"?"Category":c}</option>)}
           </select>
 
+          {/* User button (Clerk) */}
+          <div style={{marginLeft:8,display:"flex",alignItems:"center"}}>
+            <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: { width: 30, height: 30 } } }}/>
+          </div>
         </div>
       </nav>
 
@@ -917,7 +2173,16 @@ export default function App() {
       )}
 
       {/* ─── ACTION VAULT VIEW ─── */}
-      {view === "vault" && <ActionVault />}
+      {view === "vault" && <ActionVault
+        userCourses={lists.filter(l => l.course?.isCourse && l.course.status === "approved")}
+        lists={lists}
+        onSelectVideo={setSelected}
+        watched={watched}
+        favorites={favorites}
+        toggleFav={toggleFav}
+        ownsPurchase={ownsPurchase}
+        onBuy={(p)=>setPendingPurchase(p)}
+      />}
 
       {/* ─── CONTENT AREA ─── */}
       {view !== "vault" && <div style={{
@@ -925,19 +2190,34 @@ export default function App() {
         paddingBottom: 60,
         minHeight: "60vh",
       }}>
-        {/* Search results / filtered grid */}
-        {(showSearchResults || view === "mylist" || view === "watched") ? (
+        {/* My Lists view */}
+        {view === "mylist" && !showSearchResults ? (
+          <MyListsView
+            lists={lists} activeListId={activeListId} setActiveListId={setActiveListId}
+            createList={createList} renameList={renameList} deleteList={deleteList}
+            removeItemFromList={removeItemFromList} updateListCourse={updateListCourse}
+            onSelectVideo={setSelected} watched={watched} favorites={favorites} toggleFav={toggleFav}
+            onAddItem={()=>setShowAddItem(true)} onConvertCourse={()=>setShowConvertCourse(true)}
+            onNewList={()=>setShowNewList(true)} adminMode={adminMode}
+          />
+        ) : view.startsWith("section:") && !showSearchResults ? (
+          <SectionView
+            section={SECTIONS.find(s => s.id === view.slice("section:".length))}
+            videos={videosInSection(view.slice("section:".length))}
+            onSelectVideo={setSelected} watched={watched} favorites={favorites} toggleFav={toggleFav}
+            onBrowse={()=>setView("home")}
+          />
+        ) : (showSearchResults || view === "watched") ? (
           <div style={{ padding:"0 48px" }}>
             <h2 style={{
               fontFamily:"'Bebas Neue',sans-serif",fontSize:24,fontWeight:400,
               letterSpacing:"1px",marginBottom:4,
             }}>
-              {view === "mylist" ? "My List" : view === "watched" ? "Watched" :
-                search ? `Results for "${search}"` : "Browse"}
+              {view === "watched" ? "Watched" : search ? `Results for "${search}"` : "Browse"}
             </h2>
-            {(view === "mylist" || view === "watched") && (
+            {view === "watched" && (
               <p style={{color:"#777",fontSize:13,fontFamily:"Barlow, sans-serif",margin:"0 0 20px"}}>
-                {view === "mylist" ? `${myListVideos.length} titles` : `${watchedVideos.length} titles`}
+                {watchedVideos.length} titles
               </p>
             )}
 
@@ -963,20 +2243,19 @@ export default function App() {
               gridTemplateColumns:"repeat(auto-fill, minmax(240px, 1fr))",
               gap:8,
             }}>
-              {(view==="mylist" ? myListVideos : view==="watched" ? watchedVideos : allFiltered).map((v,i) => (
+              {(view==="watched" ? watchedVideos : allFiltered).map((v,i) => (
                 <div key={v.id} style={{animation:`slideUp 0.4s ease ${Math.min(i*40,400)}ms both`}}>
                   <VideoCard v={v} onSelect={setSelected} watched={watched.has(v.id)} isFav={favorites.has(v.id)} onToggleFav={toggleFav} />
                 </div>
               ))}
             </div>
-            {(view==="mylist" ? myListVideos : view==="watched" ? watchedVideos : allFiltered).length === 0 && (
+            {(view==="watched" ? watchedVideos : allFiltered).length === 0 && (
               <div style={{textAlign:"center",padding:"80px 20px",color:"#555"}}>
                 <div style={{fontSize:48,marginBottom:12}}>
-                  {view==="mylist"?"🎬":view==="watched"?"👁":"🔍"}
+                  {view==="watched"?"👁":"🔍"}
                 </div>
                 <div style={{fontSize:16,fontFamily:"Barlow, sans-serif"}}>
-                  {view==="mylist"?"Your list is empty — add titles with the + button":
-                   view==="watched"?"Nothing watched yet — start exploring!":"No results found"}
+                  {view==="watched"?"Nothing watched yet — start exploring!":"No results found"}
                 </div>
               </div>
             )}
@@ -1054,6 +2333,21 @@ export default function App() {
         <div style={{color:"#333",fontSize:11,fontFamily:"Barlow, sans-serif",marginTop:8}}>
           All videos link to YouTube. Not affiliated with Netflix.
         </div>
+        <div style={{marginTop:14,display:"flex",gap:8,justifyContent:"center"}}>
+          <button onClick={()=>setAdminMode(a=>!a)} style={{
+            background:"none",border:"1px solid #333",borderRadius:3,
+            color: adminMode ? "#46d369" : "#444",
+            fontFamily:"Barlow, sans-serif",fontSize:10,padding:"3px 10px",
+            cursor:"pointer",letterSpacing:"1px",
+          }}>{adminMode ? "ADMIN MODE: ON" : "admin mode"}</button>
+          {adminMode && (
+            <button onClick={()=>{ if(confirm("Reset all local data (lists, watched, tags, purchases)? This cannot be undone.")) resetAllData(); }} style={{
+              background:"none",border:"1px solid #3a1f1f",borderRadius:3,
+              color:"#a55",fontFamily:"Barlow, sans-serif",fontSize:10,padding:"3px 10px",
+              cursor:"pointer",letterSpacing:"1px",
+            }}>RESET DATA</button>
+          )}
+        </div>
       </div>
 
       {/* ─── DETAIL MODAL ─── */}
@@ -1064,7 +2358,110 @@ export default function App() {
         onToggleWatched={toggleWatched}
         isFav={favorites.has(selected?.id)}
         onToggleFav={toggleFav}
+        lists={lists}
+        toggleVideoInList={toggleVideoInList}
+        sectionTags={selected ? (sectionTags[selected.id] || []) : []}
+        toggleSectionTag={toggleSectionTag}
       />
+
+      {/* ─── NEW LIST MODAL ─── */}
+      {showNewList && (
+        <NewListModal
+          onClose={()=>setShowNewList(false)}
+          onCreate={(name)=>{ createList(name); setShowNewList(false); }}
+        />
+      )}
+
+      {/* ─── ADD ITEM MODAL ─── */}
+      {showAddItem && activeList && (
+        <AddItemModal
+          list={activeList}
+          onClose={()=>setShowAddItem(false)}
+          onAdd={(item)=>{ addItemToList(activeList.id, item); setShowAddItem(false); }}
+        />
+      )}
+
+      {/* ─── CONVERT COURSE MODAL ─── */}
+      {showConvertCourse && activeList && (
+        <ConvertCourseModal
+          list={activeList}
+          adminMode={adminMode}
+          onClose={()=>setShowConvertCourse(false)}
+          onSave={(patch)=>{ updateListCourse(activeList.id, patch); setShowConvertCourse(false); }}
+        />
+      )}
+
+      {/* ─── PURCHASE CONFIRMATION MODAL ─── */}
+      {pendingPurchase && (
+        <PurchaseModal
+          item={pendingPurchase}
+          onClose={()=>setPendingPurchase(null)}
+          onConfirm={()=>{ confirmPurchase(pendingPurchase.key, pendingPurchase.price); setPendingPurchase(null); }}
+        />
+      )}
+
+      {/* ─── PURCHASE SUCCESS TOAST ─── */}
+      {purchaseSuccess && (
+        <div style={{
+          position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",zIndex:1200,
+          padding:"14px 24px",background:"#46d369",borderRadius:6,
+          color:"#000",fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:"1px",
+          boxShadow:"0 8px 24px rgba(70,211,105,0.4)",
+          animation:"slideUp 0.3s ease",
+        }}>
+          ✓ PURCHASE CONFIRMED <span style={{fontFamily:"Barlow, sans-serif",fontSize:11,marginLeft:8,opacity:0.7}}>(test mode)</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── PURCHASE MODAL ───
+function PurchaseModal({ item, onClose, onConfirm }) {
+  return (
+    <div onClick={onClose} style={{
+      position:"fixed",inset:0,zIndex:1150,background:"rgba(0,0,0,0.85)",backdropFilter:"blur(8px)",
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20,animation:"fadeIn 0.2s ease",
+    }}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:"100%",maxWidth:440,background:"#181818",borderRadius:8,padding:"32px 36px",
+      }}>
+        <div style={{
+          fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:"#ff6b00",
+          letterSpacing:"2px",marginBottom:8,
+        }}>ACTION VAULT · CHECKOUT</div>
+        <h2 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:"0.5px",margin:"0 0 6px",lineHeight:1.2}}>
+          {item.title}
+        </h2>
+        <div style={{
+          fontFamily:"'Bebas Neue',sans-serif",fontSize:48,color:"#fff",
+          margin:"18px 0",lineHeight:1,
+        }}>${item.price.toFixed(2)}</div>
+
+        <div style={{
+          padding:"12px 14px",background:"rgba(255,179,0,0.05)",border:"1px solid #ffb30033",
+          borderRadius:4,marginBottom:18,
+        }}>
+          <div style={{color:"#ffb300",fontSize:11,fontFamily:"Barlow, sans-serif",fontWeight:700,letterSpacing:"1px",marginBottom:4}}>
+            TEST MODE
+          </div>
+          <div style={{color:"#aaa",fontSize:12,fontFamily:"Barlow, sans-serif",lineHeight:1.5}}>
+            No card will be charged. Real payments go live once Stripe is connected on the backend.
+            Your "purchase" will be remembered locally so you can preview the owned-content flow.
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onClose} style={{
+            flex:1,padding:"12px",background:"none",border:"1px solid #333",borderRadius:4,
+            color:"#aaa",fontFamily:"Barlow, sans-serif",fontSize:13,cursor:"pointer",
+          }}>Cancel</button>
+          <button onClick={onConfirm} style={{
+            flex:2,padding:"12px",background:"#ff6b00",border:"none",borderRadius:4,
+            color:"#fff",fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:"1px",cursor:"pointer",
+          }}>Confirm Purchase (Test)</button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,20 @@
+name = "action-vault"
+main = "server/index.js"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "181d36b1e4baa221c7bc2378e6d6f92e"
+
+# CORS-allowed origins for the Pages frontend
+[vars]
+ALLOWED_ORIGINS = "https://action-vault.pages.dev,http://localhost:3000,http://localhost:5173"
+CLERK_PUBLISHABLE_KEY = "pk_test_d29ydGh5LWVhZ2xlLTU1LmNsZXJrLmFjY291bnRzLmRldiQ"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "action-vault-db"
+database_id = "a73763c6-944f-4035-bc1c-9e77da044991"
+
+# R2 will be wired in once enabled in dashboard
+# [[r2_buckets]]
+# binding = "FILES"
+# bucket_name = "action-vault-files"
