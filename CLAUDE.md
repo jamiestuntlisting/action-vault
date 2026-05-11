@@ -1,7 +1,7 @@
-# CLAUDE.md — StuntFlix Project Context
+# CLAUDE.md — Action Vault Project Context
 
 ## What This Is
-StuntFlix is a Netflix-style browsing UI for curated behind-the-scenes stunt videos from YouTube. It's a single-page React app (Vite) with no backend — all data is in the VIDEOS array in src/App.jsx.
+Action Vault is the stunt community's video library + courses + creator tools product. React + Vite frontend, Cloudflare Workers + D1 + R2 backend, Clerk for auth. Originally prototyped as "StuntFlix" with a localStorage-only single-page app; now migrating to cross-device sync via Cloudflare. The legacy VIDEOS array still lives in src/App.jsx as seed content.
 
 ## Architecture
 - **Single file app**: All components and data live in `src/App.jsx`
