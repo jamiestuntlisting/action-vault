@@ -1,6 +1,6 @@
-# StuntFlix 🎬
+# Action Vault 🎬
 
-A Netflix-style browsing experience for behind-the-scenes stunt videos from YouTube. Built with React + Vite.
+The stunt community's library: curated behind-the-scenes videos, premium courses, and creator-built collections. Built with React + Vite on Cloudflare (Pages + Workers + D1).
 
 ## Features
 
@@ -36,7 +36,7 @@ npm run preview
 ## Project Structure
 
 ```
-stuntflix/
+action-vault/
 ├── index.html          # Entry HTML
 ├── package.json
 ├── vite.config.js

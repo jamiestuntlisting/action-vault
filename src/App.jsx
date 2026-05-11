@@ -171,7 +171,7 @@ const COURSE_STATUS = {
 
 // Generic item types a list/course can hold
 const ITEM_TYPES = [
-  { id: "video",   label: "StuntFlix Video", icon: "🎬" },
+  { id: "video",   label: "Action Vault Video", icon: "🎬" },
   { id: "youtube", label: "YouTube Video",   icon: "▶"  },
   { id: "podcast", label: "Podcast Episode", icon: "🎧" },
   { id: "book",    label: "Book",            icon: "📕" },
@@ -275,10 +275,10 @@ function ActionVault({ userCourses = [], lists = [], onSelectVideo, watched = ne
             fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:"#ff6b00",
             letterSpacing:"2px",textTransform:"uppercase",
             padding:"4px 12px",border:"1px solid #ff6b00",borderRadius:4,
-          }}>Action Vault</span>
+          }}>Courses</span>
           <span style={{
             fontFamily:"Barlow, sans-serif",fontSize:12,color:"#666",
-          }}>Premium Stunt Training Courses</span>
+          }}>Premium Stunt Training</span>
         </div>
       </div>
 
@@ -1539,7 +1539,7 @@ function MyListsView({
                   <h3 style={{
                     fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:"1px",
                     color:"#aaa",margin:"0 0 12px",textTransform:"uppercase",
-                  }}>StuntFlix Videos</h3>
+                  }}>Action Vault Videos</h3>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(240px, 1fr))",gap:8}}>
                     {list.items.filter(i=>i.type==="video").map(item => {
                       const v = VIDEOS.find(x => x.id === item.videoId);
@@ -1702,11 +1702,11 @@ function SignInScreen() {
         <div style={{
           fontFamily:"'Bebas Neue',sans-serif",fontSize:48,color:"#e50914",
           letterSpacing:"3px",marginBottom:8,
-        }}>STUNTFLIX</div>
+        }}>ACTION VAULT</div>
         <div style={{
           fontFamily:"Barlow, sans-serif",fontSize:13,color:"#888",letterSpacing:"2px",
           textTransform:"uppercase",marginBottom:32,
-        }}>Action Vault · Sign in to continue</div>
+        }}>Sign in to continue</div>
         <SignIn routing="hash" />
       </div>
     </div>
@@ -1950,7 +1950,7 @@ function AppInner() {
       }}>
         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
         <div style={{textAlign:"center"}}>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:36,color:"#e50914",letterSpacing:"3px"}}>STUNTFLIX</div>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:36,color:"#e50914",letterSpacing:"3px"}}>ACTION VAULT</div>
           <div style={{fontSize:12,color:"#666",fontFamily:"Barlow, sans-serif",letterSpacing:"2px",marginTop:6}}>Loading your vault…</div>
         </div>
       </div>
@@ -1986,14 +1986,14 @@ function AppInner() {
           letterSpacing:"2px",fontWeight:400,cursor:"pointer",flexShrink:0,
           marginRight:16,
         }} onClick={()=>{setView("home");setSearch("");setCat("All");setDecade("All");setIntensity("All");}}>
-          STUNTFLIX
+          ACTION VAULT
         </div>
 
         {/* Nav links */}
         <div style={{ display:"flex",gap:18,flexShrink:0,alignItems:"center" }}>
           {[
             {label:"Home",val:"home"},
-            {label:"Action Vault",val:"vault"},
+            {label:"Courses",val:"vault"},
             {label:"My Lists",val:"mylist"},
             {label:`Watched (${watched.size})`,val:"watched"},
           ].map(n => (
@@ -2268,7 +2268,7 @@ function AppInner() {
               <h2 style={{
                 fontSize:18,fontWeight:700,color:"#e5e5e5",margin:"0 0 12px 48px",
                 fontFamily:"'Bebas Neue','Barlow Condensed',sans-serif",letterSpacing:"0.5px",
-              }}>Top 10 on StuntFlix Today</h2>
+              }}>Top 10 in the Vault Today</h2>
               <div style={{display:"flex",gap:10,overflowX:"auto",padding:"0 48px",scrollbarWidth:"none"}}>
                 {VIDEOS.filter(v=>v.year>=2020).sort((a,b)=>b.year-a.year).slice(0,10).map((v,i) => (
                   <div key={v.id} onClick={()=>setSelected(v)} style={{
@@ -2326,7 +2326,7 @@ function AppInner() {
         borderTop:"1px solid #222",padding:"30px 48px",
         textAlign:"center",
       }}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:"#e50914",letterSpacing:"2px",marginBottom:8}}>STUNTFLIX</div>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:"#e50914",letterSpacing:"2px",marginBottom:8}}>ACTION VAULT</div>
         <div style={{color:"#555",fontSize:12,fontFamily:"Barlow, sans-serif",lineHeight:1.8}}>
           {VIDEOS.length} curated BTS stunt videos · {new Set(VIDEOS.map(v=>v.channel)).size} channels · Spanning {Math.min(...VIDEOS.map(v=>v.year))}–{Math.max(...VIDEOS.map(v=>v.year))}
         </div>

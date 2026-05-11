@@ -1,7 +1,7 @@
 {
-  "name": "stuntflix",
+  "name": "action-vault",
   "version": "1.0.0",
-  "description": "Netflix-style library of behind-the-scenes stunt videos from YouTube",
+  "description": "Action Vault — stunt video library, courses, and creator tools",
   "type": "module",
   "scripts": {
     "dev": "vite",
