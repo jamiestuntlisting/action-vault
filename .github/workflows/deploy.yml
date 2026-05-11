@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [stuntflix, main]
   pull_request:
 
 # Public Vite vars — safe to commit (publishable Clerk key is public by design)
@@ -49,7 +49,7 @@ jobs:
 
   deploy-worker:
     name: Deploy Worker (API)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stuntflix')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
