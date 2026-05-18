@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-06T01:09:24.997Z",
+  "lastUpdatedAt": "2026-05-18T01:44:29.514Z",
   "votes": [
     {
       "userId": 33,
@@ -131,6 +131,19 @@
       "rating": 10,
       "createdAt": "2026-05-06T01:08:43.947Z",
       "updatedAt": "2026-05-06T01:09:24.997Z"
+    },
+    {
+      "userId": 3626,
+      "userEmail": "thestuntassistant@gmail.com",
+      "userName": "The Stunt Assistant",
+      "alias": "thestuntassistant",
+      "unionStatus": "[\"Non-Union (Not SAG)\"]",
+      "roles": "admin",
+      "entryId": "rom-skill-2026-05-1778200600183",
+      "reelId": "skill-99618",
+      "rating": 10,
+      "createdAt": "2026-05-18T01:44:29.514Z",
+      "updatedAt": "2026-05-18T01:44:29.514Z"
     }
   ]
 }
