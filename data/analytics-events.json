@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-05T20:36:20.897Z",
+  "lastUpdatedAt": "2026-05-18T00:34:37.747Z",
   "events": [
     {
       "userId": "James.northrup@gmail.com",
@@ -141,6 +141,36 @@
       },
       "sessionId": "sess-1778013368793-7hu9tc8ui",
       "timestamp": "2026-05-05T20:36:11.400Z"
+    },
+    {
+      "userId": "thestuntassistant@gmail.com",
+      "userEmail": "thestuntassistant@gmail.com",
+      "eventType": "session_start",
+      "eventData": {
+        "platform": "web"
+      },
+      "sessionId": "sess-1779064466574-c7a67vgms",
+      "timestamp": "2026-05-18T00:34:26.846Z"
+    },
+    {
+      "userId": "thestuntassistant@gmail.com",
+      "userEmail": "thestuntassistant@gmail.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "Home"
+      },
+      "sessionId": "sess-1779064466574-c7a67vgms",
+      "timestamp": "2026-05-18T00:34:29.051Z"
+    },
+    {
+      "userId": "thestuntassistant@gmail.com",
+      "userEmail": "thestuntassistant@gmail.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "Home"
+      },
+      "sessionId": "sess-1779064466574-c7a67vgms",
+      "timestamp": "2026-05-18T00:34:29.053Z"
     }
   ]
 }
