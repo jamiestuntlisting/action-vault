@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-18T00:34:37.747Z",
+  "lastUpdatedAt": "2026-05-18T01:32:18.651Z",
   "events": [
     {
       "userId": "James.northrup@gmail.com",
@@ -171,6 +171,46 @@
       },
       "sessionId": "sess-1779064466574-c7a67vgms",
       "timestamp": "2026-05-18T00:34:29.053Z"
+    },
+    {
+      "userId": "thestuntassistant@gmail.com",
+      "userEmail": "thestuntassistant@gmail.com",
+      "eventType": "session_start",
+      "eventData": {
+        "platform": "web"
+      },
+      "sessionId": "sess-1779067927397-mx5378ur9",
+      "timestamp": "2026-05-18T01:32:07.759Z"
+    },
+    {
+      "userId": "thestuntassistant@gmail.com",
+      "userEmail": "thestuntassistant@gmail.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "Home"
+      },
+      "sessionId": "sess-1779067927397-mx5378ur9",
+      "timestamp": "2026-05-18T01:32:09.936Z"
+    },
+    {
+      "userId": "thestuntassistant@gmail.com",
+      "userEmail": "thestuntassistant@gmail.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "Home"
+      },
+      "sessionId": "sess-1779067927397-mx5378ur9",
+      "timestamp": "2026-05-18T01:32:09.937Z"
+    },
+    {
+      "userId": "thestuntassistant@gmail.com",
+      "userEmail": "thestuntassistant@gmail.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "Profile"
+      },
+      "sessionId": "sess-1779067927397-mx5378ur9",
+      "timestamp": "2026-05-18T01:32:13.688Z"
     }
   ]
 }
