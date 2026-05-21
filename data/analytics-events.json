@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-21T23:24:00.549Z",
+  "lastUpdatedAt": "2026-05-21T23:24:10.698Z",
   "events": [
     {
       "userId": "James.northrup@gmail.com",
@@ -261,6 +261,26 @@
       },
       "sessionId": "sess-1779405800263-6tzhe2gag",
       "timestamp": "2026-05-21T23:23:56.718Z"
+    },
+    {
+      "userId": "greg@stuntlisting.com",
+      "userEmail": "greg@stuntlisting.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "ReelOfTheMonth"
+      },
+      "sessionId": "sess-1779405800263-6tzhe2gag",
+      "timestamp": "2026-05-21T23:24:01.143Z"
+    },
+    {
+      "userId": "greg@stuntlisting.com",
+      "userEmail": "greg@stuntlisting.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "Home"
+      },
+      "sessionId": "sess-1779405800263-6tzhe2gag",
+      "timestamp": "2026-05-21T23:24:04.439Z"
     }
   ]
 }
