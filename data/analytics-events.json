@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-05-18T01:32:18.651Z",
+  "lastUpdatedAt": "2026-05-21T23:23:31.544Z",
   "events": [
     {
       "userId": "James.northrup@gmail.com",
@@ -211,6 +211,36 @@
       },
       "sessionId": "sess-1779067927397-mx5378ur9",
       "timestamp": "2026-05-18T01:32:13.688Z"
+    },
+    {
+      "userId": "greg@stuntlisting.com",
+      "userEmail": "greg@stuntlisting.com",
+      "eventType": "session_start",
+      "eventData": {
+        "platform": "web"
+      },
+      "sessionId": "sess-1779405800263-6tzhe2gag",
+      "timestamp": "2026-05-21T23:23:20.321Z"
+    },
+    {
+      "userId": "greg@stuntlisting.com",
+      "userEmail": "greg@stuntlisting.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "Home"
+      },
+      "sessionId": "sess-1779405800263-6tzhe2gag",
+      "timestamp": "2026-05-21T23:23:22.401Z"
+    },
+    {
+      "userId": "greg@stuntlisting.com",
+      "userEmail": "greg@stuntlisting.com",
+      "eventType": "page_view",
+      "eventData": {
+        "screen": "Home"
+      },
+      "sessionId": "sess-1779405800263-6tzhe2gag",
+      "timestamp": "2026-05-21T23:23:22.401Z"
     }
   ]
 }
