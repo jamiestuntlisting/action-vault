@@ -20,6 +20,8 @@
 // All actions require a valid StuntListing access_token in
 // `Authorization: Bearer <token>` AND an email in the admin allowlist.
 
+import { getConnection, hasDatabase } from './_db';
+
 const REPO_OWNER = 'jamiestuntlisting';
 const REPO_NAME = 'action-vault';
 const STUNT_REELS_PATH = 'src/data/stunt-reels.json';
@@ -105,19 +107,14 @@ function videoIdFromUrl(url: string): string | null {
 
 async function withDb<T>(fn: (conn: any) => Promise<T>): Promise<T> {
   const host = process.env.STUNTLISTING_DB_HOST;
-  if (!host) {
-    const err: any = new Error('StuntListing DB not configured: STUNTLISTING_DB_HOST is unset on Vercel.');
+  if (!hasDatabase()) {
+    const err: any = new Error('StuntListing DB not configured: set STUNTLISTING_DB_HOST (Vercel) or bind HYPERDRIVE (Workers).');
     err.code = 'EMISSINGENV';
     throw err;
   }
-  const mysql = require('mysql2/promise');
   let conn: any;
   try {
-    conn = await mysql.createConnection({
-      host,
-      user: process.env.STUNTLISTING_DB_USER,
-      password: process.env.STUNTLISTING_DB_PASSWORD,
-      database: process.env.STUNTLISTING_DB_NAME,
+    conn = await getConnection({
       // Fail fast on DNS / connect issues so the admin UI gets a quick
       // error rather than a 30s hung lambda.
       connectTimeout: 8000,
@@ -126,7 +123,7 @@ async function withDb<T>(fn: (conn: any) => Promise<T>): Promise<T> {
     const code = e?.code || '';
     if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
       const err: any = new Error(
-        `StuntListing DB host "${host}" not resolvable. The RDS endpoint may have changed — update STUNTLISTING_DB_HOST on Vercel.`
+        `StuntListing DB host "${host || 'via Hyperdrive'}" not resolvable. The RDS endpoint may have changed — update STUNTLISTING_DB_HOST or the Hyperdrive origin.`
       );
       err.code = code;
       throw err;

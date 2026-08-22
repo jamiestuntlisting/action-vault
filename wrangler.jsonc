@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "action-vault",
+  "main": "./worker/index.ts",
+
+  // >= 2025-04-01 so that nodejs_compat auto-populates process.env, which is
+  // what lets the api/ handlers keep reading process.env.* unchanged.
+  "compatibility_date": "2026-08-22",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "observability": { "enabled": true },
+
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // Expo web builds a single-page app; unmatched paths must return
+    // index.html so React Navigation's linking config can route them.
+    "not_found_handling": "single-page-application",
+    // Without this, a navigation request to /api/* would be swallowed by the
+    // SPA fallback above and never reach the Worker.
+    "run_worker_first": ["/api/*"]
+  },
+
+  // TODO: replace with the real id once the Hyperdrive config exists:
+  //   npx wrangler hyperdrive create action-vault-stuntlisting \
+  //     --connection-string="mysql://USER:PASSWORD@HOST:3306/DBNAME"
+  // Deploy fails loudly while this is a placeholder, which is deliberate —
+  // four endpoints are non-functional without it.
+  "hyperdrive": [
+    { "binding": "HYPERDRIVE", "id": "REPLACE_WITH_HYPERDRIVE_ID" }
+  ],
+
+  // Replaces the `crons` block in vercel.json. Same schedule: 06:00 UTC.
+  "triggers": { "crons": ["0 6 * * *"] }
+}

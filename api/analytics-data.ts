@@ -1,3 +1,5 @@
+import { getConnection, hasDatabase } from './_db';
+
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -15,19 +17,12 @@ export default async function handler(req: any, res: any) {
     return res.status(403).json({ error: 'Invalid password' });
   }
 
-  const dbHost = process.env.STUNTLISTING_DB_HOST;
-  if (!dbHost) {
+  if (!hasDatabase()) {
     return res.status(200).json({ success: true, data: {}, demo: true });
   }
 
   try {
-    const mysql = require('mysql2/promise');
-    const connection = await mysql.createConnection({
-      host: dbHost,
-      user: process.env.STUNTLISTING_DB_USER,
-      password: process.env.STUNTLISTING_DB_PASSWORD,
-      database: process.env.STUNTLISTING_DB_NAME,
-    });
+    const connection = await getConnection();
 
     let data: any = {};
     const timeRange = days || 30;

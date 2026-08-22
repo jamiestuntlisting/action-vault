@@ -4,6 +4,8 @@
 // 5000-event circular buffer) so the admin Activity page has data
 // even while the RDS env var is broken.
 
+import { getConnection, hasDatabase } from './_db';
+
 const REPO_OWNER = 'jamiestuntlisting';
 const REPO_NAME = 'action-vault';
 const ANALYTICS_PATH = 'data/analytics-events.json';
@@ -109,17 +111,9 @@ export default async function handler(req: any, res: any) {
   // Try MySQL first (fast). If the RDS env var is missing/unreachable
   // (Jamie's case right now), fall back to the GitHub JSON buffer so
   // the admin Activity page still has something to show.
-  const dbHost = process.env.STUNTLISTING_DB_HOST;
-  if (dbHost) {
+  if (hasDatabase()) {
     try {
-      const mysql = require('mysql2/promise');
-      const connection = await mysql.createConnection({
-        host: dbHost,
-        user: process.env.STUNTLISTING_DB_USER,
-        password: process.env.STUNTLISTING_DB_PASSWORD,
-        database: process.env.STUNTLISTING_DB_NAME,
-        connectTimeout: 5000,
-      });
+      const connection = await getConnection({ connectTimeout: 5000 });
       await connection.execute(`
         CREATE TABLE IF NOT EXISTS analytics_events (
           id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

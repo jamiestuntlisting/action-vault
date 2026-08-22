@@ -12,6 +12,8 @@
 // StuntListing already shows on the public profile page, so no extra
 // privacy gate beyond what stuntlisting.com itself enforces.
 
+import { getConnection, hasDatabase } from './_db';
+
 const REPO_OWNER = 'jamiestuntlisting';
 const REPO_NAME = 'action-vault';
 const STUNT_REELS_PATH = 'src/data/stunt-reels.json';
@@ -54,8 +56,7 @@ export default async function handler(req: any, res: any) {
   if (!youtubeId) return res.status(400).json({ error: 'youtubeId required' });
 
   const ghToken = process.env.GITHUB_TOKEN_REPO_WRITE;
-  const dbHost = process.env.STUNTLISTING_DB_HOST;
-  if (!ghToken || !dbHost) {
+  if (!ghToken || !hasDatabase()) {
     return res.status(500).json({ error: 'Server not configured' });
   }
 
@@ -71,13 +72,7 @@ export default async function handler(req: any, res: any) {
     const overridesData = await readJsonFromRepo(ghToken, OVERRIDES_PATH);
     const override = (overridesData.overrides || []).find((o: any) => o.youtubeId === youtubeId);
 
-    const mysql = require('mysql2/promise');
-    const conn = await mysql.createConnection({
-      host: dbHost,
-      user: process.env.STUNTLISTING_DB_USER,
-      password: process.env.STUNTLISTING_DB_PASSWORD,
-      database: process.env.STUNTLISTING_DB_NAME,
-    });
+    const conn = await getConnection();
 
     try {
       // Pulls the publicly-visible fields plus joins primary_location for

@@ -36,7 +36,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Invalid session', verified: false });
     }
 
-    const session = await response.json();
+    const session: any = await response.json();
 
     // Verify payment was actually completed
     if (session.payment_status !== 'paid') {

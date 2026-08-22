@@ -42,7 +42,7 @@ export default async function handler(req: any, res: any) {
       body: params.toString(),
     });
 
-    const session = await response.json();
+    const session: any = await response.json();
 
     if (!response.ok) {
       console.error('Stripe error:', session);

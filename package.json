@@ -8,7 +8,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build": "expo export --platform web",
-    "vercel-build": "expo export --platform web"
+    "vercel-build": "expo export --platform web",
+    "cf:build": "expo export --platform web",
+    "cf:dev": "wrangler dev",
+    "cf:deploy": "npm run cf:build && wrangler deploy",
+    "cf:typecheck": "tsc -p tsconfig.worker.json"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -34,9 +38,11 @@
     "react-native-webview": "^13.16.1"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260820.1",
     "@types/react": "~19.2.2",
     "mysql2": "^3.19.1",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "wrangler": "^4.90.0"
   },
   "private": true
 }

@@ -40,3 +40,7 @@ yarn-error.*
 /ios
 /android
 dist/
+
+# Cloudflare Workers
+.wrangler/
+.dev.vars*
