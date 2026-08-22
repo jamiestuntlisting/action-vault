@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-08-21T15:25:48.517Z",
+  "lastUpdatedAt": "2026-08-22T06:36:42.698Z",
   "reels": [
     {
       "youtubeId": "WpvuMhHqT5Q",
@@ -2578,6 +2578,19 @@
       "description": "",
       "viewCount": 1,
       "discoveredAt": "2026-08-21T15:25:48.517Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "dM9aidQPUBY",
+      "title": "Marc Yates Demo Reel 2026",
+      "channelName": "Marc Yates",
+      "channelId": "UCpZglnqUNs2MxHr0_F_tVLA",
+      "publishedAt": "2026-08-20T21:48:21Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/dM9aidQPUBY/hqdefault.jpg",
+      "durationSeconds": 117,
+      "description": "",
+      "viewCount": 0,
+      "discoveredAt": "2026-08-22T06:36:42.698Z",
       "excluded": false
     }
   ]
