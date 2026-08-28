@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-08-27T06:44:09.808Z",
+  "lastUpdatedAt": "2026-08-28T06:09:40.780Z",
   "reels": [
     {
       "youtubeId": "WpvuMhHqT5Q",
@@ -3085,6 +3085,45 @@
       "description": "A highlight reel from my competitive martial arts journey, featuring some of my best moments across Taekwondo (TKD), Brazilian Jiu-Jitsu (BJJ) and Kung Fu.\n\nAlso enjoy some training footage from Boxing, Kickboxing and Karate. \n\nYears of training, competition, hard rounds and lessons learned — all condensed into one reel. 🥋🥊\n\nTKD | BJJ | Kung Fu | Competition | Martial Arts\n\n#MartialArts #Taekwondo #BJJ #KungFu #FightReel #MartialArtsTraining #CombatSports #BJJCompetition #TaekwondoTraining #MartialArtist",
       "viewCount": 2,
       "discoveredAt": "2026-08-27T06:44:09.808Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "J1Qm_f0R6r4",
+      "title": "Ben Hoffman stunt reel 2026",
+      "channelName": "Benjamin Hoffman",
+      "channelId": "UCKSYvOSKi3U9OEpBS9jOZQA",
+      "publishedAt": "2026-08-27T19:54:16Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/J1Qm_f0R6r4/hqdefault.jpg",
+      "durationSeconds": 157,
+      "description": "",
+      "viewCount": 3,
+      "discoveredAt": "2026-08-28T06:09:40.780Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "MXo3HO4dbyg",
+      "title": "John Korba Stunt Reel",
+      "channelName": "Ryuk Entertainment",
+      "channelId": "UCQEr4c2zStB6R9ASy-HdT_Q",
+      "publishedAt": "2026-08-27T15:10:46Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/MXo3HO4dbyg/hqdefault.jpg",
+      "durationSeconds": 30,
+      "description": "John Korba\nNon-Union\n(386)444-0992\njohnkorba44@gmail.com\nUploaded 08/27/2026",
+      "viewCount": 7,
+      "discoveredAt": "2026-08-28T06:09:40.780Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "O8_jYJecPbY",
+      "title": "Oli Stephens- fight reel 2026",
+      "channelName": "Oli- acting",
+      "channelId": "UCVHlIoyqTo7_xblYtl0FzqA",
+      "publishedAt": "2026-08-27T20:11:48Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/O8_jYJecPbY/hqdefault.jpg",
+      "durationSeconds": 104,
+      "description": "",
+      "viewCount": 10,
+      "discoveredAt": "2026-08-28T06:09:40.780Z",
       "excluded": false
     }
   ]
