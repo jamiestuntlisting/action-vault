@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-08-28T06:09:40.780Z",
+  "lastUpdatedAt": "2026-08-29T06:42:07.809Z",
   "reels": [
     {
       "youtubeId": "WpvuMhHqT5Q",
@@ -3124,6 +3124,45 @@
       "description": "",
       "viewCount": 10,
       "discoveredAt": "2026-08-28T06:09:40.780Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "H0g8flg6yOA",
+      "title": "Kelly McDonald Stunt Reel 2026",
+      "channelName": "Kelly McDonald",
+      "channelId": "UCOJaBopedeFbdmwN_5VHwXQ",
+      "publishedAt": "2026-08-28T18:35:49Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/H0g8flg6yOA/hqdefault.jpg",
+      "durationSeconds": 63,
+      "description": "Kelly McDonald, Stunt Performer. Background: NCAA gymnastics, Cirque du Soleil Acrobat/Aerialist/Coach. SAG-AFTRA",
+      "viewCount": 8,
+      "discoveredAt": "2026-08-29T06:42:07.809Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "jeaO0H6BtXc",
+      "title": "Dubbing demo reel (live action) / Demo reel de doblaje (live action)",
+      "channelName": "Carla Avila",
+      "channelId": "UCwL0JxfJFyekEvQtH32-ZRg",
+      "publishedAt": "2026-08-29T04:31:03Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/jeaO0H6BtXc/hqdefault.jpg",
+      "durationSeconds": 82,
+      "description": "Dubbing/Doblaje:\nManifest: Michaela Stone\nOppenheimer: Kitty Oppenheimer\nSupacell: Dionne Ofori\n\nEdición y mezcla por Carla Avila\nEditing and mix by Carla Avila",
+      "viewCount": 0,
+      "discoveredAt": "2026-08-29T06:42:07.809Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "inkCy3yJ3_4",
+      "title": "Justin Fight Reel Ver9 2026",
+      "channelName": "justintime_stunts",
+      "channelId": "UCGOoTLMFrMz7Z5Y0mlf8i_A",
+      "publishedAt": "2026-08-28T14:31:20Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/inkCy3yJ3_4/hqdefault.jpg",
+      "durationSeconds": 51,
+      "description": "",
+      "viewCount": 0,
+      "discoveredAt": "2026-08-29T06:42:07.809Z",
       "excluded": false
     }
   ]
