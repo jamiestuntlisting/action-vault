@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-08-31T06:19:28.646Z",
+  "lastUpdatedAt": "2026-09-01T06:53:14.565Z",
   "reels": [
     {
       "youtubeId": "WpvuMhHqT5Q",
@@ -3228,6 +3228,45 @@
       "description": "Firearms, tactical, and action work featuring footage from DOPE THIEF on Apple TV, along with training and performance footage.\n\nActor: Phong Le\nRepresented by ATB Talent and Amber Management.\n\nimdb.me/phongle",
       "viewCount": 31,
       "discoveredAt": "2026-08-31T06:19:28.646Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "5ln8LFF78a8",
+      "title": "Stunt Reel",
+      "channelName": "Hunter Smith",
+      "channelId": "UCcaK3tKepMsc-7aA-69XN8A",
+      "publishedAt": "2026-09-01T06:00:21Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/5ln8LFF78a8/hqdefault.jpg",
+      "durationSeconds": 77,
+      "description": "",
+      "viewCount": 0,
+      "discoveredAt": "2026-09-01T06:53:14.565Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "vt3Bptd2fhQ",
+      "title": "Califf Guzman Stunt Reel 2026",
+      "channelName": "Califf Guzman",
+      "channelId": "UCjHT1LNTrLqd-rBjhjypybw",
+      "publishedAt": "2026-09-01T06:00:20Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/vt3Bptd2fhQ/hqdefault.jpg",
+      "durationSeconds": 66,
+      "description": "",
+      "viewCount": 5,
+      "discoveredAt": "2026-09-01T06:53:14.565Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "RNVzZrYaZFg",
+      "title": "Dubbing demo reel (live action) / Demo reel de doblaje (live action)",
+      "channelName": "Carla Avila",
+      "channelId": "UCwL0JxfJFyekEvQtH32-ZRg",
+      "publishedAt": "2026-08-31T23:29:38Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/RNVzZrYaZFg/hqdefault.jpg",
+      "durationSeconds": 82,
+      "description": "Dubbing/Doblaje:\nManifest: Michaela Stone\nOppenheimer: Kitty Oppenheimer\nSupacell: Dionne Ofori\n\nEdición y mezcla por Carla Avila\nEditing and mix by Carla Avila",
+      "viewCount": 4,
+      "discoveredAt": "2026-09-01T06:53:14.565Z",
       "excluded": false
     }
   ]
