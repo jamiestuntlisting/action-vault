@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-09-05T06:09:42.650Z",
+  "lastUpdatedAt": "2026-09-06T06:09:42.636Z",
   "reels": [
     {
       "youtubeId": "WpvuMhHqT5Q",
@@ -3475,6 +3475,19 @@
       "description": "",
       "viewCount": 53,
       "discoveredAt": "2026-09-05T06:09:42.650Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "65XwqSxC508",
+      "title": "#new action reel 🇳🇪🇳🇪🥀 Modi ke Papa a gaye 🤡🤡🤡",
+      "channelName": "Vijay patel ",
+      "channelId": "UCtXEeRH4cW1WP14m1xM4cOQ",
+      "publishedAt": "2026-09-05T13:09:44Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/65XwqSxC508/hqdefault.jpg",
+      "durationSeconds": 41,
+      "description": "",
+      "viewCount": 9,
+      "discoveredAt": "2026-09-06T06:09:42.636Z",
       "excluded": false
     }
   ]
