@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-09-06T06:09:42.636Z",
+  "lastUpdatedAt": "2026-09-07T06:09:42.775Z",
   "reels": [
     {
       "youtubeId": "WpvuMhHqT5Q",
@@ -3488,6 +3488,19 @@
       "description": "",
       "viewCount": 9,
       "discoveredAt": "2026-09-06T06:09:42.636Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "gksi2ROSTZw",
+      "title": "Allyson Henson STUNT REEL",
+      "channelName": "ALLYSON HENSON",
+      "channelId": "UC_0I6q7BpKZpOkGumVzcgIQ",
+      "publishedAt": "2026-09-06T10:20:16Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/gksi2ROSTZw/hqdefault.jpg",
+      "durationSeconds": 69,
+      "description": "",
+      "viewCount": 6,
+      "discoveredAt": "2026-09-07T06:09:42.775Z",
       "excluded": false
     }
   ]
