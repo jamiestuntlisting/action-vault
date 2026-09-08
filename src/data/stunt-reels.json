@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdatedAt": "2026-09-07T06:09:42.775Z",
+  "lastUpdatedAt": "2026-09-08T06:09:42.740Z",
   "reels": [
     {
       "youtubeId": "WpvuMhHqT5Q",
@@ -3501,6 +3501,19 @@
       "description": "",
       "viewCount": 6,
       "discoveredAt": "2026-09-07T06:09:42.775Z",
+      "excluded": false
+    },
+    {
+      "youtubeId": "cT4g0NzsMiU",
+      "title": "Erik Fernandez Stunt Reel",
+      "channelName": "Erik Fernandez",
+      "channelId": "UCTrY6Y2gifWlGMg8ouv_Fng",
+      "publishedAt": "2026-09-07T15:23:41Z",
+      "thumbnailUrl": "https://i.ytimg.com/vi/cT4g0NzsMiU/hqdefault.jpg",
+      "durationSeconds": 91,
+      "description": "",
+      "viewCount": 16,
+      "discoveredAt": "2026-09-08T06:09:42.740Z",
       "excluded": false
     }
   ]
